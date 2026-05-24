@@ -1,0 +1,7 @@
+export const stOk = 'ok'
+export const stExist = 'exist'
+export const stFailToSendEmail = 'failToSendEmail'
+export const stNotFoundNotMatch = 'notFoundNotMatch'
+export const stErrBackend = 'errBackend'
+export const stWait = 'wait'
+export const stExpired = 'expired'
