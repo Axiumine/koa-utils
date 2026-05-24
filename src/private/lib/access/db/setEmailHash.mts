@@ -1,0 +1,24 @@
+import { emailHash } from '@lib/emailHash.mjs'
+import { UserBase } from '@models/MongoDB/UserBase.mjs'
+import { ClientSession, Types } from 'mongoose'
+
+export async function setEmailHash(session: ClientSession, idUtente: Types.ObjectId) {
+	const hash = emailHash()
+
+	//calcola hash della password
+	const dtNow = new Date()
+
+	await UserBase.updateOne(
+		{ _id: idUtente },
+		{
+			$set: {
+				'account.email.hash': hash,
+				'account.email.requestTimes': 1, // ok
+				'account.email.dateLastReq': dtNow
+			}
+		},
+		{ session, runValidators: true }
+	)
+
+	return hash // else va in exception @fixme controllare
+}

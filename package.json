@@ -1,0 +1,656 @@
+{
+	"name": "@axiumine/koa-utils",
+	"version": "3.7.3",
+	"description": "Koa Utils",
+	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Axiumine/koa-utils"
+	},
+	"license": "GPL-3.0-or-later",
+	"author": "Giovanni Manzoni <dev@giovannimanzoni.com> (https://www.giovannimanzoni.com)",
+	"private": false,
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"prepare": "rm -rf dist && yarn run build",
+		"build": "yarn clean && yarn run build:esm",
+		"prepare:all": "echo 'read REAMDE' && rm -rf dist && yarn run build:all",
+		"build:all": "yarn run build:cjs && yarn run build:esm",
+		"build:cjs": "yarn run tsc -p tsconfig.cjs.json && find dist/cjs -type f -name \"*.js\" -exec bash -c 'mv \"$0\" \"${0%.js}.cjs\"' {} \\; && cp -R dist/cjs/* dist/ && rm -rf dist/cjs",
+		"build:esm": "yarn run tspc -p tsconfig.json && find dist/esm -type f -name \"*.js\" -exec bash -c 'mv \"$0\" \"${0%.js}.mjs\"' {} \\; && cp -R dist/esm/* dist/ && rm -rf dist/esm",
+		"lint": "eslint --fix && prettier --write 'src/**/*.mts'",
+		"clean": "rm -rf ./dist",
+		"upload": "npm publish",
+		"update": "yarn upgrade-interactive --latest --network-timeout 100000",
+		"cloc": "cloc . --exclude-dir=node_modules,dist,.hg,upload",
+		"scc": "scc . --exclude-dir=node_modules,dist,.hg -w --sort --directory-walker-job-workers=8 --count-as=mts:TypeScript"
+	},
+	"engines": {
+		"node": "^24.14.0"
+	},
+	"_moduleAliases": {
+		"@lib": "dist/lib",
+		"@throw": "dist/graphQL/throw",
+		"@models": "dist/graphQL/models",
+		"@context": "dist/graphQL/schema/context",
+		"@stypes": "dist/graphQL/schema/types",
+		"@private": "dist/private",
+		"@email": "dist/email",
+		"@dataSources": "dist/dataSources"
+	},
+	"exports": {
+		"./lib/MongoDB/IOnboarding": {
+			"import": "./dist/lib/MongoDB/IOnboarding.mjs",
+			"types": "./dist/lib/MongoDB/IOnboarding.d.mts"
+		},
+		"./graphQL/schema/interfaces/IFindAndUpdate": {
+			"import": "./dist/graphQL/schema/interfaces/IFindAndUpdate.mjs",
+			"types": "./dist/graphQL/schema/interfaces/IFindAndUpdate.d.mts"
+		},
+		"./graphQL/schema/GraphQLInput/GraphQLInputLogin": {
+			"import": "./dist/graphQL/schema/GraphQLInput/GraphQLInputLogin.mjs",
+			"types": "./dist/graphQL/schema/GraphQLInput/GraphQLInputLogin.d.mts"
+		},
+		"./lib/IAuthorizationDisDel": {
+			"import": "./dist/lib/IAuthorizationDisDel.mjs",
+			"types": "./dist/lib/IAuthorizationDisDel.d.mts"
+		},
+		"./lib/makeOnboardingData": {
+			"import": "./dist/lib/makeOnboardingData.mjs",
+			"types": "./dist/lib/makeOnboardingData.d.mts"
+		},
+		"./lib/db/login/ILoginUnset": {
+			"import": "./dist/lib/db/login/ILoginUnset.mjs",
+			"types": "./dist/lib/db/login/ILoginUnset.d.mts"
+		},
+		"./lib/db/login/ILoginSet": {
+			"import": "./dist/lib/db/login/ILoginSet.mjs",
+			"types": "./dist/lib/db/login/ILoginSet.d.mts"
+		},
+		"./lib/Redis/fromRedisBooleanValue": {
+			"import": "./dist/lib/Redis/fromRedisBooleanValue.mjs",
+			"types": "./dist/lib/Redis/fromRedisBooleanValue.d.mts"
+		},
+		"./lib/Redis/RedisBoolean": {
+			"import": "./dist/lib/Redis/RedisBoolean.mjs",
+			"types": "./dist/lib/Redis/RedisBoolean.d.mts"
+		},
+		"./lib/Redis/toRedisBooleanValue": {
+			"import": "./dist/lib/Redis/toRedisBooleanValue.mjs",
+			"types": "./dist/lib/Redis/toRedisBooleanValue.d.mts"
+		},
+		"./lib/throwIfNotValidEnumValue": {
+			"import": "./dist/lib/throwIfNotValidEnumValue.mjs",
+			"types": "./dist/lib/throwIfNotValidEnumValue.d.mts"
+		},
+		"./files/IUploadTemp": {
+			"import": "./dist/files/IUploadTemp.mjs",
+			"types": "./dist/files/IUploadTemp.d.mts"
+		},
+		"./files/moveImageFile": {
+			"import": "./dist/files/moveImageFile.mjs",
+			"types": "./dist/files/moveImageFile.d.mts"
+		},
+		"./files/moveTempFile": {
+			"import": "./dist/files/moveTempFile.mjs",
+			"types": "./dist/files/moveTempFile.d.mts"
+		},
+		"./files/moveFileStaticDomain": {
+			"import": "./dist/files/moveFileStaticDomain.mjs",
+			"types": "./dist/files/moveFileStaticDomain.d.mts"
+		},
+		"./files/validateMimeType": {
+			"import": "./dist/files/validateMimeType.mjs",
+			"types": "./dist/files/validateMimeType.d.mts"
+		},
+		"./files/validateMimeTypeImages": {
+			"import": "./dist/files/validateMimeTypeImages.mjs",
+			"types": "./dist/files/validateMimeTypeImages.d.mts"
+		},
+		"./files/fileConst": {
+			"import": "./dist/files/fileConst.mjs",
+			"types": "./dist/files/fileConst.d.mts"
+		},
+		"./files/reEncodeToJpeg": {
+			"import": "./dist/files/reEncodeToJpeg.mjs",
+			"types": "./dist/files/reEncodeToJpeg.d.mts"
+		},
+		"./files/reEncodeToPng": {
+			"import": "./dist/files/reEncodeToPng.mjs",
+			"types": "./dist/files/reEncodeToPng.d.mts"
+		},
+		"./files/reEncodeToWebp": {
+			"import": "./dist/files/reEncodeToWebp.mjs",
+			"types": "./dist/files/reEncodeToWebp.d.mts"
+		},
+		"./files/scanVirus": {
+			"import": "./dist/files/scanVirus.mjs",
+			"types": "./dist/files/scanVirus.d.mts"
+		},
+		"./files/storeUploadAsTemp": {
+			"import": "./dist/files/storeUploadAsTemp.mjs",
+			"types": "./dist/files/storeUploadAsTemp.d.mts"
+		},
+		"./files/validateExtension": {
+			"import": "./dist/files/validateExtension.mjs",
+			"types": "./dist/files/validateExtension.d.mts"
+		},
+		"./files/validateJpgPngExtension": {
+			"import": "./dist/files/validateJpgPngExtension.mjs",
+			"types": "./dist/files/validateJpgPngExtension.d.mts"
+		},
+		"./files/validateJpgPngMimeType": {
+			"import": "./dist/files/validateJpgPngMimeType.mjs",
+			"types": "./dist/files/validateJpgPngMimeType.d.mts"
+		},
+		"./graphQL/schema/types/MidNameType": {
+			"import": "./dist/graphQL/schema/types/MidNameType.mjs",
+			"types": "./dist/graphQL/schema/types/MidNameType.d.mts"
+		},
+		"./graphQL/schema/types/SidNameType": {
+			"import": "./dist/graphQL/schema/types/SidNameType.mjs",
+			"types": "./dist/graphQL/schema/types/SidNameType.d.mts"
+		},
+		"./graphQL/schema/types/SidNomeType": {
+			"import": "./dist/graphQL/schema/types/SidNomeType.mjs",
+			"types": "./dist/graphQL/schema/types/SidNomeType.d.mts"
+		},
+		"./dataSources/MariaDB": {
+			"import": "./dist/dataSources/MariaDB.mjs",
+			"types": "./dist/dataSources/MariaDB.d.mts"
+		},
+		"./dataSources/MongoDB": {
+			"import": "./dist/dataSources/MongoDB.mjs",
+			"types": "./dist/dataSources/MongoDB.d.mts"
+		},
+		"./dataSources/PostgreSQL": {
+			"import": "./dist/dataSources/PostgreSQL.mjs",
+			"types": "./dist/dataSources/PostgreSQL.d.mts"
+		},
+		"./dataSources/Redis": {
+			"import": "./dist/dataSources/Redis.mjs",
+			"types": "./dist/dataSources/Redis.d.mts"
+		},
+		"./email/SocketlabsLib": {
+			"import": "./dist/email/SocketLabsLib.mjs",
+			"types": "./dist/email/SocketLabsLib.d.mts"
+		},
+		"./graphQL/models/MongoDB/log/DevStatsGraphQLCalls": {
+			"import": "./dist/graphQL/models/MongoDB/log/DevStatsGraphQLCalls.mjs",
+			"types": "./dist/graphQL/models/MongoDB/log/DevStatsGraphQLCalls.d.mts"
+		},
+		"./graphQL/models/MongoDB/log/LogGlobalError": {
+			"import": "./dist/graphQL/models/MongoDB/log/LogGlobalError.mjs",
+			"types": "./dist/graphQL/models/MongoDB/log/LogGlobalError.d.mts"
+		},
+		"./graphQL/models/MongoDB/log/LogStatsGraphql": {
+			"import": "./dist/graphQL/models/MongoDB/log/LogStatsGraphql.mjs",
+			"types": "./dist/graphQL/models/MongoDB/log/LogStatsGraphql.d.mts"
+		},
+		"./graphQL/models/MongoDB/log/LogThrow": {
+			"import": "./dist/graphQL/models/MongoDB/log/LogThrow.mjs",
+			"types": "./dist/graphQL/models/MongoDB/log/LogThrow.d.mts"
+		},
+		"./graphQL/models/MongoDB/UserBase": {
+			"import": "./dist/graphQL/models/MongoDB/UserBase.mjs",
+			"types": "./dist/graphQL/models/MongoDB/UserBase.d.mts"
+		},
+		"./graphQL/schema/context/IContextAuthenticatedResource": {
+			"import": "./dist/graphQL/schema/context/IContextAuthenticatedResource.mjs",
+			"types": "./dist/graphQL/schema/context/IContextAuthenticatedResource.d.mts"
+		},
+		"./graphQL/schema/context/IContextRefresh": {
+			"import": "./dist/graphQL/schema/context/IContextRefresh.mjs",
+			"types": "./dist/graphQL/schema/context/IContextRefresh.d.mts"
+		},
+		"./graphQL/schema/context/IContextLogin": {
+			"import": "./dist/graphQL/schema/context/IContextLogin.mjs",
+			"types": "./dist/graphQL/schema/context/IContextLogin.d.mts"
+		},
+		"./graphQL/schema/context/IContextLogout": {
+			"import": "./dist/graphQL/schema/context/IContextLogout.mjs",
+			"types": "./dist/graphQL/schema/context/IContextLogout.d.mts"
+		},
+		"./graphQL/schema/context/TCommonHeaders": {
+			"import": "./dist/graphQL/schema/context/TCommonHeaders.mjs",
+			"types": "./dist/graphQL/schema/context/TCommonHeaders.d.mts"
+		},
+		"./lib/sleepMs": {
+			"import": "./dist/lib/sleepMs.mjs",
+			"types": "./dist/lib/sleepMs.d.mts"
+		},
+		"./lib/MariaDB/IMariaDBErr": {
+			"import": "./dist/lib/MariaDB/IMariaDBErr.mjs",
+			"types": "./dist/lib/MariaDB/IMariaDBErr.d.mts"
+		},
+		"./lib/PostgreSQL/IPostgresError": {
+			"import": "./dist/lib/PostgreSQL/IPostgresError.mjs",
+			"types": "./dist/lib/PostgreSQL/IPostgresError.d.mts"
+		},
+		"./lib/PostgreSQL/IPostgresErrorCodes": {
+			"import": "./dist/lib/PostgreSQL/IPostgresErrorCodes.mjs",
+			"types": "./dist/lib/PostgreSQL/IPostgresErrorCodes.d.mts"
+		},
+		"./lib/PostgreSQL/makePostgreSqlLogError": {
+			"import": "./dist/lib/PostgreSQL/makePostgreSqlLogError.mjs",
+			"types": "./dist/lib/PostgreSQL/makePostgreSqlLogError.d.mts"
+		},
+		"./lib/MongoDB/IMongoDBError": {
+			"import": "./dist/lib/MongoDB/IMongoDBError.mjs",
+			"types": "./dist/lib/MongoDB/IMongoDBError.d.mts"
+		},
+		"./koa/IFileUpload": {
+			"import": "./dist/koa/IFileUpload.mjs",
+			"types": "./dist/koa/IFileUpload.d.mts"
+		},
+		"./files/uploadTempImage": {
+			"import": "./dist/files/uploadTempImage.mjs",
+			"types": "./dist/files/uploadTempImage.d.mts"
+		},
+		"./files/uploadTempPdf": {
+			"import": "./dist/files/uploadTempPdf.mjs",
+			"types": "./dist/files/uploadTempPdf.d.mts"
+		},
+		"./graphQL/schema/mutations/emailChangeHashVerify": {
+			"import": "./dist/graphQL/schema/mutations/emailChangeHashVerify.mjs",
+			"types": "./dist/graphQL/schema/mutations/emailChangeHashVerify.d.mts"
+		},
+		"./graphQL/schema/mutations/loginRememberme": {
+			"import": "./dist/graphQL/schema/mutations/loginRememberme.mjs",
+			"types": "./dist/graphQL/schema/mutations/loginRememberme.d.mts"
+		},
+		"./graphQL/schema/mutations/login4Ever": {
+			"import": "./dist/graphQL/schema/mutations/login4Ever.mjs",
+			"types": "./dist/graphQL/schema/mutations/login4Ever.d.mts"
+		},
+		"./graphQL/schema/mutations/loginAdmin": {
+			"import": "./dist/graphQL/schema/mutations/loginAdmin.mjs",
+			"types": "./dist/graphQL/schema/mutations/loginAdmin.d.mts"
+		},
+		"./graphQL/schema/mutations/logout": {
+			"import": "./dist/graphQL/schema/mutations/logout.mjs",
+			"types": "./dist/graphQL/schema/mutations/logout.d.mts"
+		},
+		"./graphQL/schema/mutations/refresh": {
+			"import": "./dist/graphQL/schema/mutations/refresh.mjs",
+			"types": "./dist/graphQL/schema/mutations/refresh.d.mts"
+		},
+		"./graphQL/schema/mutations/resetPwd": {
+			"import": "./dist/graphQL/schema/mutations/resetPwd.mjs",
+			"types": "./dist/graphQL/schema/mutations/resetPwd.d.mts"
+		},
+		"./graphQL/schema/mutations/signUp": {
+			"import": "./dist/graphQL/schema/mutations/signUp.mjs",
+			"types": "./dist/graphQL/schema/mutations/signUp.d.mts"
+		},
+		"./graphQL/schema/mutations/updatePassword": {
+			"import": "./dist/graphQL/schema/mutations/updatePassword.mjs",
+			"types": "./dist/graphQL/schema/mutations/updatePassword.d.mts"
+		},
+		"./graphQL/schema/types/DeleteType": {
+			"import": "./dist/graphQL/schema/types/DeleteType.mjs",
+			"types": "./dist/graphQL/schema/types/DeleteType.d.mts"
+		},
+		"./graphQL/schema/types/DoneType": {
+			"import": "./dist/graphQL/schema/types/DoneType.mjs",
+			"types": "./dist/graphQL/schema/types/DoneType.d.mts"
+		},
+		"./graphQL/schema/types/FindOneAndUpdateType": {
+			"import": "./dist/graphQL/schema/types/FindOneAndUpdateType.mjs",
+			"types": "./dist/graphQL/schema/types/FindOneAndUpdateType.d.mts"
+		},
+		"./graphQL/schema/types/LoginType": {
+			"import": "./dist/graphQL/schema/types/LoginType.mjs",
+			"types": "./dist/graphQL/schema/types/LoginType.d.mts"
+		},
+		"./graphQL/schema/types/LoginAppType": {
+			"import": "./dist/graphQL/schema/types/LoginAppType.mjs",
+			"types": "./dist/graphQL/schema/types/LoginAppType.d.mts"
+		},
+		"./graphQL/schema/types/OnlyIdType": {
+			"import": "./dist/graphQL/schema/types/OnlyIdType.mjs",
+			"types": "./dist/graphQL/schema/types/OnlyIdType.d.mts"
+		},
+		"./graphQL/schema/types/RefreshType": {
+			"import": "./dist/graphQL/schema/types/RefreshType.mjs",
+			"types": "./dist/graphQL/schema/types/RefreshType.d.mts"
+		},
+		"./graphQL/schema/types/RetStatusMexType": {
+			"import": "./dist/graphQL/schema/types/RetStatusMexType.mjs",
+			"types": "./dist/graphQL/schema/types/RetStatusMexType.d.mts"
+		},
+		"./graphQL/schema/types/RetStatusType": {
+			"import": "./dist/graphQL/schema/types/RetStatusType.mjs",
+			"types": "./dist/graphQL/schema/types/RetStatusType.d.mts"
+		},
+		"./graphQL/schema/types/SaveType": {
+			"import": "./dist/graphQL/schema/types/SaveType.mjs",
+			"types": "./dist/graphQL/schema/types/SaveType.d.mts"
+		},
+		"./graphQL/schema/types/UpdateResultType": {
+			"import": "./dist/graphQL/schema/types/UpdateResultType.mjs",
+			"types": "./dist/graphQL/schema/types/UpdateResultType.d.mts"
+		},
+		"./graphQL/schema/status": {
+			"import": "./dist/graphQL/schema/status.mjs",
+			"types": "./dist/graphQL/schema/status.d.mts"
+		},
+		"./graphQL/throw/throwRefreshTokenExpiredOrDeleted": {
+			"import": "./dist/graphQL/throw/throwRefreshTokenExpiredOrDeleted.mjs",
+			"types": "./dist/graphQL/throw/throwRefreshTokenExpiredOrDeleted.d.mts"
+		},
+		"./graphQL/throw/throwRefreshTokenSignatureRequired": {
+			"import": "./dist/graphQL/throw/throwRefreshTokenSignatureRequired.mjs",
+			"types": "./dist/graphQL/throw/throwRefreshTokenSignatureRequired.d.mts"
+		},
+		"./graphQL/throw/throwAccessTokenExpiredOrDeleted": {
+			"import": "./dist/graphQL/throw/throwAccessTokenExpiredOrDeleted.mjs",
+			"types": "./dist/graphQL/throw/throwAccessTokenExpiredOrDeleted.d.mts"
+		},
+		"./graphQL/throw/throwPreconditionFailedNoAuthCookie": {
+			"import": "./dist/graphQL/throw/throwPreconditionFailedNoAuthCookie.mjs",
+			"types": "./dist/graphQL/throw/throwPreconditionFailedNoAuthCookie.d.mts"
+		},
+		"./graphQL/throw/throwAccessTokenRequired": {
+			"import": "./dist/graphQL/throw/throwAccessTokenRequired.mjs",
+			"types": "./dist/graphQL/throw/throwAccessTokenRequired.d.mts"
+		},
+		"./graphQL/throw/throwAlreadyDone": {
+			"import": "./dist/graphQL/throw/throwAlreadyDone.mjs",
+			"types": "./dist/graphQL/throw/throwAlreadyDone.d.mts"
+		},
+		"./graphQL/throw/throwAlreadyTakenError": {
+			"import": "./dist/graphQL/throw/throwAlreadyTakenError.mjs",
+			"types": "./dist/graphQL/throw/throwAlreadyTakenError.d.mts"
+		},
+		"./graphQL/throw/throwConflictError": {
+			"import": "./dist/graphQL/throw/throwConflictError.mjs",
+			"types": "./dist/graphQL/throw/throwConflictError.d.mts"
+		},
+		"./graphQL/throw/throwErrorWrongUserInput": {
+			"import": "./dist/graphQL/throw/throwErrorWrongUserInput.mjs",
+			"types": "./dist/graphQL/throw/throwErrorWrongUserInput.d.mts"
+		},
+		"./graphQL/throw/throwForbiddenError": {
+			"import": "./dist/graphQL/throw/throwForbiddenError.mjs",
+			"types": "./dist/graphQL/throw/throwForbiddenError.d.mts"
+		},
+		"./graphQL/throw/throwGoneError": {
+			"import": "./dist/graphQL/throw/throwGoneError.mjs",
+			"types": "./dist/graphQL/throw/throwGoneError.d.mts"
+		},
+		"./graphQL/throw/throwGraphQLError": {
+			"import": "./dist/graphQL/throw/throwGraphQLError.mjs",
+			"types": "./dist/graphQL/throw/throwGraphQLError.d.mts"
+		},
+		"./graphQL/throw/throwInternalError": {
+			"import": "./dist/graphQL/throw/throwInternalError.mjs",
+			"types": "./dist/graphQL/throw/throwInternalError.d.mts"
+		},
+		"./graphQL/throw/throwMethodNotAllowedError": {
+			"import": "./dist/graphQL/throw/throwMethodNotAllowedError.mjs",
+			"types": "./dist/graphQL/throw/throwMethodNotAllowedError.d.mts"
+		},
+		"./graphQL/throw/throwMissingMalformedInvalidToken": {
+			"import": "./dist/graphQL/throw/throwMissingMalformedInvalidToken.mjs",
+			"types": "./dist/graphQL/throw/throwMissingMalformedInvalidToken.d.mts"
+		},
+		"./graphQL/throw/throwNotAcceptableError": {
+			"import": "./dist/graphQL/throw/throwNotAcceptableError.mjs",
+			"types": "./dist/graphQL/throw/throwNotAcceptableError.d.mts"
+		},
+		"./graphQL/throw/throwNotFoundError": {
+			"import": "./dist/graphQL/throw/throwNotFoundError.mjs",
+			"types": "./dist/graphQL/throw/throwNotFoundError.d.mts"
+		},
+		"./graphQL/throw/throwNotImplementedError": {
+			"import": "./dist/graphQL/throw/throwNotImplementedError.mjs",
+			"types": "./dist/graphQL/throw/throwNotImplementedError.d.mts"
+		},
+		"./graphQL/throw/throwPaymentRequiredError": {
+			"import": "./dist/graphQL/throw/throwPaymentRequiredError.mjs",
+			"types": "./dist/graphQL/throw/throwPaymentRequiredError.d.mts"
+		},
+		"./graphQL/throw/throwPreconditionFailedNoAuthHeader": {
+			"import": "./dist/graphQL/throw/throwPreconditionFailedNoAuthHeader.mjs",
+			"types": "./dist/graphQL/throw/throwPreconditionFailedNoAuthHeader.d.mts"
+		},
+		"./graphQL/throw/throwRefreshTokenRequired": {
+			"import": "./dist/graphQL/throw/throwRefreshTokenRequired.mjs",
+			"types": "./dist/graphQL/throw/throwRefreshTokenRequired.d.mts"
+		},
+		"./graphQL/throw/throwTooManyRequestsError": {
+			"import": "./dist/graphQL/throw/throwTooManyRequestsError.mjs",
+			"types": "./dist/graphQL/throw/throwTooManyRequestsError.d.mts"
+		},
+		"./graphQL/throw/throwUnauthorizedError": {
+			"import": "./dist/graphQL/throw/throwUnauthorizedError.mjs",
+			"types": "./dist/graphQL/throw/throwUnauthorizedError.d.mts"
+		},
+		"./graphQL/throw/throwUnprocessableContentError": {
+			"import": "./dist/graphQL/throw/throwUnprocessableContentError.mjs",
+			"types": "./dist/graphQL/throw/throwUnprocessableContentError.d.mts"
+		},
+		"./graphQL/throw/throwUnsupportedMediaTypeError": {
+			"import": "./dist/graphQL/throw/throwUnsupportedMediaTypeError.mjs",
+			"types": "./dist/graphQL/throw/throwUnsupportedMediaTypeError.d.mts"
+		},
+		"./koa/middleware/authenticatedAuthorizationHandler": {
+			"import": "./dist/koa/middleware/authenticatedAuthorizationHandler/index.mjs",
+			"types": "./dist/koa/middleware/authenticatedAuthorizationHandler/index.d.mts"
+		},
+		"./koa/middleware/authenticatedLogoutHandler": {
+			"import": "./dist/koa/middleware/authenticatedLogoutHandler/index.mjs",
+			"types": "./dist/koa/middleware/authenticatedLogoutHandler/index.d.mts"
+		},
+		"./koa/middleware/authenticatedResourceHandler": {
+			"import": "./dist/koa/middleware/authenticatedResourceHandler/index.mjs",
+			"types": "./dist/koa/middleware/authenticatedResourceHandler/index.d.mts"
+		},
+		"./koa/middleware/debug": {
+			"import": "./dist/koa/middleware/debug/index.mjs",
+			"types": "./dist/koa/middleware/debug/index.d.mts"
+		},
+		"./koa/middleware/authenticatedAuthorizationHandler/TCookieRefreshToken": {
+			"import": "./dist/koa/middleware/authenticatedAuthorizationHandler/TCookieRefreshToken.mjs",
+			"types": "./dist/koa/middleware/authenticatedAuthorizationHandler/TCookieRefreshToken.d.mts"
+		},
+		"./koa/middleware/authenticatedAuthorizationHandler/verifySignedRefreshToken": {
+			"import": "./dist/koa/middleware/authenticatedAuthorizationHandler/verifySignedRefreshToken.mjs",
+			"types": "./dist/koa/middleware/authenticatedAuthorizationHandler/verifySignedRefreshToken.d.mts"
+		},
+		"./koa/router/verifyEmail": {
+			"import": "./dist/koa/router/verifyEmail.mjs",
+			"types": "./dist/koa/router/verifyEmail.d.mts"
+		},
+		"./koa/customFormatErrorFn": {
+			"import": "./dist/koa/customFormatErrorFn.mjs",
+			"types": "./dist/koa/customFormatErrorFn.d.mts"
+		},
+		"./koa/logRequestToDb": {
+			"import": "./dist/koa/logRequestToDb.mjs",
+			"types": "./dist/koa/logRequestToDb.d.mts"
+		},
+		"./koa/tdwKoaErrorHandler": {
+			"import": "./dist/koa/tdwKoaErrorHandler.mjs",
+			"types": "./dist/koa/tdwKoaErrorHandler.d.mts"
+		},
+		"./lib/db/log/hitStat": {
+			"import": "./dist/lib/db/log/hitStat.mjs",
+			"types": "./dist/lib/db/log/hitStat.d.mts"
+		},
+		"./lib/db/log/logGlobalError": {
+			"import": "./dist/lib/db/log/logGlobalError.mjs",
+			"types": "./dist/lib/db/log/logGlobalError.d.mts"
+		},
+		"./lib/db/log/logGraphql": {
+			"import": "./dist/lib/db/log/logGraphql.mjs",
+			"types": "./dist/lib/db/log/logGraphql.d.mts"
+		},
+		"./lib/db/log/logThrow": {
+			"import": "./dist/lib/db/log/logThrow.mjs",
+			"types": "./dist/lib/db/log/logThrow.d.mts"
+		},
+		"./lib/db/registerNewUser": {
+			"import": "./dist/lib/db/registerNewUser.mjs",
+			"types": "./dist/lib/db/registerNewUser.d.mts"
+		},
+		"./lib/db/userExist": {
+			"import": "./dist/lib/db/userExist.mjs",
+			"types": "./dist/lib/db/userExist.d.mts"
+		},
+		"./lib/MariaDB/MariaDBErrType": {
+			"import": "./dist/lib/MariaDB/MariaDBErrType.mjs",
+			"types": "./dist/lib/MariaDB/MariaDBErrType.d.mts"
+		},
+		"./lib/MariaDB/throwSqlErrors": {
+			"import": "./dist/lib/MariaDB/throwSqlErrors.mjs",
+			"types": "./dist/lib/MariaDB/throwSqlErrors.d.mts"
+		},
+		"./lib/MongoDB/MongoDBErrType": {
+			"import": "./dist/lib/MongoDB/MongoDBErrType.mjs",
+			"types": "./dist/lib/MongoDB/MongoDBErrType.d.mts"
+		},
+		"./lib/MongoDB/throwIfMongoErr": {
+			"import": "./dist/lib/MongoDB/throwIfMongoErr.mjs",
+			"types": "./dist/lib/MongoDB/throwIfMongoErr.d.mts"
+		},
+		"./lib/MongoDB/throwMongoErrors": {
+			"import": "./dist/lib/MongoDB/throwMongoErrors.mjs",
+			"types": "./dist/lib/MongoDB/throwMongoErrors.d.mts"
+		},
+		"./lib/ArrayLib": {
+			"import": "./dist/lib/ArrayLib.mjs",
+			"types": "./dist/lib/ArrayLib.d.mts"
+		},
+		"./lib/checkEmailLen": {
+			"import": "./dist/lib/checkEmailLen.mjs",
+			"types": "./dist/lib/checkEmailLen.d.mts"
+		},
+		"./lib/checkPwdLen": {
+			"import": "./dist/lib/checkPwdLen.mjs",
+			"types": "./dist/lib/checkPwdLen.d.mts"
+		},
+		"./lib/Constants": {
+			"import": "./dist/lib/Constants.mjs",
+			"types": "./dist/lib/Constants.d.mts"
+		},
+		"./lib/DateLib": {
+			"import": "./dist/lib/DateLib.mjs",
+			"types": "./dist/lib/DateLib.d.mts"
+		},
+		"./lib/emailHash": {
+			"import": "./dist/lib/emailHash.mjs",
+			"types": "./dist/lib/emailHash.d.mts"
+		},
+		"./lib/encryptPassword": {
+			"import": "./dist/lib/encryptPassword.mjs",
+			"types": "./dist/lib/encryptPassword.d.mts"
+		},
+		"./lib/hash": {
+			"import": "./dist/lib/hash.mjs",
+			"types": "./dist/lib/hash.d.mts"
+		},
+		"./lib/ICookies": {
+			"import": "./dist/lib/ICookies.mjs",
+			"types": "./dist/lib/ICookies.d.mts"
+		},
+		"./lib/NumLib": {
+			"import": "./dist/lib/NumLib.mjs",
+			"types": "./dist/lib/NumLib.d.mts"
+		},
+		"./lib/setLoginCookies": {
+			"import": "./dist/lib/setLoginCookies.mjs",
+			"types": "./dist/lib/setLoginCookies.d.mts"
+		},
+		"./lib/StringLib": {
+			"import": "./dist/lib/StringLib.mjs",
+			"types": "./dist/lib/StringLib.d.mts"
+		},
+		"./lib/tokenOptions": {
+			"import": "./dist/lib/tokenOptions.mjs",
+			"types": "./dist/lib/tokenOptions.d.mts"
+		},
+		"./lib/tokens": {
+			"import": "./dist/lib/tokens.mjs",
+			"types": "./dist/lib/tokens.d.mts"
+		},
+		"./lib/tryCatchRethrow": {
+			"import": "./dist/lib/tryCatchRethrow.mjs",
+			"types": "./dist/lib/tryCatchRethrow.d.mts"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"dependencies": {},
+	"peerDependencies": {
+		"@node-rs/bcrypt": "*",
+		"@sentry/node": "*",
+		"@socketlabs/email": "*",
+		"clamscan": "*",
+		"dotenv": "*",
+		"file-type": "*",
+		"fs-extra": "*",
+		"graphql": "*",
+		"keygrip": "^1.1.0",
+		"koa-logger": "*",
+		"mongoose": "*",
+		"pg": "*",
+		"redis": "*",
+		"reflect-metadata": "*",
+		"sequelize": "*",
+		"sequelize-typescript": "*",
+		"sharp": "*",
+		"uuid": "*"
+	},
+	"devDependencies": {
+		"@axiumine/eslint-config-be": "^1.3.6",
+		"@eslint/eslintrc": "^3.3.5",
+		"@eslint/js": "^9.39.2",
+		"@node-rs/bcrypt": "^1.10.4",
+		"@sentry/node": "^10.42.0",
+		"@socketlabs/email": "^1.4.4",
+		"@types/bcrypt": "^6.0.0",
+		"@types/clamscan": "^2.4.0",
+		"@types/fs-extra": "^11.0.4",
+		"@types/koa": "^3.0.1",
+		"@types/node": "^25.4.0",
+		"@types/pg": "^8.18.0",
+		"@types/uuid": "^11.0.0",
+		"@typescript-eslint/eslint-plugin": "^8.57.0",
+		"@typescript-eslint/parser": "^8.57.0",
+		"clamscan": "^2.4.0",
+		"dotenv": "^17.2.3",
+		"eslint": "^9.39.2",
+		"eslint-config-standard": "^17.1.0",
+		"eslint-import-resolver-typescript": "^4.4.4",
+		"eslint-plugin-import": "^2.29.1",
+		"eslint-plugin-jest": "^29.12.1",
+		"eslint-plugin-n": "^17.23.1",
+		"eslint-plugin-promise": "^7.2.1",
+		"eslint-plugin-simple-import-sort": "^12.1.0",
+		"file-type": "^21.3.1",
+		"fs-extra": "^11.3.4",
+		"graphql": "^16.13.1",
+		"koa": "^3.1.1",
+		"koa-logger": "^4.0.0",
+		"lint-staged": "^16.3.2",
+		"module-alias": "^2.2.3",
+		"mongoose": "^9.2.4",
+		"pg": "^8.20.0",
+		"prettier": "^3.8.1",
+		"redis": "^5.10.0",
+		"reflect-metadata": "^0.2.2",
+		"sequelize": "^6.37.8",
+		"sequelize-typescript": "^2.1.6",
+		"sharp": "^0.34.5",
+		"ts-node": "^10.9.2",
+		"ts-patch": "^3.3.0",
+		"typescript": "^5.9.3",
+		"typescript-transform-paths": "^3.5.6",
+		"uuid": "^13.0.0"
+	}
+}
