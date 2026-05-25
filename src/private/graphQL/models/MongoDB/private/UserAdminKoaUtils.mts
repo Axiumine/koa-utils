@@ -1,54 +1,54 @@
 import { model, Schema, Types } from 'mongoose'
 
 export interface IInfoUserAdminForLogin {
-	_id: Types.ObjectId;
+	_id: Types.ObjectId
 	login: {
-		password: string;
-		lastLogin?: Date;
-	};
+		password: string
+		lastLogin?: Date
+	}
 	account: {
 		email: {
-			valid: boolean;
-		};
-		rememberMe?: boolean;
-		disabled?: boolean;
-		deleted?: boolean;
-	};
+			valid: boolean
+		}
+		rememberMe?: boolean
+		disabled?: boolean
+		deleted?: boolean
+	}
 }
 
 export interface IUserAdminKoaUtilsSchema {
-	_id: Types.ObjectId;
+	_id: Types.ObjectId
 	login: {
-		_id?: boolean;
-		email: string;
-		password: string;
-		firstLogin?: Date;
-		lastLogin?: Date;
-	};
+		_id?: boolean
+		email: string
+		password: string
+		firstLogin?: Date
+		lastLogin?: Date
+	}
 	account: {
-		_id?: boolean;
+		_id?: boolean
 		email: {
-			_id?: boolean;
-			valid: boolean;
-			dateLastReq?: Date;
-			requestTimes?: number;
-			hash?: string;
-			newEmailTmp?: string;
-		};
-		rememberMe?: boolean;
-		registrationDate: Date;
-		accountValidDate?: Date;
-		newsletter?: boolean;
-		resetDateReq?: Date;
-		disabled?: boolean;
-		deleted?: boolean;
-	};
+			_id?: boolean
+			valid: boolean
+			dateLastReq?: Date
+			requestTimes?: number
+			hash?: string
+			newEmailTmp?: string
+		}
+		rememberMe?: boolean
+		registrationDate: Date
+		accountValidDate?: Date
+		newsletter?: boolean
+		resetDateReq?: Date
+		disabled?: boolean
+		deleted?: boolean
+	}
 	personalData: {
-		_id: false;
-		name: string;
-		surname: string;
-	};
-	__v?: number;
+		_id: false
+		name: string
+		surname: string
+	}
+	__v?: number
 }
 
 const UserAdminKoaUtilsSchema: Schema<IUserAdminKoaUtilsSchema> = new Schema(
@@ -159,7 +159,4 @@ const UserAdminKoaUtilsSchema: Schema<IUserAdminKoaUtilsSchema> = new Schema(
 	}
 )
 
-export default model<IUserAdminKoaUtilsSchema>(
-	'UserAdminKoaUtils',
-	UserAdminKoaUtilsSchema
-)
+export default model<IUserAdminKoaUtilsSchema>('UserAdminKoaUtils', UserAdminKoaUtilsSchema)

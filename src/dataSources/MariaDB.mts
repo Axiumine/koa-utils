@@ -4,7 +4,6 @@ import { Sequelize } from 'sequelize-typescript'
 
 dotenv.config()
 
-
 export const sequelize = new Sequelize(
 	`${process.env.MARIADB_DBNAME}`,
 	`${process.env.MARIADB_USER}`,
@@ -40,7 +39,8 @@ export const sequelize = new Sequelize(
 			requestTimeout: parseInt(`${process.env.MARIADB_TIMEOUT}`) || 5000
 		},
 		port: parseInt(`${process.env.MARIADB_PORT}`, 10),
-		logging: process.env.MARIADB_LOGGING === 'false' ? false : undefined  // disable print queries in console
+		/* c8 ignore next -- env-dependent boot config; covered only when MARIADB_LOGGING='false' */
+		logging: process.env.MARIADB_LOGGING === 'false' ? false : undefined // disable print queries in console
 	}
 )
 
@@ -49,9 +49,7 @@ export const MariaDBConnect = async () => {
 	console.info('[MariaDB] Try connect to database... ')
 	try {
 		await sequelize.authenticate()
-		console.info(
-			'[MariaDB] OK: MariaDB connection has been established successfully.'
-		)
+		console.info('[MariaDB] OK: MariaDB connection has been established successfully.')
 	} catch (e) {
 		const catchMex = '[MariaDB] FAIL: Unable to connect to the database'
 		Sentry.captureException(e, {
@@ -69,9 +67,7 @@ export const MariaDBDisconnect = async () => {
 	console.info('[MariaDB] Try close connection to database... ')
 	try {
 		await sequelize.close()
-		console.info(
-			'[MariaDB] OK: MariaDB connection has been closed successfully.'
-		)
+		console.info('[MariaDB] OK: MariaDB connection has been closed successfully.')
 	} catch (e) {
 		const catchMex = '[MariaDB] FAIL: Unable to close the database connection: '
 		Sentry.captureException(e, {

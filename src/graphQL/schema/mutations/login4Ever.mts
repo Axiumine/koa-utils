@@ -13,8 +13,8 @@ import { GraphQLError, GraphQLNonNull, GraphQLString } from 'graphql'
 import mongoose from 'mongoose'
 
 interface IArgs {
-	email: string;
-	password: string;
+	email: string
+	password: string
 }
 
 export const login4Ever = {
@@ -40,11 +40,7 @@ export const login4Ever = {
 		try {
 			await session.withTransaction(async () => {
 				// search if the email exists
-				const user = await checkUserLoginAuthorization(
-					uEmail,
-					password,
-					session
-				)
+				const user = await checkUserLoginAuthorization(uEmail, password, session)
 				//console.debug('[login4Ever] auth ok')
 
 				// pwd valid

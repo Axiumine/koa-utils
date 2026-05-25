@@ -1,9 +1,5 @@
 export type ICookies = {
-	set(
-		key: 'access_token' | 'refresh_token',
-		value: string,
-		options: Options,
-	): void
+	set(key: 'access_token' | 'refresh_token', value: string, options: Options): void
 	get(key: 'access_token' | 'refresh_token'): string | undefined
 }
 type Options = {

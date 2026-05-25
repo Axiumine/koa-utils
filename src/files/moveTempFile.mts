@@ -1,19 +1,13 @@
 import fs from 'fs-extra'
 import path from 'path'
 
-
 /**
  *
  * @param sourceFilePath
  * @param destFilename
  * @param destinationDir
  */
-export async function moveTempFile(
-	sourceFilePath: string,
-	destFilename: string,
-	destinationDir: string
-) {
-
+export async function moveTempFile(sourceFilePath: string, destFilename: string, destinationDir: string) {
 	// Ensure the destination directory exists
 	await fs.ensureDir(destinationDir)
 

@@ -1,0 +1,11 @@
+{
+	"extension": ["mjs"],
+	"spec": "dist-test/**/*.spec.mjs",
+	"node-option": [
+		"enable-source-maps",
+		"no-warnings"
+	],
+	"reporter": "spec",
+	"timeout": 20000,
+	"recursive": true
+}

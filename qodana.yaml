@@ -1,0 +1,27 @@
+version: "1.0"
+
+linter: jetbrains/qodana-js:2025.2
+
+profile:
+  name: qodana.recommended
+
+projectJDK: "24"
+
+include:
+  - name: JSCheckFunctionSignatures
+  - name: TypeScriptUnresolvedReference
+  - name: TypeScriptValidateTypes
+
+exclude:
+  - name: All
+    paths:
+      - dist
+      - dist-test
+      - node_modules
+      - test
+      - .qodana
+
+failureConditions:
+  testCoverageThresholds:
+    fresh: 100
+    total: 100

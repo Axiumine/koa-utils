@@ -1,3 +1,3 @@
 export enum MongoDBErrType {
-	DuplicateKeyError = 11000,
+	DuplicateKeyError = 11000
 }

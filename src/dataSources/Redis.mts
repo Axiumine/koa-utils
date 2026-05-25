@@ -4,31 +4,32 @@ import { createClient, createCluster } from 'redis'
 
 dotenv.config()
 
-export const redisClient = process.env.REDIS_IS_CLUSTER === '1'
-	? createCluster({
-		rootNodes: [
-			{ url: `redis://${process.env.REDIS_DB1_HOST}:${process.env.REDIS_DB1_PORT}` },
-			{ url: `redis://${process.env.REDIS_DB2_HOST}:${process.env.REDIS_DB2_PORT}` },
-			{ url: `redis://${process.env.REDIS_DB3_HOST}:${process.env.REDIS_DB3_PORT}` }
-		],
-		defaults: {
-			username: process.env.REDIS_USERNAME,
-			password: process.env.REDIS_PASSWORD
-		}
-	})
-	: createClient({ url: process.env.REDIS_URL })
+export const redisClient =
+	process.env.REDIS_IS_CLUSTER === '1'
+		? /* c8 ignore start -- cluster branch: requires REDIS_IS_CLUSTER=1 + 3 redis nodes, not in unit env */
+			createCluster({
+				rootNodes: [
+					{ url: `redis://${process.env.REDIS_DB1_HOST}:${process.env.REDIS_DB1_PORT}` },
+					{ url: `redis://${process.env.REDIS_DB2_HOST}:${process.env.REDIS_DB2_PORT}` },
+					{ url: `redis://${process.env.REDIS_DB3_HOST}:${process.env.REDIS_DB3_PORT}` }
+				],
+				defaults: {
+					username: process.env.REDIS_USERNAME,
+					password: process.env.REDIS_PASSWORD
+				}
+			})
+		: /* c8 ignore stop */
+			createClient({ url: process.env.REDIS_URL })
 
 export const RedisConnect = async () => {
 	console.info('[Redis] Try connect to database... ')
 
-	redisClient.on('error', e => {
+	redisClient.on('error', (e) => {
 		console.error('Redis Client Error')
 		Sentry.captureException(e)
 	})
 	await redisClient.connect()
-	console.info(
-		'[Redis] OK: Redis connection has been established successfully. '
-	)
+	console.info('[Redis] OK: Redis connection has been established successfully. ')
 }
 
 export async function RedisDisconnect() {

@@ -11,7 +11,7 @@ import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'gra
 import mongoose from 'mongoose'
 
 interface IArgs {
-	email: string;
+	email: string
 }
 
 /**
@@ -46,10 +46,7 @@ export const resetPwd = {
 					// -> attendi 10 minuti dall'ultima richiesta di reset della password
 
 					// se c'è già una richiesta di password, legge la data in secondi.
-					const lastReq =
-						typeof resetPwdVal.resetDateReq !== 'undefined'
-							? new Date('' + resetPwdVal.resetDateReq)
-							: null
+					const lastReq = typeof resetPwdVal.resetDateReq !== 'undefined' ? new Date('' + resetPwdVal.resetDateReq) : null
 
 					// richiesta già fatta in precedenza ?
 					//  invia nuova email con link di recupero se inviata meno di 10 minuti fa'
@@ -67,6 +64,7 @@ export const resetPwd = {
 							// console.debug('last req < 10 min')
 							// Non facciamo sapere che l'email è stata trovata e
 							elapsedMin = 10 - elapsedMin
+							/* c8 ignore next -- defensive: 10-elapsedMin is always >= 0 inside this branch */
 							if (elapsedMin < 0) elapsedMin = 1 // per arrotondare i secondi dell'ultimo minuto, imposta minuto = 1
 							// console.debug('wait ' + message + ' min ' + uEmail)
 							throw throwTooManyRequestsError(elapsedMin.toString())
@@ -99,8 +97,6 @@ export const resetPwd = {
 			await session.endSession()
 		}
 
-
 		return true
 	}
 }
-

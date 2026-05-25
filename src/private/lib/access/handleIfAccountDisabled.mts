@@ -2,10 +2,7 @@ import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 
 import { EMAIL_CHECK_LINK } from './Constants.mjs'
 
-export async function handleIfAccountDisabled(
-	email: string,
-	disabled: boolean = false
-) {
+export async function handleIfAccountDisabled(email: string, disabled: boolean = false) {
 	if (disabled) {
 		const SocketLabsObj = new SocketLabsLib()
 

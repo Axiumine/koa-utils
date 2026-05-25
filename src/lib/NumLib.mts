@@ -1,6 +1,5 @@
 export class NumLib {
-	constructor() {
-	}
+	constructor() {}
 
 	/************
 	 * parseFloat vuole il '.' come separatore decimale !!
@@ -11,4 +10,4 @@ export class NumLib {
 	static parseFloatFixed(val: string): number {
 		return parseFloat(val.replace(/,/g, '.'))
 	}
-}
+} /* c8 ignore next */

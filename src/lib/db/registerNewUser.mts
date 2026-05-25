@@ -3,11 +3,7 @@ import { encryptPassword } from '@lib/encryptPassword.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { ClientSession, Types } from 'mongoose'
 
-export async function registerNewUser(
-	uEmail: string,
-	password: string,
-	session: ClientSession
-) {
+export async function registerNewUser(uEmail: string, password: string, session: ClientSession) {
 	// console.debug('new user')
 	const userId = new Types.ObjectId()
 	const nowDt = new Date()

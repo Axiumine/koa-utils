@@ -12,13 +12,13 @@ import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'gra
 import mongoose from 'mongoose'
 
 interface IArgs {
-	email: string;
-	hash: string;
-	password: string;
+	email: string
+	hash: string
+	password: string
 }
 
 export const updatePassword = {
-	description: 'cambia la password all\'utente',
+	description: "cambia la password all'utente",
 	type: new GraphQLNonNull(GraphQLBoolean),
 	args: {
 		email: { type: new GraphQLNonNull(GraphQLString) },
@@ -47,6 +47,7 @@ export const updatePassword = {
 				if (resetPwd.resetHash === null) {
 					throw throwInternalError()
 				}
+				/* c8 ignore next 3 -- defensive guard, resetDateReq cannot be null when resetHash is set */
 				if (resetPwd.resetDateReq === null) {
 					throw throwInternalError() // throwSoftwareError('resetDateReq mancante !')
 				}

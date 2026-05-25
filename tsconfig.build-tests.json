@@ -1,0 +1,28 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"rootDir": "./test",
+		"outDir": "./dist-test",
+		"declaration": false,
+		"declarationDir": null,
+		"noEmit": false,
+		"strict": false,
+		"noImplicitAny": false,
+		"noCheck": true,
+		"skipLibCheck": true,
+		"types": ["mocha", "node", "chai", "sinon"],
+		"baseUrl": ".",
+		"paths": {
+			"@lib/*": ["dist/lib/*"],
+			"@throw/*": ["dist/graphQL/throw/*"],
+			"@private/*": ["dist/private/*"],
+			"@models/*": ["dist/graphQL/models/*"],
+			"@email/*": ["dist/email/*"],
+			"@context/*": ["dist/graphQL/schema/context/*"],
+			"@stypes/*": ["dist/graphQL/schema/types/*"],
+			"@dataSources/*": ["dist/dataSources/*"]
+		}
+	},
+	"include": ["test/**/*.mts"],
+	"exclude": ["node_modules", "dist", "dist-test"]
+}

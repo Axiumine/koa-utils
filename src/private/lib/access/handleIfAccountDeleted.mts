@@ -2,10 +2,7 @@ import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 
 import { EMAIL_CHECK_LINK } from './Constants.mjs'
 
-export async function handleIfAccountDeleted(
-	email: string,
-	deleted: boolean = false
-) {
+export async function handleIfAccountDeleted(email: string, deleted: boolean = false) {
 	if (deleted) {
 		const SocketLabsObj = new SocketLabsLib()
 

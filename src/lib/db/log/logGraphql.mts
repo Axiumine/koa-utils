@@ -8,12 +8,7 @@ import { Types } from 'mongoose'
  * @param status
  * @param msTot
  */
-export const logGraphql = function(
-	owner: Types.ObjectId,
-	nome: string,
-	status: number,
-	msTot: number
-) {
+export const logGraphql = function (owner: Types.ObjectId, nome: string, status: number, msTot: number) {
 	new LogStatsGraphql({
 		owner,
 		nome,

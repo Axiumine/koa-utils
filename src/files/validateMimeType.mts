@@ -1,7 +1,6 @@
 import { _validateMimeType } from '@private/files/_validateMimeType.mjs'
 import fs from 'fs-extra'
 
-
 /**
  * Validate MIME type based on file content (magic number validation)
  * @param filePath

@@ -7,8 +7,8 @@ import { throwInternalError } from '@throw/throwInternalError.mjs'
 import { GraphQLBoolean, GraphQLNonNull, GraphQLString } from 'graphql'
 
 interface IArgs {
-	email: string;
-	hash: string;
+	email: string
+	hash: string
 }
 
 /**
@@ -27,9 +27,7 @@ export const emailChangeHashVerify = {
 
 		// search if the email exists
 		const user = await UserBase.findOne({ 'account.email.newEmailTmp': uEmail })
-			.select(
-				'_id account.email.hash account.email.dateLastReq account.deleted account.disabled'
-			)
+			.select('_id account.email.hash account.email.dateLastReq account.deleted account.disabled')
 			.lean()
 
 		// if email not found, return

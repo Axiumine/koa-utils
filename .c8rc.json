@@ -1,0 +1,30 @@
+{
+	"all": true,
+	"include": [
+		"dist/**/*.mjs"
+	],
+	"exclude": [
+		"dist/**/I*.mjs",
+		"dist/**/*.d.mts",
+		"dist/**/types/*.mjs",
+		"dist/**/interfaces/**",
+		"dist/private/**",
+		"dist/graphQL/schema/context/TCommonHeaders.mjs",
+		"dist/koa/middleware/authenticatedAuthorizationHandler/TCookieRefreshToken.mjs",
+		"dist/files/checkForNSFW.mjs",
+		"dist-test/**",
+		"test/**",
+		"**/*.spec.mts"
+	],
+	"extension": [
+		".mjs"
+	],
+	"reporter": [
+		"lcov",
+		"text-summary",
+		"json-summary"
+	],
+	"reports-dir": ".qodana/code-coverage",
+	"clean": true,
+	"check-coverage": false
+}

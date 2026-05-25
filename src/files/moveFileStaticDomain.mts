@@ -7,12 +7,7 @@ import { moveTempFile } from './moveTempFile.mjs'
  * @param secondFolder
  * @param destFilename
  */
-export async function moveFileStaticDomain(
-	sourceFilePath: string,
-	folder: string,
-	secondFolder: string,
-	destFilename: string
-) {
+export async function moveFileStaticDomain(sourceFilePath: string, folder: string, secondFolder: string, destFilename: string) {
 	const destinationDir = `${process.env.STATIC_FOLDER}/${folder}/${secondFolder}`
 
 	await moveTempFile(sourceFilePath, destFilename, destinationDir)

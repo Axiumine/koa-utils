@@ -1,21 +1,21 @@
 import { model, Schema, Types } from 'mongoose'
 
 export interface IDevStatsGraphQLCalls {
-	name: string;
-	hit?: boolean;
+	name: string
+	hit?: boolean
 }
 
 export interface IDevStatsGraphQLCallsSchema {
-	_id: Types.ObjectId;
+	_id: Types.ObjectId
 	list: [
 		{
-			_id?: Types.ObjectId;
-			name: string;
-			hit?: boolean;
-		},
-	];
-	dataora: Date;
-	__v?: number;
+			_id?: Types.ObjectId
+			name: string
+			hit?: boolean
+		}
+	]
+	dataora: Date
+	__v?: number
 }
 
 const DevStatsGraphQLCallsSchema = new Schema<IDevStatsGraphQLCallsSchema>(
@@ -54,8 +54,5 @@ const DevStatsGraphQLCallsSchema = new Schema<IDevStatsGraphQLCallsSchema>(
 	}
 )
 
-const DevStatsGraphQLCalls = model<IDevStatsGraphQLCallsSchema>(
-	'DevStatsGraphQLCalls',
-	DevStatsGraphQLCallsSchema
-)
+const DevStatsGraphQLCalls = model<IDevStatsGraphQLCallsSchema>('DevStatsGraphQLCalls', DevStatsGraphQLCallsSchema)
 export { DevStatsGraphQLCalls }

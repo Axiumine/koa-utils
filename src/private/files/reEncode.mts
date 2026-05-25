@@ -17,33 +17,15 @@ export async function reEncode(filePath: string, ext: keyof FormatEnum | Availab
 	const originalFileExt = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : ''
 
 	try {
-
 		if (ext === 'jpeg') {
-			await sharp(filePath)
-				.jpeg({ quality, progressive: true })
-				.withMetadata({})
-				.withExif({})
-				.toFile(finalFilepath)
+			await sharp(filePath).jpeg({ quality, progressive: true }).withMetadata({}).withExif({}).toFile(finalFilepath)
 		} else if (ext === 'png') {
-			await sharp(filePath)
-				.png({ quality, progressive: true })
-				.withMetadata({})
-				.withExif({})
-				.toFile(finalFilepath)
+			await sharp(filePath).png({ quality, progressive: true }).withMetadata({}).withExif({}).toFile(finalFilepath)
 		} else if (ext === 'webp') {
-			await sharp(filePath)
-				.webp({ quality, lossless: true })
-				.withMetadata({})
-				.withExif({})
-				.toFile(finalFilepath)
+			await sharp(filePath).webp({ quality, lossless: true }).withMetadata({}).withExif({}).toFile(finalFilepath)
 		} else if (ext === 'avif') {
-			await sharp(filePath)
-				.avif({ quality, lossless: true })
-				.withMetadata({})
-				.withExif({})
-				.toFile(finalFilepath)
+			await sharp(filePath).avif({ quality, lossless: true }).withMetadata({}).withExif({}).toFile(finalFilepath)
 		}
-
 	} catch (err) {
 		Sentry.captureException(err)
 		throw new Error('Error processing the image')

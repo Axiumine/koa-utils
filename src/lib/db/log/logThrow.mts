@@ -3,7 +3,7 @@ import { Types } from 'mongoose'
 
 // const lastSendEmail = new Date();
 
-export const logThrow = function(log: string, errLevel: number) {
+export const logThrow = function (log: string, errLevel: number) {
 	new LogThrow({
 		_id: new Types.ObjectId(),
 		message: log,

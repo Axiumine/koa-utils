@@ -1,13 +1,13 @@
 import { model, Schema, Types } from 'mongoose'
 
 interface IStatsGraphqlSchema {
-	_id: Types.ObjectId;
-	u: number; // user
-	n: string; // query name
-	i: Date; // inserted
-	s: number; // status
-	m: number; // msTot
-	__v?: number;
+	_id: Types.ObjectId
+	u: number // user
+	n: string // query name
+	i: Date // inserted
+	s: number // status
+	m: number // msTot
+	__v?: number
 }
 
 const StatsGraphqlSchema = new Schema<IStatsGraphqlSchema>(
@@ -43,8 +43,5 @@ const StatsGraphqlSchema = new Schema<IStatsGraphqlSchema>(
 	}
 )
 
-const LogStatsGraphql = model<IStatsGraphqlSchema>(
-	'LogStatsGraphql',
-	StatsGraphqlSchema
-)
+const LogStatsGraphql = model<IStatsGraphqlSchema>('LogStatsGraphql', StatsGraphqlSchema)
 export { LogStatsGraphql }

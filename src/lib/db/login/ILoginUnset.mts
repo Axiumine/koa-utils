@@ -1,5 +1,5 @@
 export interface ILoginUnset {
-  login?: {
-    rememberMe: number
-  }
+	login?: {
+		rememberMe: number
+	}
 }

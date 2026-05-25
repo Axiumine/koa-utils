@@ -51,7 +51,6 @@ export const authenticatedLogoutHandler = (keys: Keygrip) => async (ctx: IContex
 	}
 
 	if (!introspection) {
-
 		const refreshToken = verifySignedRefreshToken(ctx as unknown as IContextRefresh, keys)
 		const redRefreshSession = await redisClient.hGet(`${process.env.REDIS_KEY}${refreshToken}`, 'id')
 		if (redRefreshSession != null) {

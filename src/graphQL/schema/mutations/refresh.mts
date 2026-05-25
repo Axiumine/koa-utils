@@ -22,7 +22,6 @@ export const refresh = {
 		// prende id dell'utente già copiato in ctx
 		const userId = ctx.state.user.id.toString()
 
-
 		// genera i 2 nuovi token
 		let accessToken = generateAccessToken()
 		let refreshToken = generateRefreshToken()
@@ -36,7 +35,6 @@ export const refresh = {
 
 		const refreshTokenData = { id: userId }
 
-
 		try {
 			// Store session in Redis
 			await Promise.all([
@@ -46,10 +44,7 @@ export const refresh = {
 
 			// set expiry
 			const accTokenExp = accessTokenExpiry()
-			await Promise.all([
-				redisClient.expire(keyAccess, accTokenExp),
-				redisClient.expire(keyRefresh, REFRESH_TOKEN_EXPIRY)
-			])
+			await Promise.all([redisClient.expire(keyAccess, accTokenExp), redisClient.expire(keyRefresh, REFRESH_TOKEN_EXPIRY)])
 
 			setLoginCookies(ctx, refreshToken)
 

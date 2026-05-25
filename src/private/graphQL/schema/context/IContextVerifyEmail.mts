@@ -1,11 +1,8 @@
 export interface IContextVerifyEmail {
 	params: {
-		email: string;
-		hash: string;
-	},
+		email: string
+		hash: string
+	}
 
-	redirect(
-		value: string,
-	): void
+	redirect(value: string): void
 }
-
