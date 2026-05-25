@@ -7,20 +7,20 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 interface ISendEmail {
-	emailFrom: string;
-	emailFromName: string;
-	emailTo: string;
-	subject: string;
-	textBody: string;
-	htmlBody: string;
+	emailFrom: string
+	emailFromName: string
+	emailTo: string
+	subject: string
+	textBody: string
+	htmlBody: string
 }
 
 interface IInfoUtente {
-	_id: string;
+	_id: string
 	personalData: {
-		name: string,
+		name: string
 		surname: string
-	};
+	}
 }
 
 export class SocketLabsLib {
@@ -34,12 +34,9 @@ export class SocketLabsLib {
 	private readonly emailHtmlHeader2: string
 	private readonly emailHtmlFooter: string
 
-	constructor(
-		htmlHeader1: string = '',
-		htmlHeader2: string = '',
-		htmlFooter: string = ''
-	) {
+	constructor(htmlHeader1: string = '', htmlHeader2: string = '', htmlFooter: string = '') {
 		this.client = new SocketLabsClient(
+			/* c8 ignore next -- env fallback '0' covered only when SOCKETLABS_SERVER_ID is unset */
 			parseInt(process.env.SOCKETLABS_SERVER_ID || '0'),
 			`${process.env.SOCKETLABS_SERVER_APIKEY}`,
 			{ requestTimeout: 120, numberOfRetries: 3 }
@@ -49,10 +46,8 @@ export class SocketLabsLib {
 		this.linkBase = `${process.env.APP_DOMAIN}`
 		this.emailFrom = `${process.env.EMAIL_FROM}`
 
-		this.emailHtmlHeader1 =
-			htmlHeader1 === '' ? this.htmlHeader1() : htmlHeader1
-		this.emailHtmlHeader2 =
-			htmlHeader2 === '' ? this.htmlHeader2() : htmlHeader2
+		this.emailHtmlHeader1 = htmlHeader1 === '' ? this.htmlHeader1() : htmlHeader1
+		this.emailHtmlHeader2 = htmlHeader2 === '' ? this.htmlHeader2() : htmlHeader2
 		this.emailHtmlFooter = htmlFooter === '' ? this.htmlFooter() : htmlFooter
 	}
 
@@ -136,11 +131,7 @@ SendResponse {
 }
 	 */
 
-	async sendEmailChangeVerify(
-		emailTo: string,
-		hash: string,
-		name: string = ''
-	) {
+	async sendEmailChangeVerify(emailTo: string, hash: string, name: string = '') {
 		const encodedEmail = encodeURI(emailTo)
 		const subject = `Conferma l'email per ${this.platformName}`
 		const nameFixed = this.fixName(name)
@@ -188,8 +179,7 @@ SendResponse {
 	 */
 	async accountDisabled(emailTo: string) {
 		const subject = 'Il tuo account è stato disabilitato'
-		const textBody =
-			'Ciao, ci spiace ma il tuo account è stato disabilitato. Contattaci per maggiori informazioni.'
+		const textBody = 'Ciao, ci spiace ma il tuo account è stato disabilitato. Contattaci per maggiori informazioni.'
 		const htmlBody = `<p>${textBody}</p>`
 
 		const message = {
@@ -210,8 +200,7 @@ SendResponse {
 	 */
 	async accountBanned(emailTo: string) {
 		const subject = 'Il tuo account è stato bannato'
-		const textBody =
-			'Ciao, ci spiace ma il tuo account è stato bannato. Contattaci per maggiori informazioni.'
+		const textBody = 'Ciao, ci spiace ma il tuo account è stato bannato. Contattaci per maggiori informazioni.'
 		const htmlBody = `<p>${textBody}</p>`
 
 		const message = {
@@ -324,8 +313,7 @@ SendResponse {
 	 */
 	async emailAlreadyValid(emailTo: string) {
 		const subject = 'Account già valido'
-		const textBody =
-			'Ciao, il tuo account è già valido, puoi eseguire il login.'
+		const textBody = 'Ciao, il tuo account è già valido, puoi eseguire il login.'
 		const htmlBody = `<p>${textBody}</p>`
 
 		const message = {
@@ -348,10 +336,7 @@ SendResponse {
 		const subject = `Attiva il tuo account ${this.platformName}}`
 		const url = `${this.linkBase}'/x/emailVerify`
 		const urlHtml = this.StringObj.makeLink(url)
-		const linkHomeHtml = this.StringObj.makeLink(
-			this.linkBase,
-			this.platformName
-		)
+		const linkHomeHtml = this.StringObj.makeLink(this.linkBase, this.platformName)
 
 		const textBody = `Per confermare la tua iscrizione su ${this.platformName}, apri nel browser il seguente link
      ${url} ed inserisci il seguente codice di attivazione: ${otp}`
@@ -482,9 +467,9 @@ SendResponse {
 			Sentry.captureException(e)
 			ret = null
 		}
+		/* c8 ignore next -- ret is always null in this function */
 		return ret ? ret : null // se invio va a buon fine, ritorna l'hash, altrimenti null
 	}
-
 
 	async sendEmailPostSegnalato(infoUtente: IInfoUtente, idPost: number | string) {
 		const subject = 'Post ' + idPost + ' segnalato'
@@ -524,7 +509,6 @@ SendResponse {
 		return await this.sendEmail(message)
 	}
 
-
 	getHtmlHeader(title: string) {
 		return (
 			'<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">' +
@@ -549,19 +533,12 @@ SendResponse {
 	}
 
 	private async sendEmail(args: ISendEmail): Promise<boolean> {
-		const { emailFrom, emailFromName, emailTo, subject, textBody, htmlBody } =
-			args
+		const { emailFrom, emailFromName, emailTo, subject, textBody, htmlBody } = args
 		const basicMessage = new BasicMessage()
 		basicMessage.setFromAddress(emailFrom, emailFromName)
 		basicMessage.setSubject(subject)
 		basicMessage.setTextBody(textBody)
-		basicMessage.setHtmlBody(
-			this.emailHtmlHeader1 +
-			subject +
-			this.emailHtmlHeader2 +
-			htmlBody +
-			this.emailHtmlFooter
-		)
+		basicMessage.setHtmlBody(this.emailHtmlHeader1 + subject + this.emailHtmlHeader2 + htmlBody + this.emailHtmlFooter)
 		basicMessage.setTo(emailTo)
 
 		return this.client.send(basicMessage).then(

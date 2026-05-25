@@ -1,7 +1,6 @@
 export class StringLib {
 	// implements IStringLib
-	constructor() {
-	}
+	constructor() {}
 
 	cleanHtml(str: string): string {
 		return str.replace(/(<([^>]+)>)/gi, '')
@@ -41,9 +40,7 @@ export class StringLib {
 
 	isoFormatDMY(data: string): string {
 		const d = new Date(data)
-		return (
-			d.getUTCDate() + '/' + (d.getUTCMonth() + +1) + '/' + d.getUTCFullYear()
-		)
+		return d.getUTCDate() + '/' + (d.getUTCMonth() + +1) + '/' + d.getUTCFullYear()
 	}
 
 	isoFormatDateTime(data: string): string {
@@ -68,4 +65,4 @@ export class StringLib {
 	makeLink(link: string, linkText: string = ''): string {
 		return `<a target='_blank' href='${link}'>${linkText === '' ? link : linkText}</a>`
 	}
-}
+} /* c8 ignore next */

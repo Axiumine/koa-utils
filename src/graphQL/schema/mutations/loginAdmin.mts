@@ -4,9 +4,7 @@ import { checkPwdLen } from '@lib/checkPwdLen.mjs'
 import { setLoginCookies } from '@lib/setLoginCookies.mjs'
 import { accessTokenExpiry, generateAccessToken, generateRefreshToken } from '@lib/tokens.mjs'
 import { tryCatchRethrow } from '@lib/tryCatchRethrow.mjs'
-import {
-	checkUserAdminLoginAuthorization
-} from '@private/graphQL/schema/mutations/checkUserAdminLoginAuthorization.mjs'
+import { checkUserAdminLoginAuthorization } from '@private/graphQL/schema/mutations/checkUserAdminLoginAuthorization.mjs'
 import { setRedisLoginSession } from '@private/graphQL/schema/mutations/setRedisLoginSession.mjs'
 import { updateAdminLoginStats } from '@private/graphQL/schema/mutations/updateAdminLoginStats.mjs'
 import * as Sentry from '@sentry/node'
@@ -15,9 +13,9 @@ import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'gra
 import mongoose from 'mongoose'
 
 interface IArgs {
-	email: string;
-	password: string;
-	rememberMe: boolean;
+	email: string
+	password: string
+	rememberMe: boolean
 }
 
 /**
@@ -44,11 +42,7 @@ export const loginAdmin = {
 		try {
 			await session.withTransaction(async () => {
 				// search if the email exists
-				const user = await checkUserAdminLoginAuthorization(
-					uEmail,
-					password,
-					session
-				)
+				const user = await checkUserAdminLoginAuthorization(uEmail, password, session)
 				// pwd valid
 				const uId = user.userId
 				await updateAdminLoginStats(uId, user.lastLogin, rememberMe, session)

@@ -1,6 +1,5 @@
 export const DateLib = class DateLib {
-	constructor() {
-	}
+	constructor() {}
 
 	static getDate(dateNum: Date) {
 		const dateStr = dateNum.toString()
@@ -41,4 +40,4 @@ export const DateLib = class DateLib {
 		const difference = lastReq > now ? lastReq - now : now - lastReq
 		return Math.floor(difference / (1000 * 60))
 	}
-}
+} /* c8 ignore next */

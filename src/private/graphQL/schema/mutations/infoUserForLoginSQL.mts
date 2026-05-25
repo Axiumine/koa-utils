@@ -3,18 +3,15 @@ import { throwErrorWrongUserInput } from '@throw/throwErrorWrongUserInput.mjs'
 import { QueryTypes } from 'sequelize'
 
 export type InfoUserForLoginSQL = {
-	id: number;
-	password: string;
-	valid: boolean;
-	deleted: boolean;
-	disabled: boolean;
-};
+	id: number
+	password: string
+	valid: boolean
+	deleted: boolean
+	disabled: boolean
+}
 
-export async function infoUserForLoginSQL(
-	email: string
-): Promise<InfoUserForLoginSQL> {
-	const sql =
-		'SELECT id, password, valid, deleted, disabled FROM user WHERE email=:email'
+export async function infoUserForLoginSQL(email: string): Promise<InfoUserForLoginSQL> {
+	const sql = 'SELECT id, password, valid, deleted, disabled FROM user WHERE email=:email'
 
 	let ret: InfoUserForLoginSQL[] = (await sequelize.query(sql, {
 		type: QueryTypes.SELECT,
@@ -23,8 +20,7 @@ export async function infoUserForLoginSQL(
 		}
 	})) as InfoUserForLoginSQL[]
 
-	if (ret.length === 0) throw throwErrorWrongUserInput('L\'utente non esiste')
+	if (ret.length === 0) throw throwErrorWrongUserInput("L'utente non esiste")
 
 	return ret[0]
 }
-

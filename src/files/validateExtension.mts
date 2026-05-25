@@ -1,6 +1,5 @@
 import path from 'path'
 
-
 /**
  * Utility function to validate file extension
  * @param filename

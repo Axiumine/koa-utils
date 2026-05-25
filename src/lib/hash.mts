@@ -1,4 +1,4 @@
-import { compare } from '@node-rs/bcrypt'
+import bcrypt from '@node-rs/bcrypt'
 
 /**
  *
@@ -7,7 +7,7 @@ import { compare } from '@node-rs/bcrypt'
  */
 export async function compareHashAsync(clear: string, hash: string) {
 	try {
-		return await compare(clear, hash)
+		return await bcrypt.compare(clear, hash)
 	} catch (err) {
 		throw err
 	}

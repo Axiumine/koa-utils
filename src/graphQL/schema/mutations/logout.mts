@@ -15,14 +15,10 @@ export const logout = {
 			// elimina access token usato per fare questa chiamata
 			// e se esiste ancora, anche il refresh token
 
-			await redisClient.del(
-				`${process.env.REDIS_KEY}refresh:${ctx.state.user.refreshToken}`
-			)
+			await redisClient.del(`${process.env.REDIS_KEY}refresh:${ctx.state.user.refreshToken}`)
 
 			if ((ctx.state.user?.accessToken || '') !== '') {
-				await redisClient.del(
-					`${process.env.REDIS_KEY}access:${ctx.state.user.accessToken}`
-				)
+				await redisClient.del(`${process.env.REDIS_KEY}access:${ctx.state.user.accessToken}`)
 			}
 
 			// delete cookies

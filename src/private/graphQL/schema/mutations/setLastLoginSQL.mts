@@ -26,4 +26,3 @@ export async function setLastLoginSQL(id: number): Promise<boolean> {
 
 	return ret
 }
-

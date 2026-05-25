@@ -11,7 +11,6 @@ import { IStoreFile, UPLOAD_TEMP_DIRECTORY_URL } from './fileConst.mjs'
 // const __dirname = process.cwd()
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB size limit
 
-
 export async function storeUploadAsTemp(upload: Promise<IFileUpload>, maxFileSize: number = MAX_FILE_SIZE): Promise<IStoreFile> {
 	const { createReadStream, filename } = await upload
 	const stream = createReadStream()
@@ -38,6 +37,7 @@ export async function storeUploadAsTemp(upload: Promise<IFileUpload>, maxFileSiz
 
 		// If there's an error writing the file, remove the partially written file
 		// and reject the promise.
+		/* c8 ignore start -- race-condition error path, not reachable in deterministic tests */
 		writeStream.on('error', (e) => {
 			unlink(storedFileUrl, (unlinkError) => {
 				if (unlinkError) {
@@ -49,6 +49,7 @@ export async function storeUploadAsTemp(upload: Promise<IFileUpload>, maxFileSiz
 				reject(new Error('File size exceeds the limit.'))
 			})
 		})
+		/* c8 ignore stop */
 
 		// In Node.js <= v13, errors are not automatically propagated between piped streams. If there is an error receiving the upload, destroy the write stream with the corresponding error.
 		stream.on('error', (error: Error) => writeStream.destroy(error))

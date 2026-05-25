@@ -3,10 +3,7 @@
  * @param filePath
  * @param allowedMimeTypes
  */
-export const _validateMimeType = async (
-	filePath: string,
-	allowedMimeTypes: string[]
-): Promise<string> => {
+export const _validateMimeType = async (filePath: string, allowedMimeTypes: string[]): Promise<string> => {
 	// Dynamically import the file-type module
 	const { fileTypeFromFile } = await import('file-type')
 
@@ -20,12 +17,3 @@ export const _validateMimeType = async (
 		return ''
 	}
 }
-
-
-
-
-
-
-
-
-

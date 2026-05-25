@@ -7,12 +7,7 @@ import { Types } from 'mongoose'
 
 dotenv.config()
 
-export async function setRedisLoginSession(
-	id: Types.ObjectId,
-	accessToken: string,
-	accTokenExp: number,
-	refreshToken: string
-) {
+export async function setRedisLoginSession(id: Types.ObjectId, accessToken: string, accTokenExp: number, refreshToken: string) {
 	const keyDataAccess = { id: id.toString() }
 	const keyDataRefresh = { ...keyDataAccess, access: accessToken }
 
@@ -26,19 +21,10 @@ export async function setRedisLoginSession(
 			redisClient.hSet(keyRefresh, keyDataRefresh) // 90 days
 		])
 
-		await Promise.all([
-			redisClient.expire(keyAccess, accTokenExp),
-			redisClient.expire(
-				keyRefresh,
-				REFRESH_TOKEN_EXPIRY
-			)
-		])
+		await Promise.all([redisClient.expire(keyAccess, accTokenExp), redisClient.expire(keyRefresh, REFRESH_TOKEN_EXPIRY)])
 	} catch (e) {
 		// delete keys
-		await Promise.all([
-			redisClient.del(keyAccess),
-			redisClient.del(keyRefresh)
-		])
+		await Promise.all([redisClient.del(keyAccess), redisClient.del(keyRefresh)])
 		Sentry.captureException(e)
 		throw throwInternalError()
 	}

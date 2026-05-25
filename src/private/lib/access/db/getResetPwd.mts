@@ -1,10 +1,7 @@
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { ClientSession } from 'mongoose'
 
-export const getResetPwd = async function(
-	session: ClientSession,
-	email: string
-) {
+export const getResetPwd = async function (session: ClientSession, email: string) {
 	let ret = null
 
 	const queryRet = await UserBase.findOne({ 'login.email': email })

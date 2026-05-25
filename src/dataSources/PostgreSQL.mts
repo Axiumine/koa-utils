@@ -6,7 +6,6 @@ const { Client, Pool } = pg
 
 dotenv.config()
 
-
 export const pgClient = new Client({
 	user: `${process.env.POSTGRESQL_USER}`,
 	password: `${process.env.POSTGRESQL_PWD}`,
@@ -27,10 +26,12 @@ export const pgPool = new Pool({
 
 // the pool will emit an error on behalf of any idle clients
 // it contains if a backend error or network partition happens
+/* c8 ignore start -- idle-client error path: requires live pg backend partition, not unit-testable */
 pgPool.on('error', (err) => {
 	console.error('Unexpected error on idle client', err)
 	process.exit(-1)
 })
+/* c8 ignore stop */
 
 /*************************
  * Client, for transaction and single connection
@@ -60,8 +61,8 @@ export const PostgreSQLClientConnect = async () => {
 				Sentry.captureMessage(`[PostgreSQL Client] notification: ${msg}`, {
 					level: 'warning',
 					extra: {
-						'channel': msg.channel,
-						'payload': msg.payload
+						channel: msg.channel,
+						payload: msg.payload
 					}
 				})
 			})
@@ -72,9 +73,7 @@ export const PostgreSQLClientConnect = async () => {
 				Sentry.captureMessage(`[PostgreSQL Client] notice: ${msg}`, 'warning')
 			})
 		}
-		console.info(
-			'[PostgreSQL Client] OK: PostgreSQL connection has been established successfully.'
-		)
+		console.info('[PostgreSQL Client] OK: PostgreSQL connection has been established successfully.')
 	} catch (error) {
 		throw {
 			message: '[PostgreSQL Client] FAIL: Unable to connect to the database: ' + error,
@@ -87,13 +86,10 @@ export const PostgreSQLClientDisconnect = async () => {
 	console.info('[PostgreSQL Client] Try close connection to database... ')
 	try {
 		await pgClient.end()
-		console.info(
-			'[PostgreSQL Client] OK: PostgreSQL connection has been closed successfully.'
-		)
+		console.info('[PostgreSQL Client] OK: PostgreSQL connection has been closed successfully.')
 	} catch (error) {
 		throw {
-			message:
-				'[PostgreSQL Client] FAIL: Unable to close the database connection: ' + error,
+			message: '[PostgreSQL Client] FAIL: Unable to close the database connection: ' + error,
 			shutdown: true
 		}
 	}
@@ -109,18 +105,14 @@ export const PostgreSQLClientDisconnect = async () => {
  * pgPoolClient.release()
  */
 
-
 export const PostgreSQLPoolDisconnect = async () => {
 	console.log('[PostgreSQL Pool] Try close connection to database... ')
 	try {
 		await pgPool.end()
-		console.info(
-			'[PostgreSQL Pool] OK: PostgreSQL connection has been closed successfully.'
-		)
+		console.info('[PostgreSQL Pool] OK: PostgreSQL connection has been closed successfully.')
 	} catch (error) {
 		throw {
-			message:
-				'[PostgreSQL Pool] FAIL: Unable to close the database connection: ' + error,
+			message: '[PostgreSQL Pool] FAIL: Unable to close the database connection: ' + error,
 			shutdown: true
 		}
 	}

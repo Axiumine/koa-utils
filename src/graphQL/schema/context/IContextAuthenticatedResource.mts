@@ -3,18 +3,18 @@ import { IncomingHttpHeaders } from 'http'
 import { Types } from 'mongoose'
 
 interface ISessionApi {
-	id: Types.ObjectId;
+	id: Types.ObjectId
 	// disabled?: boolean | 'true'; // no need to read this, user is blocked at resource handler level defined only if true or 'true'
 	// deleted?: boolean | 'true'; // no need to read this, user is blocked at resource handler level defined only if true or 'true'
 }
 
 type IStateApi = {
-	user: ISessionApi;
-};
+	user: ISessionApi
+}
 
 export type IContextAuthenticatedResource = {
-	state: IStateApi;
+	state: IStateApi
 	request: {
 		header?: TCommonHeaders & IncomingHttpHeaders
 	}
-};
+}

@@ -6,7 +6,7 @@ export async function userData4VerifyEmail(uEmail: string) {
 	const user = await UserBase.findOne({ 'login.email': uEmail })
 		.select(
 			'_id account.email.hash account.email.valid account.email.dateLastReq account.email.requestTimes ' +
-			'account.deleted account.disabled'
+				'account.deleted account.disabled'
 		)
 		.lean()
 

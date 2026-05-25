@@ -30,9 +30,8 @@ export async function MongoDBConnect() {
 	mongoose.set('sanitizeFilter', true)
 	mongoose.set('strictQuery', false) // will be done in mongose 7
 	await mongoose.connect(`${process.env.MONGODB_URI}`, options)
-	console.info(
-		'[MongoDB] OK: MongoDB connection has been established successfully. '
-	)
+	/* c8 ignore next 2 -- success log + closing brace; covered only with live MongoDB */
+	console.info('[MongoDB] OK: MongoDB connection has been established successfully. ')
 }
 
 export async function MongoDBDisconnect() {

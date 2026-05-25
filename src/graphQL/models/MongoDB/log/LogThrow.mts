@@ -1,12 +1,12 @@
 import { model, Schema, Types } from 'mongoose'
 
 export interface ILogThrowGraphqlSchema {
-	_id: Types.ObjectId;
-	u: number; // user
-	m: string; // message
-	el: number; // error level
-	i: Date; // inserted
-	__v?: number;
+	_id: Types.ObjectId
+	u: number // user
+	m: string // message
+	el: number // error level
+	i: Date // inserted
+	__v?: number
 }
 
 const LogThrowGraphqlSchema = new Schema<ILogThrowGraphqlSchema>(
@@ -37,8 +37,5 @@ const LogThrowGraphqlSchema = new Schema<ILogThrowGraphqlSchema>(
 	}
 )
 
-const LogThrow = model<ILogThrowGraphqlSchema>(
-	'LogThrow',
-	LogThrowGraphqlSchema
-)
+const LogThrow = model<ILogThrowGraphqlSchema>('LogThrow', LogThrowGraphqlSchema)
 export { LogThrow }

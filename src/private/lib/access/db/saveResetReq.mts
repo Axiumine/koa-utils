@@ -3,12 +3,7 @@ import { throwMongoDBErrors } from '@lib/MongoDB/throwMongoErrors.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { ClientSession, Types } from 'mongoose'
 
-export const saveResetReq = async function(
-	session: ClientSession,
-	_id: Types.ObjectId,
-	now: Date,
-	hash: string
-) {
+export const saveResetReq = async function (session: ClientSession, _id: Types.ObjectId, now: Date, hash: string) {
 	// console.debug('imposto reset in coll Utenti')
 	try {
 		await UserBase.updateOne(

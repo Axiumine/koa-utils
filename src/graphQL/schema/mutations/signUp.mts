@@ -9,8 +9,8 @@ import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'gra
 import mongoose from 'mongoose'
 
 interface IArgs {
-	email: string;
-	password: string;
+	email: string
+	password: string
 }
 
 export const signUp = {
@@ -44,11 +44,7 @@ export const signUp = {
 				/*********************************************
 				 * ok, new user. create user obj for DB. generate hash password
 				 */
-				const hashConfirmEmail = await registerNewUser(
-					uEmail,
-					password,
-					session
-				)
+				const hashConfirmEmail = await registerNewUser(uEmail, password, session)
 
 				/************************************
 				 * send email

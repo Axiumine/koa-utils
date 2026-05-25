@@ -3,17 +3,12 @@ import { ClientSession, Types } from 'mongoose'
 
 interface ISet {
 	login?: {
-		firstLogin?: Date;
-		lastLogin?: Date;
-	};
+		firstLogin?: Date
+		lastLogin?: Date
+	}
 }
 
-
-export async function updateLoginStats4ever(
-	id: Types.ObjectId,
-	lastLogin: null | Date,
-	session: ClientSession
-) {
+export async function updateLoginStats4ever(id: Types.ObjectId, lastLogin: null | Date, session: ClientSession) {
 	const now = new Date()
 
 	// update last login
@@ -30,9 +25,5 @@ export async function updateLoginStats4ever(
 		// not the first login
 	}
 
-	await UserBase.updateOne(
-		{ _id: id },
-		{ $set: dbSet },
-		{ session, runValidators: true }
-	)
+	await UserBase.updateOne({ _id: id }, { $set: dbSet }, { session, runValidators: true })
 }

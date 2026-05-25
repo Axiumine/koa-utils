@@ -13,9 +13,9 @@ import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'gra
 import mongoose from 'mongoose'
 
 interface IArgs {
-	email: string;
-	password: string;
-	rememberMe: boolean;
+	email: string
+	password: string
+	rememberMe: boolean
 }
 
 export const loginRememberme = {
@@ -39,11 +39,7 @@ export const loginRememberme = {
 		try {
 			await session.withTransaction(async () => {
 				// search if the email exists
-				const user = await checkUserLoginAuthorization(
-					uEmail,
-					password,
-					session
-				)
+				const user = await checkUserLoginAuthorization(uEmail, password, session)
 				// pwd valid
 				const uId = user.userId
 				await updateLoginStatsRememberme(uId, user.lastLogin, rememberMe, session)

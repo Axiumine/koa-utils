@@ -1,11 +1,11 @@
 import { model, Schema, Types } from 'mongoose'
 
 export interface IGlobalErrorGraphqlSchema {
-	_id: Types.ObjectId;
-	m: string; // message
-	s: Array<string>; // stack
-	i: Date; // inserted
-	__v?: number;
+	_id: Types.ObjectId
+	m: string // message
+	s: Array<string> // stack
+	i: Date // inserted
+	__v?: number
 }
 
 const GlobalErrorGraphqlSchema = new Schema<IGlobalErrorGraphqlSchema>(
@@ -33,8 +33,5 @@ const GlobalErrorGraphqlSchema = new Schema<IGlobalErrorGraphqlSchema>(
 	}
 )
 
-const LogGlobalError = model<IGlobalErrorGraphqlSchema>(
-	'LogGlobalError',
-	GlobalErrorGraphqlSchema
-)
+const LogGlobalError = model<IGlobalErrorGraphqlSchema>('LogGlobalError', GlobalErrorGraphqlSchema)
 export { LogGlobalError }

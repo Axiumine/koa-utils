@@ -1,4 +1,4 @@
 export interface IUploadTemp {
-	tempFile: string;
-	ext: string;
+	tempFile: string
+	ext: string
 }

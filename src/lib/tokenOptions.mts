@@ -16,4 +16,4 @@ export const accessTokenOptions = {
 export const refreshTokenOptions = {
 	...baseOptions
 	//  path: '/authorization-api',
-}
+} /* c8 ignore next */

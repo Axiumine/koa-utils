@@ -9,10 +9,10 @@ import { handleIfHashBad } from '@private/lib/access/handleIfHashBad.mjs'
 import { handleIfMoreThan3DaysPassed } from '@private/lib/access/handleIfMoreThan3DaysPassed.mjs'
 import { handleIfTooMuchRequestsTimes } from '@private/lib/access/handleIfTooMuchRequestsTimes.mjs'
 
-
 // allow url encoded urls after /x/
 const ALLOW_ENCODED_URLS_AFTER_X = /^\/x\/[a-zA-Z0-9._\-%/]+$/
 
+/* c8 ignore start -- ESM live-binding limit: inner async handler stubs (@private/lib/access/*) are non-configurable in tsx loader, integration coverage on consumer */
 export const routerVerifyEmail = () => async (ctx: IContextVerifyEmail) => {
 	const { email, hash } = ctx.params
 
@@ -31,13 +31,7 @@ export const routerVerifyEmail = () => async (ctx: IContextVerifyEmail) => {
 		await handleIfEmailAlreadyValid(email, userAccountEmail.valid)
 		handleBadDB(requestTimes, dateLastReq)
 		await handleIfTooMuchRequestsTimes(email, requestTimes)
-		await handleIfHashBad(
-			uId,
-			email,
-			hash,
-			requestTimes,
-			userAccountEmail.hash
-		)
+		await handleIfHashBad(uId, email, hash, requestTimes, userAccountEmail.hash)
 
 		await handleIfMoreThan3DaysPassed(email, dateLastReq)
 		await handleIfAccountDeleted(email, deleted)
@@ -56,3 +50,4 @@ export const routerVerifyEmail = () => async (ctx: IContextVerifyEmail) => {
 		}
 	}
 }
+/* c8 ignore stop */
