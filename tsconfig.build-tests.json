@@ -11,16 +11,15 @@
 		"noCheck": true,
 		"skipLibCheck": true,
 		"types": ["mocha", "node", "chai", "sinon"],
-		"baseUrl": ".",
 		"paths": {
-			"@lib/*": ["dist/lib/*"],
-			"@throw/*": ["dist/graphQL/throw/*"],
-			"@private/*": ["dist/private/*"],
-			"@models/*": ["dist/graphQL/models/*"],
-			"@email/*": ["dist/email/*"],
-			"@context/*": ["dist/graphQL/schema/context/*"],
-			"@stypes/*": ["dist/graphQL/schema/types/*"],
-			"@dataSources/*": ["dist/dataSources/*"]
+			"@lib/*": ["./dist/lib/*"],
+			"@throw/*": ["./dist/graphQL/throw/*"],
+			"@private/*": ["./dist/private/*"],
+			"@models/*": ["./dist/graphQL/models/*"],
+			"@email/*": ["./dist/email/*"],
+			"@context/*": ["./dist/graphQL/schema/context/*"],
+			"@stypes/*": ["./dist/graphQL/schema/types/*"],
+			"@dataSources/*": ["./dist/dataSources/*"]
 		}
 	},
 	"include": ["test/**/*.mts"],
