@@ -35,7 +35,7 @@ export const RedisConnect = async () => {
 export async function RedisDisconnect() {
 	console.info('[Redis] Try close connection to database... ')
 	try {
-		await redisClient.quit() // Gracefully close a client's connection to Redis
+		await redisClient.close() // Gracefully close a client's connection to Redis
 		console.info('[Redis] OK: Redis connection has been closed successfully.')
 	} catch (e) {
 		if (e instanceof Error && e.message === 'The client is closed') {

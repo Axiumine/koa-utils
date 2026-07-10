@@ -29,17 +29,17 @@ describe('Redis', () => {
 		redisClient.emit('error', err)
 	})
 
-	it('RedisDisconnect calls quit() on success', async () => {
+	it('RedisDisconnect calls close() on success', async () => {
 		const { redisClient, RedisDisconnect } = await import('../../dist/dataSources/Redis.mjs')
-		const quitStub = sinon.stub(redisClient, 'quit').resolves()
+		const closeStub = sinon.stub(redisClient, 'close').resolves()
 		await RedisDisconnect()
-		expect(quitStub.calledOnce).to.equal(true)
+		expect(closeStub.calledOnce).to.equal(true)
 	})
 
 	it('RedisDisconnect swallows "The client is closed" error', async () => {
 		const { redisClient, RedisDisconnect } = await import('../../dist/dataSources/Redis.mjs')
 		const closed = new Error('The client is closed')
-		sinon.stub(redisClient, 'quit').rejects(closed)
+		sinon.stub(redisClient, 'close').rejects(closed)
 		// should not throw
 		await RedisDisconnect()
 	})
@@ -47,7 +47,7 @@ describe('Redis', () => {
 	it('RedisDisconnect re-throws other errors', async () => {
 		const { redisClient, RedisDisconnect } = await import('../../dist/dataSources/Redis.mjs')
 		const err = new Error('network failure')
-		sinon.stub(redisClient, 'quit').rejects(err)
+		sinon.stub(redisClient, 'close').rejects(err)
 		let caught: unknown
 		try {
 			await RedisDisconnect()
@@ -60,7 +60,7 @@ describe('Redis', () => {
 	it('RedisDisconnect re-throws non-Error values', async () => {
 		const { redisClient, RedisDisconnect } = await import('../../dist/dataSources/Redis.mjs')
 		const nonErr = { code: 'CUSTOM' }
-		sinon.stub(redisClient, 'quit').rejects(nonErr as never)
+		sinon.stub(redisClient, 'close').rejects(nonErr as never)
 		let caught: unknown
 		try {
 			await RedisDisconnect()
