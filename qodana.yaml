@@ -22,6 +22,9 @@ exclude:
       - .qodana
 
 failureConditions:
+  severityThresholds:
+    critical: 0
+    high: 0
   testCoverageThresholds:
     fresh: 100
     total: 100

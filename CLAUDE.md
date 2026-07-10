@@ -4,7 +4,7 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 
 ## What this is
 
-`@axiumine/koa-utils` — an npm-published TypeScript utility library for Koa + GraphQL backends. ESM-only output (`.mjs` / `.d.mts`). Node ^24.14.0. No test suite. Every change ships to consumers via `yarn upload` (= `npm publish`), so backwards compatibility matters.
+`@axiumine/koa-utils` — an npm-published TypeScript utility library for Koa + GraphQL backends. ESM-only output (`.mjs` / `.d.mts`). Node ^24.14.0. Mocha + c8 + sinon + chai test suite (`test/`), 100% coverage enforced via Qodana. Every change ships to consumers via `yarn upload` (= `npm publish`), so backwards compatibility matters.
 
 ## Always
 
@@ -31,7 +31,7 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - Do not add a barrel `index.mts` at the package root or any subdirectory — exports are intentionally per-file.
 - Do not run `yarn upload` / `npm publish` unless the user explicitly asks.
 - Do not run destructive git (`reset --hard`, `clean -fd`, force-push) without confirmation.
-- No tests, no CI in repo — do not invent a test runner; if behaviour needs verifying, ask the user to consume the package in a downstream project.
+- Test runner is Mocha (`yarn test`, `yarn test:coverage`). Do not swap it for another runner. Tests live in `test/`, mirror `src/` layout, use sinon + chai + `mongodb-memory-server`.
 
 ## Build / lint
 
@@ -39,7 +39,8 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - `yarn build:all` — ESM + CJS dual output. Only run when explicitly needed.
 - `yarn lint` — `eslint --fix` followed by `prettier --write 'src/**/*.mts'`. Run after every multi-file edit.
 - `yarn clean` — wipe `dist/`.
-- There is no test script. Type-checking happens during `build`.
+- `yarn test` — `build` + `build:tests` + mocha. `yarn test:coverage` — same via c8 (feeds Qodana coverage gate). Type-checking also happens during `build`.
+- `yarn qodana` / `yarn qodana:cli` — run `test:coverage` then Qodana scan. Gates on coverage 100/100 **and** severity thresholds (`critical:0`, `high:0`) in `qodana.yaml`.
 
 ## Adding a new export — checklist
 
