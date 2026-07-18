@@ -3,16 +3,12 @@
 		"deny": [
 			"Read(./z-ram.sh)",
 			"Edit(./z-ram.sh)",
-			"Write(./z-ram.sh)",
 			"Read(./.npmrc)",
 			"Edit(./.npmrc)",
-			"Write(./.npmrc)",
 			"Read(./.yarnrc)",
 			"Edit(./.yarnrc)",
-			"Write(./.yarnrc)",
 			"Read(./yarnrc)",
-			"Edit(./yarnrc)",
-			"Write(./yarnrc)"
+			"Edit(./yarnrc)"
 		]
 	}
 }
