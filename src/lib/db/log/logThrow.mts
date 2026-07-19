@@ -11,8 +11,8 @@ export const logThrow = function (log: string, errLevel: number) {
 		inserted: new Date()
 	})
 
-	// send email, check last send email per evitare flood (check last send email in collection con TTL / creare variabile che rimane disponibile ad ogni chiamata di questa funzione (lastSendEmail ?))
-	// check db con config, es: admin imposta blocca invio email xke sta sistemando il problema
+	// send email, check last send email to avoid flooding (check last send email in collection with TTL / create a variable that stays available on every call to this function (lastSendEmail ?))
+	// check db with config, e.g.: admin sets block on sending email because they're fixing the problem
 
 	// return newThrowError.save()
 }

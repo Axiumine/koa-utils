@@ -2,7 +2,7 @@ export class NumLib {
 	constructor() {}
 
 	/************
-	 * parseFloat vuole il '.' come separatore decimale !!
+	 * parseFloat wants '.' as the decimal separator !!
 	 *
 	 * @param val
 	 * @returns {number}

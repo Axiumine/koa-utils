@@ -112,8 +112,8 @@ describe('authenticatedLogoutHandler', () => {
 	})
 
 	it('ignores an authorization header that is not prefixed "Bearer access:"', async () => {
-		// Senza il controllo sul prefisso il client sceglierebbe l'intera chiave Redis
-		// e potrebbe leggere le voci refresh: passando dal ramo access.
+		// Without the prefix check, the client would pick the entire Redis key
+		// and could read refresh: entries by going through the access branch.
 		const hGet = sinon.stub(RedisMod.redisClient, 'hGet').resolves('uid')
 		const mw = authenticatedLogoutHandler(keys)
 		const ctx = {
@@ -124,7 +124,7 @@ describe('authenticatedLogoutHandler', () => {
 		const state = (ctx as never as { state: { user: { refreshToken: string; accessToken?: string } } }).state
 		expect(state.user.refreshToken).to.equal(REDIS_REFRESH_KEY)
 		expect(state.user.accessToken).to.be.undefined
-		// solo la lookup del refresh: il token malformato non raggiunge mai Redis
+		// only the refresh lookup: the malformed token never reaches Redis
 		expect(hGet.callCount).to.equal(1)
 	})
 

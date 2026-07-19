@@ -76,30 +76,30 @@ export class SocketLabsLib {
 	}
 
 	/*
-  async sendEmailPostSegnalato(infoUtente, idPost) {
-    const subject = 'Post ' + idPost + ' segnalato'
+  async sendEmailPostReported(userInfo, idPost) {
+    const subject = 'Post ' + idPost + ' reported'
 
-    const messaggioTxt =
-      'Ciao, il post ' +
+    const messageTxt =
+      'Hello, post ' +
       idPost +
-      ' è stato segnalato da ' +
-      infoUtente.personalData.name +
+      ' has been reported by ' +
+      userInfo.personalData.name +
       ' ' +
-      infoUtente.personalData.surname +
+      userInfo.personalData.surname +
       ' (id: ' +
-      infoUtente._id +
+      userInfo._id +
       ').'
 
-    const messaggioHtml =
+    const messageHtml =
       this.getHtmlHeader(subject) +
-      'Ciao, il post ' +
+      'Hello, post ' +
       idPost +
-      ' è stato segnalato da ' +
-      infoUtente.personalData.name +
+      ' has been reported by ' +
+      userInfo.personalData.name +
       ' ' +
-      infoUtente.personalData.surname +
+      userInfo.personalData.surname +
       ' (id: ' +
-      infoUtente._id +
+      userInfo._id +
       ').' +
       this.getHtmlFooter()
 
@@ -108,14 +108,14 @@ export class SocketLabsLib {
       emailFromName: this.platformName,
       emailTo: 'dummy@example.com',
       subject,
-      textBody: messaggioTxt,
-      htmlBody: messaggioHtml
+      textBody: messageTxt,
+      htmlBody: messageHtml
     }
     return await this.sendEmail(message)
   }
 */
 	/**
-	 * @fixme gestire retry
+	 * @fixme handle retry
 	 *
 statusCode: ECONNABORTED
 Error in sending the email
@@ -406,7 +406,7 @@ SendResponse {
 			Sentry.captureException(e)
 			ret = null
 		}
-		return ret ? ret : null // se invio va a buon fine, ritorna l'hash, altrimenti null
+		return ret ? ret : null // if the send succeeds, returns the hash, otherwise null
 	}
 
 	async sendEmailReset(emailTo: string, hash: string, name: string = '') {
@@ -468,7 +468,7 @@ SendResponse {
 			ret = null
 		}
 		/* c8 ignore next -- ret is always null in this function */
-		return ret ? ret : null // se invio va a buon fine, ritorna l'hash, altrimenti null
+		return ret ? ret : null // if the send succeeds, returns the hash, otherwise null
 	}
 
 	async sendEmailPostSegnalato(infoUtente: IInfoUtente, idPost: number | string) {

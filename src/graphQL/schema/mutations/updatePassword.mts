@@ -38,40 +38,40 @@ export const updatePassword = {
 			await session.withTransaction(async () => {
 				const resetPwd = await getResetPwd(session, uEmail)
 
-				// test se email presente nel db
+				// check if email is present in db
 				if (resetPwd === null) {
-					throw throwForbiddenError() // non facciamo sapere che l'email non è presente, per privacy
+					throw throwForbiddenError() // don't reveal whether the email is present, for privacy
 				}
-				// console.debug('--email presente')
+				// console.debug('--email present')
 
 				if (resetPwd.resetHash === null) {
 					throw throwInternalError()
 				}
 				/* c8 ignore next 3 -- defensive guard, resetDateReq cannot be null when resetHash is set */
 				if (resetPwd.resetDateReq === null) {
-					throw throwInternalError() // throwSoftwareError('resetDateReq mancante !')
+					throw throwInternalError() // throwSoftwareError('resetDateReq missing !')
 				}
 
-				// test se hash non presente o non valido
+				// check if hash is missing or invalid
 				if (resetPwd.resetHash !== hash) {
-					throw throwForbiddenError() // non facciamo sapere che l'email non è presente, per privacy
-				} // else console.debug('--hash valido')
+					throw throwForbiddenError() // don't reveal whether the email is present, for privacy
+				} // else console.debug('--hash valid')
 
-				// test se richiesta richiesta entro 1 ora
+				// check if the request was made within 1 hour
 				const dt1 = new Date('' + resetPwd.resetDateReq)
 				if (DateLib.minElapsed(dt1) > 60) {
-					throw throwForbiddenError() // Il link non è più valido
-				} // else console.debug('--link valido')
+					throw throwForbiddenError() // The link is no longer valid
+				} // else console.debug('--link valid')
 
 				const update = await updatePasswordDb(session, resetPwd._id, password)
 				if (!update) {
-					throw throwInternalError() // "Errore di sistema nell'aggiornamento della password."
-				} // else console.debug('--pwd aggiornata')
+					throw throwInternalError() // "System error while updating the password."
+				} // else console.debug('--pwd updated')
 
-				// cancella dati nel db di richiesta pwd
+				// delete password reset request data from db
 				await removeResetReq(session, uEmail)
 
-				// invia email conferma nuova pwd
+				// send new password confirmation email
 				const SocketLabsObj = new SocketLabsLib()
 				await SocketLabsObj.sendConfermaResetPwd(uEmail, resetPwd.name)
 			})

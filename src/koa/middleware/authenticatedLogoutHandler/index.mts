@@ -64,9 +64,9 @@ export const authenticatedLogoutHandler = (keys: Keygrip) => async (ctx: IContex
 		}
 
 		// Access Token, optional
-		// Il prefisso 'Bearer access:' va verificato prima di costruire la chiave Redis:
-		// senza controllo il client decide l'intera chiave e puo' raggiungere le voci refresh:.
-		// Token con prefisso errato vengono ignorati, non rifiutati: l'access token resta opzionale.
+		// The 'Bearer access:' prefix must be checked before building the Redis key:
+		// without this check the client controls the entire key and could reach refresh: entries.
+		// Tokens with the wrong prefix are ignored, not rejected: the access token remains optional.
 		const accessToken = authorization?.startsWith('Bearer access:') ? authorization.replace('Bearer ', '') : ''
 		if (accessToken !== '') {
 			const redAccessSession = await redisClient.hGet(`${process.env.REDIS_KEY}${accessToken}`, 'id') // 'access:' already present

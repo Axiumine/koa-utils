@@ -10,7 +10,7 @@ export async function MongoDBConnect() {
 	console.info('[MongoDB] Try connect to database... ')
 
 	const options: mongoose.ConnectOptions = {
-		// prime direttive
+		// initial directives
 		// useCreateIndex: true,
 		// useNewUrlParser: true,
 		family: 4, // ipv4
@@ -19,10 +19,10 @@ export async function MongoDBConnect() {
 		serverSelectionTimeoutMS: 5000,
 		// retryWrites: true,
 
-		// nuove direttive
+		// new directives
 		autoIndex: true
-		// reconnectTries: Number.MAX_VALUE, // conflitto con useUnifiedTopology
-		// reconnectInterval: 500, // conflitto con useUnifiedTopology
+		// reconnectTries: Number.MAX_VALUE, // conflict with useUnifiedTopology
+		// reconnectInterval: 500, // conflict with useUnifiedTopology
 		// bufferMaxEntries: 0,
 		// keepAlive: true,
 		// keepAliveInitialDelay: 300000

@@ -8,7 +8,7 @@ import Keygrip from 'keygrip'
 import { TCookieRefreshToken } from './TCookieRefreshToken.mjs'
 
 export function verifySignedRefreshToken(ctx: IContextRefresh, keys: Keygrip): string {
-	// @todo deve controllare il cookie o l'header o entrambi e cosa fare se manca uno dei due ??
+	// @todo must check the cookie or the header or both, and what to do if one of the two is missing ??
 
 	const cookieHeader = ctx.request.header?.cookie
 	// console.debug('ctx.request.header', ctx.request.header)

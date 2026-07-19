@@ -9,7 +9,7 @@ export const getResetPwd = async function (session: ClientSession, email: string
 		.session(session)
 		.lean()
 
-	// se trova una richiesta di reset
+	// if a reset request is found
 	if (queryRet !== null) {
 		const resetDateReq = queryRet.account.resetDateReq
 		let resetHash = null

@@ -5,7 +5,7 @@ import { ClientSession, Types } from 'mongoose'
 export async function setEmailHash(session: ClientSession, idUtente: Types.ObjectId) {
 	const hash = emailHash()
 
-	//calcola hash della password
+	//calculate password hash
 	const dtNow = new Date()
 
 	await UserBase.updateOne(
@@ -20,5 +20,5 @@ export async function setEmailHash(session: ClientSession, idUtente: Types.Objec
 		{ session, runValidators: true }
 	)
 
-	return hash // else va in exception @fixme controllare
+	return hash // else it goes into exception @fixme check
 }
