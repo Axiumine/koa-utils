@@ -4,7 +4,7 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 
 ## What this is
 
-`@axiumine/koa-utils` — an npm-published TypeScript utility library for Koa + GraphQL backends. ESM-only output (`.mjs` / `.d.mts`). Node ^24.14.0. Mocha + c8 + sinon + chai test suite (`test/`), 100% coverage enforced via Qodana. Every change ships to consumers via `yarn upload` (= `npm publish`), so backwards compatibility matters.
+`@axiumine/koa-utils` — an npm-published TypeScript utility library for Koa + GraphQL backends. ESM-only output (`.mjs` / `.d.mts`). Node ^24.14.0. Mocha + c8 + sinon + chai test suite (`test/`), **hard 100% coverage** enforced at three layers: `.c8rc.json` thresholds, the `.githooks/pre-commit` gate, and Qodana in CI. Every change ships to consumers via `yarn upload` (= `npm publish`), so backwards compatibility matters.
 
 ## Always
 
@@ -19,6 +19,18 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - Bcrypt: use `encryptPassword` (hash) / `compareHashAsync` (verify), never call `@node-rs/bcrypt` directly. `SALT_ROUNDS=14` is intentional.
 - Input validation: call `checkEmailLen(uEmail)` and `checkPwdLen(password)` at the start of every resolver that accepts them. Always `email.toLowerCase().trim()` before validation.
 - `tokenOptions.secure = false` is intentional — TLS is terminated at Nginx and `secure` is set there. Do not change this in source.
+- **Every new or modified `.mts` in `src/` ships with tests in the same change.** Coverage is 100% on statements, branches, functions and lines — per file, not just in aggregate. A change that adds an uncovered line is incomplete, not "to be tested later".
+- Cover *every* branch you write, including the ones that feel unreachable: each `if`/`else`, every `??` / `?.` / `||` fallback, every `catch`, and every early return. `per-file: true` means one uncovered ternary arm in one file fails the whole run.
+- Before declaring any task done, run `yarn test:coverage` and confirm the c8 summary reads 100% on all four metrics. Do not report "tests pass" from `yarn test` alone — it does not check coverage.
+
+## Coverage — hard 100%
+
+- Thresholds live in `.c8rc.json`: `check-coverage: true`, `per-file: true`, `lines`/`statements`/`functions`/`branches` all at `100`. `yarn test:coverage` exits non-zero the moment any file drops below.
+- `.githooks/pre-commit` runs `yarn test:coverage` on every commit that touches `src/`, `test/`, `package.json`, `.c8rc.json`, `.mocharc.json` or a `tsconfig*.json`. Docs-only commits skip it. Wired by `yarn hooks:install` (via `prepare`), which sets `git config core.hooksPath .githooks`.
+- The right fix for a red gate is always a new test, never a lower threshold and never a new exclude.
+- `.c8rc.json` `exclude` is for genuinely untestable artefacts only — type-only emit (`I*.mjs`, `types/`, `interfaces/`), `private/`, and build output. Do not park real logic there to get green.
+- When a line truly cannot be exercised (unreachable defensive branch), raise it with the owner before excluding it. Do not add `/* c8 ignore */` on your own initiative.
+- Baseline as of this writing: 460 tests, 3263/3263 statements, 427/427 branches, 145/145 functions. Regressions from that baseline are bugs in the change, not in the gate.
 
 ## Never
 
@@ -32,6 +44,10 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - Do not run `yarn upload` / `npm publish` unless the user explicitly asks.
 - Do not run destructive git (`reset --hard`, `clean -fd`, force-push) without confirmation.
 - Test runner is Mocha (`yarn test`, `yarn test:coverage`). Do not swap it for another runner. Tests live in `test/`, mirror `src/` layout, use sinon + chai + `mongodb-memory-server`.
+- Do not lower or delete the `.c8rc.json` thresholds (`check-coverage`, `per-file`, the four `100`s) or the `qodana.yaml` `testCoverageThresholds`. They are the contract, not a default.
+- Do not add entries to `.c8rc.json` `exclude`, or `/* c8 ignore */` comments, to make a red gate green. Write the test instead.
+- Do not commit with `git commit --no-verify` to skip the coverage hook, and do not suggest it to the user as a fix. It is an emergency escape for the owner only — CI blocks anyway.
+- Do not disable, delete or edit `.githooks/pre-commit` without explicit instruction.
 
 ## Build / lint
 
@@ -39,7 +55,9 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - `yarn build:all` — ESM + CJS dual output. Only run when explicitly needed.
 - `yarn lint` — `eslint --fix` followed by `prettier --write 'src/**/*.mts'`. Run after every multi-file edit.
 - `yarn clean` — wipe `dist/`.
-- `yarn test` — `build` + `build:tests` + mocha. `yarn test:coverage` — same via c8 (feeds Qodana coverage gate). Type-checking also happens during `build`.
+- `yarn test` — `build` + `build:tests` + mocha. No coverage check; passing here is not enough to call a change done.
+- `yarn test:coverage` — same via c8, and **fails the run below 100%** on any file. This is the command that decides whether a change is finished. Also feeds the Qodana coverage gate.
+- `yarn hooks:install` — point git at `.githooks/` (`core.hooksPath`). Idempotent, no-ops outside a git repo, runs automatically from `prepare` on `yarn install`.
 - `yarn qodana` / `yarn qodana:cli` — run `test:coverage` then Qodana scan. Gates on coverage 100/100 **and** severity thresholds (`critical:0`, `high:0`) in `qodana.yaml`.
 
 ## Adding a new export — checklist
@@ -54,7 +72,9 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
    }
    ```
 4. Run `yarn build` to confirm emit + types.
-5. Bump `version` in `package.json` (semver: patch for fixes, minor for additive, major for breaking). Do not bump unless asked.
+5. Add `test/<area>/<Name>.spec.mts` mirroring the `src/` path, covering every branch of the new symbol.
+6. Run `yarn test:coverage` — it must report 100% on statements, branches, functions and lines. Anything less blocks the commit hook.
+7. Bump `version` in `package.json` (semver: patch for fixes, minor for additive, major for breaking). Do not bump unless asked.
 
 ## Auth flow cheat sheet
 
