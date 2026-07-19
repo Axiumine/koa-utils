@@ -11,12 +11,14 @@ export async function setLastLoginSQL(id: number): Promise<boolean> {
 
 	let ret = false
 	try {
-		const sql = `UPDATE user
-								 SET lastlogin = '${timestamp}'
-								 WHERE id = ${id}`
+		const sql = 'UPDATE user SET lastlogin = :timestamp WHERE id = :id'
 
 		await sequelize.query(sql, {
-			type: QueryTypes.UPDATE
+			type: QueryTypes.UPDATE,
+			replacements: {
+				timestamp: timestamp,
+				id: id
+			}
 		})
 
 		ret = true
