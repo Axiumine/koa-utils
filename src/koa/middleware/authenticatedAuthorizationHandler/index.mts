@@ -16,17 +16,17 @@ export const authenticatedAuthorizationHandler = (keys: Keygrip) => async (ctx: 
 
 	/***************************
 	 * CLIENT:
-	 * - invia opaque token come cookie
+	 * - sends opaque token as cookie
 	 */
 
-	// la chiave esiste in redis ? ok, read redis
+	// does the key exist in redis? ok, read redis
 	const refreshTokenRedis = verifySignedRefreshToken(ctx, keys)
 	const redSession = await redisClient.hGetAll(`${process.env.REDIS_KEY}${refreshTokenRedis}`)
 	if (Object.keys(redSession).length !== 0) {
 		const redData = { ...redSession } // For safety, Redis return an object without the default Object.prototype  in its prototype chain.
 
-		// user è riportato come bloccato dentro alla sessione ?
-		// da usare per bloccare l'accesso all'utente, invece di eliminare il token, impostare questo flag da pannello di controllo
+		// is the user reported as blocked within the session?
+		// use this to block user access instead of deleting the token — set this flag from the control panel
 		if (redData?.disabled || redData?.deleted) {
 			throw throwForbiddenError()
 		}

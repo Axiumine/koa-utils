@@ -2,7 +2,7 @@ import { LogStatsGraphql } from '@models/MongoDB/log/LogStatsGraphql.mjs'
 import { Types } from 'mongoose'
 
 /**
- * Logga operazioni fatte da utenti
+ * Logs operations performed by users
  * @param owner
  * @param nome
  * @param status

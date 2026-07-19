@@ -31,14 +31,14 @@ export const authenticatedResourceHandler = () => async (ctx: IContextAuthentica
 
 	const key = authorization.replace('Bearer ', '')
 
-	// la chiave access:xxx esiste in Redis ? read Redis...
+	// does the key access:xxx exist in Redis ? read Redis...
 	const redSession = await redisClient.hGetAll(
 		`${process.env.REDIS_KEY}${key}` // 'access:' present inside key
 	)
 	if (Object.keys(redSession).length !== 0) {
 		const redData = { ...redSession } // For safety, Redis return an object without the default Object.prototype  in its prototype chain.
-		// user è riportato come bloccato dentro alla sessione ?
-		// da usare per bloccare l'accesso all'utente, invece di eliminare il token, impostare questo flag da pannello di controllo
+		// is the user reported as blocked within the session ?
+		// use this to block user access instead of deleting the token, set this flag from the control panel
 		if (redData?.disabled || redData?.deleted) {
 			throw throwForbiddenError()
 		}

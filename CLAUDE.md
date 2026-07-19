@@ -26,7 +26,7 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - Do not import from `src/private/**` outside the package, and do not add `private/*` to `package.json` `exports`. Those modules are internal.
 - Do not introduce `.ts` files — extension is `.mts`. Do not write `import x from './y'` — write `'./y.mjs'`.
 - Do not add `dependencies` to `package.json`. Library declares zero runtime deps; everything is `peerDependencies` so the consumer controls versions.
-- Do not strip the `console.debug` / Italian comments wholesale — owner uses them for live debugging. Only remove when modifying the exact lines they describe.
+- Do not strip the commented-out `console.debug` lines wholesale — owner uses them for live debugging. Only remove when modifying the exact lines they describe.
 - Do not replace `accessTokenExpiry()`'s 30–90 min jitter with a constant.
 - Do not add a barrel `index.mts` at the package root or any subdirectory — exports are intentionally per-file.
 - Do not run `yarn upload` / `npm publish` unless the user explicitly asks.
@@ -78,7 +78,7 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 ## Owner / style
 
 - Maintainer: Giovanni Manzoni (`@giovannimanzoni`). Single CODEOWNER.
-- Comments are mixed Italian/English — preserve the language already present in the file you edit.
+- Comments are English-only. The codebase was mixed Italian/English and was fully translated; do not reintroduce Italian.
 - Commit style (recent): conventional commits (`feat:`, `docs:`, `fix:` ...). Subject ≤ ~50 chars.
 - License: GPL-3.0-or-later. Any file added should be compatible.
 

@@ -12,8 +12,8 @@ export const logout = {
 	type: new GraphQLNonNull(GraphQLBoolean),
 	async resolve(_: unknown, {}, ctx: IContextLogout) {
 		try {
-			// elimina access token usato per fare questa chiamata
-			// e se esiste ancora, anche il refresh token
+			// delete the access token used to make this call
+			// and, if it still exists, the refresh token too
 
 			await redisClient.del(`${process.env.REDIS_KEY}refresh:${ctx.state.user.refreshToken}`)
 

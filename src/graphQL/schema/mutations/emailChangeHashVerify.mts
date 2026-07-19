@@ -46,7 +46,7 @@ export const emailChangeHashVerify = {
 		const accountEmail = user.account.email
 		if (hash === accountEmail.hash) {
 			if (typeof accountEmail.dateLastReq === 'undefined') {
-				// @fixme sentry 'dateLastReq è undefined'
+				// @fixme sentry 'dateLastReq is undefined'
 				throw throwInternalError()
 			}
 
@@ -81,7 +81,7 @@ export const emailChangeHashVerify = {
 			} else {
 				// valid request. is this email free ?
 
-				// nel frattempo si è registrato qualche utente con questo indirizzo email ??
+				// meanwhile, has some user registered with this email address ??
 				const qty = await UserBase.countDocuments({ 'login.email': uEmail })
 
 				if (qty === 0) {

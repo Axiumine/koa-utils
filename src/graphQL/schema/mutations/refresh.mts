@@ -17,12 +17,12 @@ export const refresh = {
 		// console.debug('refresh')
 		let status = false // default
 
-		// ha il refresh token, access token già scaduto
+		// has the refresh token, access token already expired
 
-		// prende id dell'utente già copiato in ctx
+		// gets the user id already copied into ctx
 		const userId = ctx.state.user.id.toString()
 
-		// genera i 2 nuovi token
+		// generates the 2 new tokens
 		let accessToken = generateAccessToken()
 		let refreshToken = generateRefreshToken()
 		const keyAccess = `${process.env.REDIS_KEY}access:${accessToken}`
@@ -48,7 +48,7 @@ export const refresh = {
 
 			setLoginCookies(ctx, refreshToken)
 
-			// elimina refresh token usato per fare questa chiamata
+			// deletes the refresh token used to make this call
 			await redisClient.del(`${process.env.REDIS_KEY}${oldRefresh}`)
 
 			status = true

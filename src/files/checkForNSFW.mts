@@ -1,7 +1,7 @@
 // const Sightengine = require('sightengine')('your-api-user', 'your-api-secret');
 
 /*
-// https://sightengine.com/ ma ci sono anche altri servizi
+// https://sightengine.com/ but there are other services too
 export async function checkForNSFW(imageUrl: string) {
 	try {
     const result = await Sightengine.check(['nudity', 'wad']).set_url(imageUrl)
