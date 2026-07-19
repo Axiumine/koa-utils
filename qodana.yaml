@@ -12,6 +12,18 @@ include:
   - name: TypeScriptUnresolvedReference
   - name: TypeScriptValidateTypes
 
+  # Ultimate Plus exclusives (dependencyAnalysis plugin, license audit).
+  # The other UP-gated inspections (CheckDependencyLicenses, HardcodedPasswords,
+  # NpmVulnerableApiCode, VulnerableLibrariesLocal) are already on via
+  # qodana.recommended. This one ships enabledByDefault=false, so it needs
+  # an explicit include.
+  # Findings stay report-only: raiseLicenseProblems is intentionally NOT set,
+  # so a license violation cannot trip failureConditions below.
+  # CheckThirdPartySoftwareList is deliberately NOT enabled: it reports High
+  # ("No third-party software report is found in the project") until a generated
+  # licenses list is committed, which would trip severityThresholds.high: 0.
+  - name: CheckModuleLicenses
+
 exclude:
   - name: All
     paths:
