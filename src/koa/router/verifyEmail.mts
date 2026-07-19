@@ -31,7 +31,7 @@ export const routerVerifyEmail = () => async (ctx: IContextVerifyEmail) => {
 		await handleIfEmailAlreadyValid(email, userAccountEmail.valid)
 		handleBadDB(requestTimes, dateLastReq)
 		await handleIfTooMuchRequestsTimes(email, requestTimes)
-		await handleIfHashBad(uId, email, hash, requestTimes, userAccountEmail.hash)
+		await handleIfHashBad({ uId, uEmail: email, hash, requestTimes, dbHash: userAccountEmail.hash })
 
 		await handleIfMoreThan3DaysPassed(email, dateLastReq)
 		await handleIfAccountDeleted(email, deleted)

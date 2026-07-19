@@ -4,21 +4,19 @@ import mongoose from 'mongoose'
 import { EMAIL_CHECK_LINK } from './Constants.mjs'
 import { incReqTimes } from './db/incReqTimes.mjs'
 
-/**
- * l'hash dell'url di attivazione è errato
- * @param uId
- * @param uEmail
- * @param hash
- * @param requestTimes
- * @param dbHash
- */
-export async function handleIfHashBad(
-	uId: mongoose.Types.ObjectId,
-	uEmail: string,
-	hash: string,
-	requestTimes: number = 0, // but the check is already performed
+interface IHandleIfHashBadArgs {
+	uId: mongoose.Types.ObjectId
+	uEmail: string
+	hash: string
+	requestTimes?: number // but the check is already performed
 	dbHash?: string
-) {
+}
+
+/**
+ * The hash in the activation url is wrong
+ * @param args
+ */
+export async function handleIfHashBad({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) {
 	if (hash !== dbHash) {
 		// hash failed
 		await incReqTimes(uId)
