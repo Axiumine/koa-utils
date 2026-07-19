@@ -5,6 +5,8 @@ import * as RedisMod from '../../../dist/dataSources/Redis.mjs'
 
 import { expectGraphQLErrorAsync } from '../../helpers/assertGraphQLError.mjs'
 
+const VALID_UUID = '11111111-1111-4111-8111-111111111111'
+
 describe('authenticatedResourceHandler', () => {
 	afterEach(() => {
 		sinon.restore()
@@ -39,11 +41,29 @@ describe('authenticatedResourceHandler', () => {
 		)
 	})
 
+	it('throws 499 Missing/malformed when the "access:" suffix is not a v4 uuid', async () => {
+		// The prefix check alone leaves the rest of the Redis key client-controlled.
+		const hGetAll = sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
+		const mw = authenticatedResourceHandler()
+		const ctx = {
+			request: { header: { authorization: 'Bearer access:not-a-uuid' } },
+			state: {}
+		} as never
+		await expectGraphQLErrorAsync(
+			() => mw(ctx, async () => undefined),
+			499,
+			'Token Required',
+			'Missing/malformed/invalid token.'
+		)
+		// the malformed token never reaches Redis
+		expect(hGetAll.callCount).to.equal(0)
+	})
+
 	it('populates ctx.state.user and calls next when valid session found in Redis', async () => {
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({ id: '507f1f77bcf86cd799439011', email: 'test@test.com' })
 		const mw = authenticatedResourceHandler()
 		const ctx = {
-			request: { header: { authorization: 'Bearer access:some-uuid' } },
+			request: { header: { authorization: `Bearer access:${VALID_UUID}` } },
 			state: {}
 		} as never
 		let nextCalled = false
@@ -56,7 +76,7 @@ describe('authenticatedResourceHandler', () => {
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({ id: '507f1f77bcf86cd799439011', disabled: 'true' })
 		const mw = authenticatedResourceHandler()
 		const ctx = {
-			request: { header: { authorization: 'Bearer access:some-uuid' } },
+			request: { header: { authorization: `Bearer access:${VALID_UUID}` } },
 			state: {}
 		} as never
 		await expectGraphQLErrorAsync(
@@ -70,7 +90,7 @@ describe('authenticatedResourceHandler', () => {
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({ id: '507f1f77bcf86cd799439011', deleted: 'true' })
 		const mw = authenticatedResourceHandler()
 		const ctx = {
-			request: { header: { authorization: 'Bearer access:some-uuid' } },
+			request: { header: { authorization: `Bearer access:${VALID_UUID}` } },
 			state: {}
 		} as never
 		await expectGraphQLErrorAsync(
@@ -84,7 +104,7 @@ describe('authenticatedResourceHandler', () => {
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
 		const mw = authenticatedResourceHandler()
 		const ctx = {
-			request: { header: { authorization: 'Bearer access:some-uuid' } },
+			request: { header: { authorization: `Bearer access:${VALID_UUID}` } },
 			state: {}
 		} as never
 		await expectGraphQLErrorAsync(
@@ -99,7 +119,7 @@ describe('authenticatedResourceHandler', () => {
 		process.env.INTROSPECTION_CODE = 'secret123'
 		const mw = authenticatedResourceHandler()
 		const ctx = {
-			request: { header: { authorization: 'Bearer access:some-uuid', 'x-introspectioncode': 'secret123' } },
+			request: { header: { authorization: `Bearer access:${VALID_UUID}`, 'x-introspectioncode': 'secret123' } },
 			state: {}
 		} as never
 		let nextCalled = false

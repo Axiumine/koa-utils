@@ -1,6 +1,6 @@
 {
 	"name": "@axiumine/koa-utils",
-	"version": "3.8.3",
+	"version": "3.10.0",
 	"description": "Koa Utils",
 	"type": "module",
 	"repository": {
@@ -77,6 +77,10 @@
 		"./lib/db/login/ILoginSet": {
 			"import": "./dist/lib/db/login/ILoginSet.mjs",
 			"types": "./dist/lib/db/login/ILoginSet.d.mts"
+		},
+		"./lib/Redis/buildPrefixedRedisKey": {
+			"import": "./dist/lib/Redis/buildPrefixedRedisKey.mjs",
+			"types": "./dist/lib/Redis/buildPrefixedRedisKey.d.mts"
 		},
 		"./lib/Redis/fromRedisBooleanValue": {
 			"import": "./dist/lib/Redis/fromRedisBooleanValue.mjs",
@@ -565,6 +569,14 @@
 		"./lib/ICookies": {
 			"import": "./dist/lib/ICookies.mjs",
 			"types": "./dist/lib/ICookies.d.mts"
+		},
+		"./lib/isSessionBlocked": {
+			"import": "./dist/lib/isSessionBlocked.mjs",
+			"types": "./dist/lib/isSessionBlocked.d.mts"
+		},
+		"./lib/isValidUuidV4": {
+			"import": "./dist/lib/isValidUuidV4.mjs",
+			"types": "./dist/lib/isValidUuidV4.d.mts"
 		},
 		"./lib/NumLib": {
 			"import": "./dist/lib/NumLib.mjs",
