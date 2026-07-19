@@ -8,7 +8,6 @@
 		"dist/**/*.d.mts",
 		"dist/**/types/*.mjs",
 		"dist/**/interfaces/**",
-		"dist/private/**",
 		"dist/graphQL/schema/context/TCommonHeaders.mjs",
 		"dist/koa/middleware/authenticatedAuthorizationHandler/TCookieRefreshToken.mjs",
 		"dist/files/checkForNSFW.mjs",
