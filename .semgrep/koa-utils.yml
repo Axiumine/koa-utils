@@ -1,0 +1,284 @@
+# koa-utils custom security rules — consolidated final set
+#
+# Environment constraints (do not re-derive):
+#  - Semgrep 1.169.0 cannot select .mts files as targets. This file is run against a shadow
+#    tree (scratchpad/shadow) that mirrors src/**/*.mts as **/*.ts with byte-identical
+#    content, so line numbers map 1:1 onto the real src/ tree; only the extension differs.
+#  - Semgrep OSS taint mode is INTRA-FILE ONLY. A pattern-source in one file and a
+#    pattern-sink in another file will NOT be linked, even when the real data flow crosses
+#    files (see koa-utils.redis-injection.key-injection notes below for a known instance
+#    of this exact limitation in this codebase).
+#  - Every rule below was independently re-run against the real 176-file shadow tree as
+#    part of adversarial verification; see per-rule "status" metadata for the outcome.
+
+rules:
+  # --- NoSQL injection (Mongoose) ---------------------------------------------------
+  # STATUS: fires on 0 real lines today. Kept as a regression guard: the sink category
+  # (Mongoose findOne/find/update*/delete*/countDocuments filters) genuinely exists all
+  # over this codebase, every current filter uses fixed literal keys, and a synthetic
+  # canary confirmed the rule correctly fires on all 4 vulnerable shapes it targets.
+  - id: koa-utils.nosql-injection.dynamic-filter-key
+    languages: [typescript]
+    severity: ERROR
+    message: >
+      A Mongoose query/update filter is built with a computed (bracket) property key
+      ([$KEY]: ...). If $KEY's name is derived from user-controlled input, an attacker
+      can inject a Mongo operator (e.g. "$where", "$gt", "$ne", "$regex") as the field
+      name itself, bypassing the intended filter/authorization logic entirely. Only the
+      *value* side of a Mongo filter should ever be attacker-controlled; the key must be
+      a fixed literal. Fix: replace the computed key with an explicit, literal field name.
+    patterns:
+      - pattern-either:
+          - pattern: '$MODEL.findOne({ ..., [$KEY]: $VAL, ... }, ...)'
+          - pattern: '$MODEL.findOneAndUpdate({ ..., [$KEY]: $VAL, ... }, ...)'
+          - pattern: '$MODEL.findOneAndDelete({ ..., [$KEY]: $VAL, ... }, ...)'
+          - pattern: '$MODEL.find({ ..., [$KEY]: $VAL, ... }, ...)'
+          - pattern: '$MODEL.updateOne({ ..., [$KEY]: $VAL, ... }, ...)'
+          - pattern: '$MODEL.updateMany({ ..., [$KEY]: $VAL, ... }, ...)'
+          - pattern: '$MODEL.deleteOne({ ..., [$KEY]: $VAL, ... }, ...)'
+          - pattern: '$MODEL.deleteMany({ ..., [$KEY]: $VAL, ... }, ...)'
+          - pattern: '$MODEL.countDocuments({ ..., [$KEY]: $VAL, ... }, ...)'
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/*.test.ts"
+    metadata:
+      category: security
+      confidence: MEDIUM
+      status: regression-guard (0 findings on real code, verified live via synthetic canary)
+      cwe: 'CWE-943: Improper Neutralization of Special Elements in Data Query Logic'
+      references:
+        - https://www.mongodb.com/docs/manual/faq/security/#how-can-i-prevent-injection-attacks-in-mongodb-
+
+  - id: koa-utils.nosql-injection.object-spread-filter
+    languages: [typescript]
+    severity: ERROR
+    message: >
+      A Mongoose query/update filter object is built via object spread (...$SPREAD)
+      instead of listing fixed field names. If $SPREAD (or any part of it) originates
+      from client input (request body, GraphQL args, query string), an attacker can add
+      arbitrary keys to the filter, including Mongo operators, achieving NoSQL operator
+      injection / auth bypass. Fix: destructure only the specific fields you intend to
+      filter on and assign them to fixed, literal keys instead of spreading.
+    patterns:
+      - pattern-either:
+          - pattern: '$MODEL.findOne({ ...$SPREAD }, ...)'
+          - pattern: '$MODEL.find({ ...$SPREAD }, ...)'
+          - pattern: '$MODEL.updateOne({ ...$SPREAD }, ...)'
+          - pattern: '$MODEL.updateMany({ ...$SPREAD }, ...)'
+          - pattern: '$MODEL.deleteOne({ ...$SPREAD }, ...)'
+          - pattern: '$MODEL.deleteMany({ ...$SPREAD }, ...)'
+          - pattern: '$MODEL.countDocuments({ ...$SPREAD }, ...)'
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/*.test.ts"
+    metadata:
+      category: security
+      confidence: MEDIUM
+      status: regression-guard (0 findings on real code, verified live via synthetic canary)
+      cwe: 'CWE-943: Improper Neutralization of Special Elements in Data Query Logic'
+      references:
+        - https://www.mongodb.com/docs/manual/faq/security/#how-can-i-prevent-injection-attacks-in-mongodb-
+
+  - id: koa-utils.nosql-injection.where-operator
+    languages: [typescript]
+    severity: WARNING
+    message: >
+      Mongo query uses the "$where" operator, which executes arbitrary JavaScript
+      server-side against every document. This is dangerous by design (performance/DoS
+      risk, plus injection risk if any part of the expression is built from user input)
+      and is disabled/restricted on many Mongo deployments. Fix: replace with an
+      equivalent structured query operator (e.g. $expr with aggregation operators, or a
+      plain field comparison) instead of $where.
+    patterns:
+      - pattern-either:
+          - pattern: '$MODEL.findOne({ ..., $where: $EXPR, ... }, ...)'
+          - pattern: '$MODEL.find({ ..., $where: $EXPR, ... }, ...)'
+          - pattern: '$MODEL.updateOne({ ..., $where: $EXPR, ... }, ...)'
+          - pattern: '$MODEL.updateMany({ ..., $where: $EXPR, ... }, ...)'
+          - pattern: '$MODEL.deleteOne({ ..., $where: $EXPR, ... }, ...)'
+          - pattern: '$MODEL.deleteMany({ ..., $where: $EXPR, ... }, ...)'
+          - pattern: '$MODEL.countDocuments({ ..., $where: $EXPR, ... }, ...)'
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/*.test.ts"
+    metadata:
+      category: security
+      confidence: MEDIUM
+      status: regression-guard (0 findings on real code, verified live via synthetic canary)
+      cwe: 'CWE-943: Improper Neutralization of Special Elements in Data Query Logic'
+      references:
+        - https://www.mongodb.com/docs/manual/faq/security/#how-can-i-prevent-injection-attacks-in-mongodb-
+
+  # --- SQL injection (Sequelize raw query) ------------------------------------------
+  # STATUS: fires on real code — 1 confirmed finding, 0 false positives.
+  - id: koa-utils.sql-injection.raw-query-interpolation
+    mode: taint
+    severity: ERROR
+    message: >
+      A template literal containing interpolated expressions (`${...}`) flows into
+      sequelize.query() as the raw SQL string, and the call has no `replacements`
+      option to parameterize the values. Any variable embedded in the template
+      literal is concatenated directly into the SQL text, so if it ever originates
+      from user input this is classic SQL injection. Fix: build the query with
+      `replacements` (or `bind`) instead of string interpolation.
+    languages: [typescript, javascript]
+    pattern-sources:
+      - pattern: |
+          `...${$VAR}...`
+    pattern-sinks:
+      - patterns:
+          - pattern: sequelize.query($SQL, ...)
+          - focus-metavariable: $SQL
+    pattern-sanitizers:
+      - pattern: |
+          sequelize.query($SQL, {..., replacements: $R, ...})
+      - pattern: |
+          sequelize.query($SQL, {..., bind: $R, ...})
+    metadata:
+      category: security
+      confidence: HIGH
+      status: "confirmed live finding: src/private/graphQL/schema/mutations/setLastLoginSQL.mts:18"
+      cwe: 'CWE-89: Improper Neutralization of Special Elements used in an SQL Command'
+      references:
+        - https://sequelize.org/docs/v6/core-concepts/raw-queries/
+
+  # --- Redis key injection -----------------------------------------------------------
+  # STATUS: fires on real code — 2 confirmed findings, 0 false positives. Note: a 3rd,
+  # related instance (authenticatedLogoutHandler.mts:71 -> graphQL/schema/mutations/
+  # logout.mts:21) exists but crosses a file boundary and is invisible to this rule
+  # because Semgrep OSS taint is intra-file only (see header comment).
+  - id: koa-utils.redis-injection.key-injection
+    mode: taint
+    severity: WARNING
+    message: >
+      A value derived from a client-controlled Koa header (Authorization / Cookie) is
+      interpolated into a Redis key without first passing through signature verification
+      (e.g. verifySignedRefreshToken) or an equivalent allowlist/format check. The
+      attacker fully controls the key suffix used against redisClient, which can be used
+      to probe or collide with unrelated keys in the same keyspace (${REDIS_KEY} prefix
+      is shared across all session data). Fix: verify/derive the key only from a
+      signature-checked or server-generated token, never directly from the raw header.
+    languages: [typescript]
+    pattern-sources:
+      - pattern: ctx.request.header?.authorization
+      - pattern: ctx.request.header.authorization
+      - pattern: ctx.request.header?.cookie
+      - pattern: ctx.request.header.cookie
+      - pattern: ctx.request.header?.['authorization']
+      - pattern: ctx.request.header?.['cookie']
+    pattern-sanitizers:
+      - pattern: verifySignedRefreshToken(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: redisClient.hGetAll(`...${$TAINT}...`)
+              - pattern: redisClient.hGet(`...${$TAINT}...`, ...)
+              - pattern: redisClient.hSet(`...${$TAINT}...`, ...)
+              - pattern: redisClient.del(`...${$TAINT}...`)
+              - pattern: redisClient.expire(`...${$TAINT}...`, ...)
+              - pattern: redisClient.get(`...${$TAINT}...`)
+              - pattern: redisClient.set(`...${$TAINT}...`, ...)
+          - focus-metavariable: $TAINT
+    metadata:
+      category: security
+      confidence: MEDIUM
+      status: "confirmed live findings: authenticatedLogoutHandler/index.mts:69, authenticatedResourceHandler/index.mts:36"
+      subcategory: [taint-analysis]
+      cwe: 'CWE-943: Improper Neutralization of Special Elements in Data Query Logic'
+      references:
+        - https://redis.io/docs/latest/develop/reference/security/
+
+  # --- Path traversal (filesystem sinks) ---------------------------------------------
+  # STATUS: fires on real code — 6 confirmed findings (5 originally + fs.unlink($SINK)
+  # sink pattern added after a verified false-negative sweep found reEncode.mts:37).
+  # 0 false positives. All sinks sit in exported public-API functions; exploitability
+  # depends on how a *consumer* of this library wires these functions to user input.
+  - id: koa-utils.path-traversal.unsanitized-param
+    mode: taint
+    languages: [typescript]
+    severity: WARNING
+    message: >-
+      An unsanitized function parameter is used to build a filesystem path that is then
+      read, written, moved, or deleted. If a caller passes a value containing '../',
+      this can escape the intended directory (path traversal). Fix: validate/sanitize
+      the parameter (e.g. reject '..', or use path.basename()) before using it in a
+      filesystem path.
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: function $F(..., $PARAM, ...) { ... }
+              - pattern: async function $F(..., $PARAM, ...) { ... }
+          - focus-metavariable: $PARAM
+    pattern-sanitizers:
+      - pattern: path.basename(...)
+      - pattern: path.extname(...)
+      - pattern: $X.replace(/\.\./g, ...)
+    pattern-sinks:
+      - pattern: fs.move($SRC, $SINK, ...)
+      - pattern: fs.move($SINK, $DST, ...)
+      - pattern: fs.writeFile($SINK, ...)
+      - pattern: fs.readFile($SINK, ...)
+      - pattern: fs.remove($SINK)
+      - pattern: fs.ensureDir($SINK)
+      - pattern: fs.unlink($SINK)
+      - pattern: createWriteStream($SINK)
+      - pattern: createReadStream($SINK)
+      - pattern: unlink($SINK, ...)
+    metadata:
+      category: security
+      confidence: MEDIUM
+      status: "confirmed live findings: files/moveTempFile.mts:12,19; files/validateJpgPngExtension.mts:7; files/validateMimeType.mts:12; files/validatePdfExtension.mts:7; private/files/reEncode.mts:37"
+      cwe: 'CWE-22: Improper Limitation of a Pathname to a Restricted Directory'
+      references:
+        - https://owasp.org/www-community/attacks/Path_Traversal
+
+  # --- Open redirect -------------------------------------------------------------------
+  # STATUS: fires on 0 real lines today (the one call site in the codebase,
+  # koa/router/verifyEmail.mts, gates ctx.redirect behind a regex-test sanitizer idiom
+  # this rule recognizes). Kept as a regression guard: the sink (ctx.redirect) and
+  # sanitizer idiom both genuinely exist in this codebase, and a synthetic 3-bad/1-good
+  # canary confirmed the rule correctly discriminates unguarded from guarded redirects.
+  - id: koa-utils.open-redirect.unvalidated
+    mode: taint
+    severity: ERROR
+    message: >-
+      User-controlled value flows into ctx.redirect() without a validated allowlist
+      check first. If an attacker can control this value they can redirect victims to
+      an attacker-controlled origin (open redirect), which is commonly chained into
+      phishing / OAuth token theft. Fix: validate the target against a strict
+      same-origin pattern (e.g. a regex anchored to a known internal path prefix)
+      before calling ctx.redirect.
+    languages: [typescript, javascript]
+    metadata:
+      category: security
+      confidence: MEDIUM
+      status: regression-guard (0 findings on real code, verified live via synthetic canary)
+      subcategory: [open-redirect]
+      cwe: "CWE-601: URL Redirection to Untrusted Site ('Open Redirect')"
+      owasp: "A01:2021 - Broken Access Control"
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: ctx.params
+              - pattern: ctx.request.query
+              - pattern: ctx.query
+              - pattern: ctx.request.body
+              - pattern: (($E) as Error).message
+              - pattern: $E.message
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  if ($RE.test($X)) { ... }
+              - pattern: |
+                  if ($X.startsWith($PREFIX)) { ... }
+              - pattern: |
+                  if ($X === $LIT) { ... }
+      - pattern-either:
+          - pattern: $RE.test($X)
+          - pattern: encodeURIComponent($X)
+    pattern-sinks:
+      - pattern: $CTX.redirect(...)
