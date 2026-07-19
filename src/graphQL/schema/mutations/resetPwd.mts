@@ -38,58 +38,57 @@ export const resetPwd = {
 				const resetPwdVal = await getResetPwd(session, uEmail)
 
 				// don't reveal that the email doesn't exist, for privacy
-				if (resetPwdVal !== null) {
-					// console.debug("the email exists")
+				if (resetPwdVal === null) return
+				// console.debug("the email exists")
 
-					// ok, email exists
+				// ok, email exists
 
-					// -> wait 10 minutes from the last password reset request
+				// -> wait 10 minutes from the last password reset request
 
-					// if a password request already exists, read the date in seconds.
-					const lastReq = typeof resetPwdVal.resetDateReq !== 'undefined' ? new Date('' + resetPwdVal.resetDateReq) : null
+				// if a password request already exists, read the date in seconds.
+				const lastReq = typeof resetPwdVal.resetDateReq !== 'undefined' ? new Date('' + resetPwdVal.resetDateReq) : null
 
-					// request already made previously?
-					//  send a new email with the recovery link if it was sent less than 10 minutes ago
-					let elapsedMin = 0
-					const nowDt = new Date()
+				// request already made previously?
+				//  send a new email with the recovery link if it was sent less than 10 minutes ago
+				let elapsedMin = 0
+				const nowDt = new Date()
 
-					let calculateHash = false
-					if (lastReq !== null) {
-						// console.debug('reset request already made')
-						elapsedMin = DateLib.minElapsed(lastReq)
+				let calculateHash = false
+				if (lastReq !== null) {
+					// console.debug('reset request already made')
+					elapsedMin = DateLib.minElapsed(lastReq)
 
-						// console.debug('previous pwd reset request: ' + lastReq + ' it is now ' + now + ' and ' + elapsedMin + ' minutes have passed')
-						// if a password reset request has already been made, at least 10 minutes must have passed
-						if (elapsedMin < 10) {
-							// console.debug('last req < 10 min')
-							// Don't reveal that the email was found and
-							elapsedMin = 10 - elapsedMin
-							/* c8 ignore next -- defensive: 10-elapsedMin is always >= 0 inside this branch */
-							if (elapsedMin < 0) elapsedMin = 1 // to round up the seconds of the last minute, set minute = 1
-							// console.debug('wait ' + message + ' min ' + uEmail)
-							throw throwTooManyRequestsError(elapsedMin.toString())
-						} else {
-							// ok, more than 10 minutes, so generate hash for new email
-							calculateHash = true
-						}
+					// console.debug('previous pwd reset request: ' + lastReq + ' it is now ' + now + ' and ' + elapsedMin + ' minutes have passed')
+					// if a password reset request has already been made, at least 10 minutes must have passed
+					if (elapsedMin < 10) {
+						// console.debug('last req < 10 min')
+						// Don't reveal that the email was found and
+						elapsedMin = 10 - elapsedMin
+						/* c8 ignore next -- defensive: 10-elapsedMin is always >= 0 inside this branch */
+						if (elapsedMin < 0) elapsedMin = 1 // to round up the seconds of the last minute, set minute = 1
+						// console.debug('wait ' + message + ' min ' + uEmail)
+						throw throwTooManyRequestsError(elapsedMin.toString())
 					} else {
-						//console.debug('first reset request')
+						// ok, more than 10 minutes, so generate hash for new email
 						calculateHash = true
 					}
-
-					if (calculateHash) {
-						// generate hash for password reset
-						const StrObj = new StringLib()
-						const hash = StrObj.randomString(EMAIL_HASH_LEN)
-
-						// set hash and current reset date
-						await saveResetReq(session, resetPwdVal._id, nowDt, hash)
-
-						// send email with new hash, last request > 10 minutes ago
-						const SocketLabsObj = new SocketLabsLib()
-						await SocketLabsObj.sendEmailReset(uEmail, hash, resetPwdVal.name)
-					} // calculateHash & sendEmail
+				} else {
+					//console.debug('first reset request')
+					calculateHash = true
 				}
+
+				if (calculateHash) {
+					// generate hash for password reset
+					const StrObj = new StringLib()
+					const hash = StrObj.randomString(EMAIL_HASH_LEN)
+
+					// set hash and current reset date
+					await saveResetReq(session, resetPwdVal._id, nowDt, hash)
+
+					// send email with new hash, last request > 10 minutes ago
+					const SocketLabsObj = new SocketLabsLib()
+					await SocketLabsObj.sendEmailReset(uEmail, hash, resetPwdVal.name)
+				} // calculateHash & sendEmail
 			})
 		} catch (e: unknown) {
 			tryCatchRethrow(e as GraphQLError | Error)

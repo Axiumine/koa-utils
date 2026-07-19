@@ -64,15 +64,7 @@ export class SocketLabsLib {
       Puoi confermare la registrazione visitando questo link ${linkHtml}<br><br>
       <br><br>Lo staff`
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo,
-			subject,
-			textBody: messaggioTxt,
-			htmlBody: messaggioHtml
-		}
-		return await this.sendEmail(message)
+		return await this.sendTemplate(emailTo, subject, messaggioTxt, messaggioHtml)
 	}
 
 	/*
@@ -145,15 +137,7 @@ SendResponse {
       'Puoi confermare la registrazione visitando questo link ${linkHtml}
       <br><br>Lo staff.`
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo,
-			subject,
-			textBody: messaggioTxt,
-			htmlBody: messaggioHtml
-		}
-		return await this.sendEmail(message)
+		return await this.sendTemplate(emailTo, subject, messaggioTxt, messaggioHtml)
 	}
 
 	async sendWelcome(emailTo: string) {
@@ -162,15 +146,7 @@ SendResponse {
 		const messaggioTxt = `Benvenuto su ${this.platformName}`
 		const messaggioHtml = `Benvenuto su ${linkHtml}`
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo,
-			subject,
-			textBody: messaggioTxt,
-			htmlBody: messaggioHtml
-		}
-		return await this.sendEmail(message)
+		return await this.sendTemplate(emailTo, subject, messaggioTxt, messaggioHtml)
 	}
 
 	/**
@@ -182,16 +158,7 @@ SendResponse {
 		const textBody = 'Ciao, ci spiace ma il tuo account è stato disabilitato. Contattaci per maggiori informazioni.'
 		const htmlBody = `<p>${textBody}</p>`
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo,
-			subject,
-			textBody,
-			htmlBody
-		}
-
-		return await this.sendEmail(message)
+		return await this.sendTemplate(emailTo, subject, textBody, htmlBody)
 	}
 
 	/**
@@ -203,16 +170,7 @@ SendResponse {
 		const textBody = 'Ciao, ci spiace ma il tuo account è stato bannato. Contattaci per maggiori informazioni.'
 		const htmlBody = `<p>${textBody}</p>`
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo,
-			subject,
-			textBody,
-			htmlBody
-		}
-
-		return await this.sendEmail(message)
+		return await this.sendTemplate(emailTo, subject, textBody, htmlBody)
 	}
 
 	/**
@@ -223,16 +181,7 @@ SendResponse {
 		const textBody = 'errore 500 ' + err
 		const htmlBody = '<p>errore 500 <br><br>' + err + '</p>'
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo: `${process.env.DEV_TEAM_EMAIL}`,
-			subject: `${this.platformName} errore 500`,
-			textBody,
-			htmlBody
-		}
-
-		return await this.sendEmail(message)
+		return await this.sendTemplate(`${process.env.DEV_TEAM_EMAIL}`, `${this.platformName} errore 500`, textBody, htmlBody)
 	}
 
 	/**
@@ -248,16 +197,7 @@ SendResponse {
 		const textBody = `Ciao, tu o qualcuno sta cercando di verificare la tua email con un link errato. Ti rimangono altri ${remainingTimes} tentativi.`
 		const htmlBody = `<p>${textBody}</p>`
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo,
-			subject,
-			textBody,
-			htmlBody
-		}
-
-		return await this.sendEmail(message)
+		return await this.sendTemplate(emailTo, subject, textBody, htmlBody)
 	}
 
 	/*****************
@@ -272,16 +212,7 @@ SendResponse {
 		const htmlBody =
 			'<p>Ciao, hai fatto 5 o più tentativi di verifica della tua email. Devi ripetere la richiesta di registrazione.</p>'
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo,
-			subject,
-			textBody,
-			htmlBody
-		}
-
-		return await this.sendEmail(message)
+		return await this.sendTemplate(emailTo, subject, textBody, htmlBody)
 	}
 
 	/*****************
@@ -295,16 +226,7 @@ SendResponse {
 		const htmlBody =
 			'<p>Ciao, il link di attivazione che stai tentando di usare è più vecchio di 3 giorni ed è scaduto. Devi ripetere la richiesta di registrazione.</p>'
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo,
-			subject,
-			textBody,
-			htmlBody
-		}
-
-		return await this.sendEmail(message)
+		return await this.sendTemplate(emailTo, subject, textBody, htmlBody)
 	}
 
 	/*****************
@@ -316,15 +238,7 @@ SendResponse {
 		const textBody = 'Ciao, il tuo account è già valido, puoi eseguire il login.'
 		const htmlBody = `<p>${textBody}</p>`
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo,
-			subject,
-			textBody,
-			htmlBody
-		}
-		return await this.sendEmail(message)
+		return await this.sendTemplate(emailTo, subject, textBody, htmlBody)
 	}
 
 	/**
@@ -344,15 +258,7 @@ SendResponse {
 		const htmlBody = `<p>Per confermare la tua iscrizione su ${linkHomeHtml}, apri nel browser il seguente link
     ${urlHtml} ed inserisci il seguente codice di attivazione: ${otp}</p>`
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo,
-			subject,
-			textBody,
-			htmlBody
-		}
-		return await this.sendEmail(message)
+		return await this.sendTemplate(emailTo, subject, textBody, htmlBody)
 	}
 
 	async sendConfermaResetPwd(emailTo: string, name: string = '') {
@@ -364,15 +270,7 @@ SendResponse {
 		const textBody = `Ciao${nameFixed}, hai confermato la nuova password. Ora puoi accedere a: ${link}. Lo Staff.`
 		const htmlBody = `Ciao${nameFixed},<br>hai confermato la nuova password.<br><br>Ora puoi accedere a:<br>${linkHtml}<br><br>Lo staff.`
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo,
-			subject,
-			textBody,
-			htmlBody
-		}
-		return await this.sendEmail(message)
+		return await this.sendTemplate(emailTo, subject, textBody, htmlBody)
 	}
 
 	async sendConfermaResetPwdHash(email: string, name: string, hash: string) {
@@ -390,18 +288,9 @@ SendResponse {
 			'<br><br>Lo staff' +
 			this.getHtmlFooter()
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo: email,
-			subject: 'Conferma cambio password per YourCompany',
-			textBody: textBody,
-			htmlBody: htmlBody
-		}
-
 		let ret: boolean | null
 		try {
-			ret = await this.sendEmail(message)
+			ret = await this.sendTemplate(email, 'Conferma cambio password per YourCompany', textBody, htmlBody)
 		} catch (e) {
 			Sentry.captureException(e)
 			ret = null
@@ -422,16 +311,7 @@ SendResponse {
       Puoi cambiare la password cliccando il link:<br>${linkHtml}
       <br><br>Lo staff.`
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo,
-			subject,
-			textBody,
-			htmlBody
-		}
-
-		return await this.sendEmail(message)
+		return await this.sendTemplate(emailTo, subject, textBody, htmlBody)
 	}
 
 	/**
@@ -450,18 +330,9 @@ SendResponse {
 		let textBody = 'Per confermare la tua iscrizione su YourCompany, inserisci il seguente codice OTP: ' + otp
 		let htmlBody = '<p>Per confermare la tua iscrizione su YourCompany, inserisci il seguente codice OTP: ' + otp + '</p>'
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo: emailTo,
-			subject: 'Codice OTP per YourCompany',
-			textBody: textBody,
-			htmlBody: htmlBody
-		}
-
 		let ret: string | null
 		try {
-			await this.sendEmail(message)
+			await this.sendTemplate(emailTo, 'Codice OTP per YourCompany', textBody, htmlBody)
 			ret = null
 		} catch (e) {
 			Sentry.captureException(e)
@@ -498,15 +369,7 @@ SendResponse {
 			').' +
 			this.getHtmlFooter()
 
-		const message = {
-			emailFrom: this.emailFrom,
-			emailFromName: this.platformName,
-			emailTo: 'dummy@example.com',
-			subject,
-			textBody: messaggioTxt,
-			htmlBody: messaggioHtml
-		}
-		return await this.sendEmail(message)
+		return await this.sendTemplate('dummy@example.com', subject, messaggioTxt, messaggioHtml)
 	}
 
 	getHtmlHeader(title: string) {
@@ -530,6 +393,17 @@ SendResponse {
 
 	getHtmlFooter() {
 		return '</p></td>' + '  </tr>' + ' </table>' + '</body>'
+	}
+
+	private async sendTemplate(emailTo: string, subject: string, textBody: string, htmlBody: string): Promise<boolean> {
+		return await this.sendEmail({
+			emailFrom: this.emailFrom,
+			emailFromName: this.platformName,
+			emailTo,
+			subject,
+			textBody,
+			htmlBody
+		})
 	}
 
 	private async sendEmail(args: ISendEmail): Promise<boolean> {

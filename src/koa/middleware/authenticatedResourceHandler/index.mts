@@ -1,5 +1,6 @@
 import { IContextAuthenticatedResource } from '@context/IContextAuthenticatedResource.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
+import { isSessionBlocked } from '@lib/isSessionBlocked.mjs'
 import { throwAccessTokenExpiredOrDeleted } from '@throw/throwAccessTokenExpiredOrDeleted.mjs'
 import { throwAccessTokenRequired } from '@throw/throwAccessTokenRequired.mjs'
 import { throwForbiddenError } from '@throw/throwForbiddenError.mjs'
@@ -37,9 +38,8 @@ export const authenticatedResourceHandler = () => async (ctx: IContextAuthentica
 	)
 	if (Object.keys(redSession).length !== 0) {
 		const redData = { ...redSession } // For safety, Redis return an object without the default Object.prototype  in its prototype chain.
-		// is the user reported as blocked within the session ?
-		// use this to block user access instead of deleting the token, set this flag from the control panel
-		if (redData?.disabled || redData?.deleted) {
+		// is the user reported as blocked within the session ? (see isSessionBlocked)
+		if (isSessionBlocked(redData)) {
 			throw throwForbiddenError()
 		}
 
