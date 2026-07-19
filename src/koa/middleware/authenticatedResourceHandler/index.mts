@@ -1,9 +1,11 @@
 import { IContextAuthenticatedResource } from '@context/IContextAuthenticatedResource.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
 import { isSessionBlocked } from '@lib/isSessionBlocked.mjs'
+import { isValidUuidV4 } from '@lib/isValidUuidV4.mjs'
 import { throwAccessTokenExpiredOrDeleted } from '@throw/throwAccessTokenExpiredOrDeleted.mjs'
 import { throwAccessTokenRequired } from '@throw/throwAccessTokenRequired.mjs'
 import { throwForbiddenError } from '@throw/throwForbiddenError.mjs'
+import { throwMissingMalformedInvalidToken } from '@throw/throwMissingMalformedInvalidToken.mjs'
 import { throwPreconditionFailedNoAuthHeader } from '@throw/throwPreconditionFailedNoAuthHeader.mjs'
 import * as dotenv from 'dotenv'
 import { Next } from 'koa'
@@ -31,6 +33,12 @@ export const authenticatedResourceHandler = () => async (ctx: IContextAuthentica
 	}
 
 	const key = authorization.replace('Bearer ', '')
+
+	// the prefix check above leaves the rest of the key client-controlled: the suffix must be a
+	// real v4 uuid — the only shape generateAccessToken produces — before it reaches Redis
+	if (!isValidUuidV4(key.slice('access:'.length))) {
+		throw throwMissingMalformedInvalidToken()
+	}
 
 	// does the key access:xxx exist in Redis ? read Redis...
 	const redSession = await redisClient.hGetAll(

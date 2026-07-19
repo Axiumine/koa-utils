@@ -60,6 +60,26 @@ describe('logout — resolve', () => {
 		expect(accessCall, 'should delete access key').to.exist
 	})
 
+	it('does not double-prefix a refresh token that already carries "refresh:"', async () => {
+		// authenticatedLogoutHandler populates ctx.state.user.refreshToken already prefixed:
+		// re-adding the prefix here deleted refresh:refresh:<uuid> and left the session alive.
+		const ctx = makeCtx('refresh:myRefreshToken')
+		await logout.resolve(null, {}, ctx)
+
+		const keys = delStub.getCalls().map((c) => c.args[0] as string)
+		expect(keys.some((k) => k.endsWith('refresh:myRefreshToken'))).to.equal(true)
+		expect(keys.some((k) => k.includes('refresh:refresh:'))).to.equal(false)
+	})
+
+	it('does not double-prefix an access token that already carries "access:"', async () => {
+		const ctx = makeCtx('refresh:refreshTok', 'access:accessTok')
+		await logout.resolve(null, {}, ctx)
+
+		const keys = delStub.getCalls().map((c) => c.args[0] as string)
+		expect(keys.some((k) => k.endsWith('access:accessTok'))).to.equal(true)
+		expect(keys.some((k) => k.includes('access:access:'))).to.equal(false)
+	})
+
 	it('when accessToken is empty string: skips access token deletion', async () => {
 		const ctx = makeCtx('refreshTok', '')
 		const result = await logout.resolve(null, {}, ctx)

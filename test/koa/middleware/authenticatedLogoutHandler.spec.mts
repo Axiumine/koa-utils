@@ -13,6 +13,7 @@ const TOKEN = 'logout-test-uuid'
 const SIG = keys.sign(`refresh_token=${TOKEN}`)
 const VALID_COOKIE = `refresh_token=${TOKEN}; refresh_token.sig=${SIG}`
 const REDIS_REFRESH_KEY = `refresh:${TOKEN}`
+const ACCESS_UUID = '11111111-1111-4111-8111-111111111111'
 
 describe('authenticatedLogoutHandler', () => {
 	afterEach(() => {
@@ -85,7 +86,7 @@ describe('authenticatedLogoutHandler', () => {
 			.onSecondCall().resolves('507f1f77bcf86cd799439011') // access lookup
 		const mw = authenticatedLogoutHandler(keys)
 		const ctx = {
-			request: { header: { cookie: VALID_COOKIE, authorization: 'Bearer access:uuid-a' } },
+			request: { header: { cookie: VALID_COOKIE, authorization: `Bearer access:${ACCESS_UUID}` } },
 			state: {}
 		} as never
 		let nextCalled = false
@@ -93,7 +94,7 @@ describe('authenticatedLogoutHandler', () => {
 		expect(nextCalled).to.equal(true)
 		const state = (ctx as never as { state: { user: { refreshToken: string; accessToken: string } } }).state
 		expect(state.user.refreshToken).to.equal(REDIS_REFRESH_KEY)
-		expect(state.user.accessToken).to.equal('access:uuid-a')
+		expect(state.user.accessToken).to.equal(`access:${ACCESS_UUID}`)
 	})
 
 	it('populates refresh token only when access session is expired (null)', async () => {
@@ -102,7 +103,7 @@ describe('authenticatedLogoutHandler', () => {
 			.onSecondCall().resolves(null)
 		const mw = authenticatedLogoutHandler(keys)
 		const ctx = {
-			request: { header: { cookie: VALID_COOKIE, authorization: 'Bearer access:uuid-a' } },
+			request: { header: { cookie: VALID_COOKIE, authorization: `Bearer access:${ACCESS_UUID}` } },
 			state: {}
 		} as never
 		await mw(ctx, async () => undefined)
@@ -128,11 +129,27 @@ describe('authenticatedLogoutHandler', () => {
 		expect(hGet.callCount).to.equal(1)
 	})
 
+	it('ignores a well-prefixed access token whose suffix is not a v4 uuid', async () => {
+		// The prefix alone still leaves the rest of the Redis key client-controlled.
+		const hGet = sinon.stub(RedisMod.redisClient, 'hGet').resolves('uid')
+		const mw = authenticatedLogoutHandler(keys)
+		const ctx = {
+			request: { header: { cookie: VALID_COOKIE, authorization: 'Bearer access:not-a-uuid' } },
+			state: {}
+		} as never
+		await mw(ctx, async () => undefined)
+		const state = (ctx as never as { state: { user: { refreshToken: string; accessToken?: string } } }).state
+		expect(state.user.refreshToken).to.equal(REDIS_REFRESH_KEY)
+		expect(state.user.accessToken).to.be.undefined
+		// only the refresh lookup: the malformed token never reaches Redis
+		expect(hGet.callCount).to.equal(1)
+	})
+
 	it('throws 204 (AlreadyDone) when refresh token not in Redis', async () => {
 		sinon.stub(RedisMod.redisClient, 'hGet').resolves(null)
 		const mw = authenticatedLogoutHandler(keys)
 		const ctx = {
-			request: { header: { cookie: VALID_COOKIE, authorization: 'Bearer access:uuid-a' } },
+			request: { header: { cookie: VALID_COOKIE, authorization: `Bearer access:${ACCESS_UUID}` } },
 			state: {}
 		} as never
 		await expectGraphQLErrorAsync(

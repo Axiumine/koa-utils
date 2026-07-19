@@ -1,6 +1,7 @@
 import { IContextLogout } from '@context/IContextLogout.mjs'
 import { IContextRefresh } from '@context/IContextRefresh.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
+import { isValidUuidV4 } from '@lib/isValidUuidV4.mjs'
 import { throwAlreadyDone } from '@throw/throwAlreadyDone.mjs'
 import { throwPreconditionFailedNoAuthCookie } from '@throw/throwPreconditionFailedNoAuthCookie.mjs'
 import { throwPreconditionFailedNoAuthHeader } from '@throw/throwPreconditionFailedNoAuthHeader.mjs'
@@ -20,7 +21,9 @@ const requireIntrospectionOrThrow = (header: IContextLogout['request']['header']
 }
 
 const extractBearerAccessToken = (authorization: string | undefined): string =>
-	authorization?.startsWith('Bearer access:') ? authorization.replace('Bearer ', '') : ''
+	authorization?.startsWith('Bearer access:') && isValidUuidV4(authorization.slice('Bearer access:'.length))
+		? authorization.replace('Bearer ', '')
+		: ''
 
 export const authenticatedLogoutHandler = (keys: Keygrip) => async (ctx: IContextLogout, next: Next) => {
 	/***************************
@@ -62,7 +65,9 @@ export const authenticatedLogoutHandler = (keys: Keygrip) => async (ctx: IContex
 		// Access Token, optional
 		// The 'Bearer access:' prefix must be checked before building the Redis key:
 		// without this check the client controls the entire key and could reach refresh: entries.
-		// Tokens with the wrong prefix are ignored, not rejected: the access token remains optional.
+		// The suffix is checked too: the prefix alone still leaves the rest of the key client-controlled.
+		// Tokens with the wrong prefix, or a suffix that is not a v4 uuid, are ignored rather than
+		// rejected: the access token remains optional here.
 		const accessToken = extractBearerAccessToken(authorization)
 		if (accessToken !== '') {
 			const redAccessSession = await redisClient.hGet(`${process.env.REDIS_KEY}${accessToken}`, 'id') // 'access:' already present
