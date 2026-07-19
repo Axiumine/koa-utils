@@ -5,10 +5,34 @@ import confirmNewEmail from '@private/lib/access/db/confirmNewEmail.mjs'
 import { incReqTimes } from '@private/lib/access/db/incReqTimes.mjs'
 import { throwInternalError } from '@throw/throwInternalError.mjs'
 import { GraphQLBoolean, GraphQLNonNull, GraphQLString } from 'graphql'
+import { Types } from 'mongoose'
 
 interface IArgs {
 	email: string
 	hash: string
+}
+
+/**
+ * The submitted hash does not match the stored one: count the attempt and warn the account owner.
+ * Extracted from resolve() only to keep it inside the max-lines-per-function budget — behaviour unchanged.
+ */
+async function handleHashMismatch(
+	uId: Types.ObjectId,
+	uEmail: string,
+	requestTimes: number | undefined,
+	SocketLabsObj: SocketLabsLib
+) {
+	// hash failed
+	console.debug('HASH FAILED')
+
+	if (typeof requestTimes === 'undefined') {
+		throw throwInternalError()
+	}
+
+	await incReqTimes(uId)
+	// noinspection ES6MissingAwait
+	SocketLabsObj.wrongHash(uEmail, requestTimes)
+	return false
 }
 
 /**
@@ -93,18 +117,7 @@ export const emailChangeHashVerify = {
 				}
 			}
 		} else {
-			// hash failed
-			console.debug('HASH FAILED')
-
-			const requestTimes = accountEmail.requestTimes
-			if (typeof requestTimes === 'undefined') {
-				throw throwInternalError()
-			}
-
-			await incReqTimes(user._id)
-			// noinspection ES6MissingAwait
-			SocketLabsObj.wrongHash(uEmail, requestTimes)
-			return false
+			return handleHashMismatch(user._id, uEmail, accountEmail.requestTimes, SocketLabsObj)
 		}
 	}
 }

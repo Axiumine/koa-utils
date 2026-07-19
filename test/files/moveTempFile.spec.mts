@@ -55,4 +55,22 @@ describe('moveTempFile', () => {
 		}
 		expect((err as Error).message).to.equal('move failed')
 	})
+
+	it('rejects a `..` traversal in destFilename', async () => {
+		let err: unknown
+		try {
+			await moveTempFile('/tmp/file.jpg', '../../escaped', '/dir')
+		} catch (e) {
+			err = e
+		}
+		expect((err as Error).message).to.equal('Invalid destFilename: path traversal')
+		expect(ensureDirStub.called).to.be.false
+		expect(moveStub.called).to.be.false
+	})
+
+	it('does not check sourceFilePath or destinationDir (caller-owned paths)', async () => {
+		await moveTempFile('/tmp/../tmp/file.jpg', 'dest', '/dir/../dir')
+		expect(ensureDirStub.calledOnceWith('/dir/../dir')).to.be.true
+		expect(moveStub.calledOnce).to.be.true
+	})
 })

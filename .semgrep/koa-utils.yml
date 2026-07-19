@@ -146,10 +146,13 @@ rules:
         - https://sequelize.org/docs/v6/core-concepts/raw-queries/
 
   # --- Redis key injection -----------------------------------------------------------
-  # STATUS: fires on real code — 2 confirmed findings, 0 false positives. Note: a 3rd,
-  # related instance (authenticatedLogoutHandler.mts:71 -> graphQL/schema/mutations/
-  # logout.mts:21) exists but crosses a file boundary and is invisible to this rule
-  # because Semgrep OSS taint is intra-file only (see header comment).
+  # STATUS: both original findings were FIXED by b669ad4 ("fix: logout redis keys, validate
+  # token uuid"), which put an isValidUuidV4 format check between the header read and the
+  # Redis key on both paths. isValidUuidV4 is registered as a sanitizer below, so the rule
+  # is now a regression guard: it should report 0 findings. Note: a 3rd, related instance
+  # (authenticatedLogoutHandler.mts -> graphQL/schema/mutations/logout.mts:21) exists but
+  # crosses a file boundary and is invisible to this rule because Semgrep OSS taint is
+  # intra-file only (see header comment).
   - id: koa-utils.redis-injection.key-injection
     mode: taint
     severity: WARNING
@@ -171,6 +174,23 @@ rules:
       - pattern: ctx.request.header?.['cookie']
     pattern-sanitizers:
       - pattern: verifySignedRefreshToken(...)
+      # A v4-uuid format check locks the client-controlled suffix to the only shape the
+      # server ever generates, which is what closes this class. Both call shapes count:
+      # the throwing guard in authenticatedResourceHandler, and extractBearerAccessToken
+      # in authenticatedLogoutHandler, which returns '' unless prefix AND uuid both pass.
+      - pattern: isValidUuidV4(...)
+      - pattern: extractBearerAccessToken(...)
+      # Semgrep taint is not path-sensitive, so a throwing guard does not clean the
+      # variable it checks: `if (!isValidUuidV4(key...)) throw` leaves `key` tainted for
+      # the rest of the block. This sanitizer models that shape explicitly. $V is bound
+      # in the guard and re-used in the sanitized pattern, so only the variable actually
+      # validated is cleared — a sibling variable flowing past the same guard still fires
+      # (verified with a 3-way canary: guarded / unguarded / guarded-but-different-var).
+      - patterns:
+          - pattern-inside: |
+              if (!isValidUuidV4($V.slice(...))) { throw $E }
+              ...
+          - pattern: $V
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -185,15 +205,18 @@ rules:
     metadata:
       category: security
       confidence: MEDIUM
-      status: "confirmed live findings: authenticatedLogoutHandler/index.mts:69, authenticatedResourceHandler/index.mts:36"
+      status: regression-guard (0 findings on real code; the 2 original findings — authenticatedLogoutHandler/index.mts:69 and authenticatedResourceHandler/index.mts:36 — were fixed by b669ad4)
       subcategory: [taint-analysis]
       cwe: 'CWE-943: Improper Neutralization of Special Elements in Data Query Logic'
       references:
         - https://redis.io/docs/latest/develop/reference/security/
 
   # --- Path traversal (filesystem sinks) ---------------------------------------------
-  # STATUS: fires on real code — 6 confirmed findings (5 originally + fs.unlink($SINK)
-  # sink pattern added after a verified false-negative sweep found reEncode.mts:37).
+  # STATUS: fires on real code — 7 confirmed findings (5 originally; + fs.unlink($SINK)
+  # sink pattern added after a verified false-negative sweep found reEncode.mts:37, since
+  # drifted to :40; + reEncode.mts:20, where 2ec2332 replaced sharp(filePath) with
+  # fs.readFile(filePath) and so moved an already-unsanitized flow onto a tracked sink —
+  # new finding, not new attacker surface, since sharp() consumed the same raw value).
   # 0 false positives. All sinks sit in exported public-API functions; exploitability
   # depends on how a *consumer* of this library wires these functions to user input.
   - id: koa-utils.path-traversal.unsanitized-param
@@ -230,7 +253,22 @@ rules:
     metadata:
       category: security
       confidence: MEDIUM
-      status: "confirmed live findings: files/moveTempFile.mts:12,19; files/validateJpgPngExtension.mts:7; files/validateMimeType.mts:12; files/validatePdfExtension.mts:7; private/files/reEncode.mts:37"
+      status: "confirmed live findings: files/moveTempFile.mts:18,25; files/validateJpgPngExtension.mts:7; files/validateMimeType.mts:12; files/validatePdfExtension.mts:7; private/files/reEncode.mts:20,40"
+      accepted-risk: >-
+        All 7 are accepted, and the count cannot go to 0 by design: pattern-sources is
+        "any function parameter", so every exported function that takes a path is flagged
+        whether or not the value is attacker-reachable. What was hardened instead is the
+        reachable half — assertNoTraversal() now rejects a `..` component in the *segment*
+        params (moveImageFile/moveFileStaticDomain folder+secondFolder, moveTempFile
+        destFilename), so nothing routed through those can escape UPLOAD_IMG_DIRECTORY_URL
+        or STATIC_FOLDER. It deliberately still allows separators, so a legitimate
+        multi-segment value like `2026/07` keeps working; path.basename() would have been
+        stricter (and is a recognised sanitizer, so it would have cleared findings) but it
+        silently rewrites `2026/07` to `07` and breaks published consumers.
+        The remaining params — moveTempFile sourceFilePath/destinationDir, and filePath in
+        validateJpgPngExtension / validateMimeType / validatePdfExtension / reEncode — are
+        genuine caller-owned paths where reading or deleting the given path IS the
+        function's contract. Those stay the consumer's responsibility.
       cwe: 'CWE-22: Improper Limitation of a Pathname to a Restricted Directory'
       references:
         - https://owasp.org/www-community/attacks/Path_Traversal

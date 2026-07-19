@@ -50,4 +50,32 @@ describe('moveImageFile', () => {
 		}
 		expect((err as Error).message).to.equal('move failed')
 	})
+
+	it('rejects a `..` traversal in folder', async () => {
+		let err: unknown
+		try {
+			await moveImageFile('/tmp/src.jpg', '../../etc', 'b', 'c')
+		} catch (e) {
+			err = e
+		}
+		expect((err as Error).message).to.equal('Invalid folder: path traversal')
+		expect(ensureDirStub.called).to.be.false
+		expect(moveStub.called).to.be.false
+	})
+
+	it('rejects a `..` traversal in secondFolder', async () => {
+		let err: unknown
+		try {
+			await moveImageFile('/tmp/src.jpg', 'a', 'a/../..', 'c')
+		} catch (e) {
+			err = e
+		}
+		expect((err as Error).message).to.equal('Invalid secondFolder: path traversal')
+		expect(ensureDirStub.called).to.be.false
+	})
+
+	it('allows a multi-segment folder (non-breaking)', async () => {
+		await moveImageFile('/tmp/src.jpg', '2026/07', 'avatars', 'c')
+		expect(ensureDirStub.calledOnceWith(`${UPLOAD_IMG_DIRECTORY_URL}/2026/07/avatars`)).to.be.true
+	})
 })

@@ -36,7 +36,7 @@ describe('handleIfHashBad', () => {
 
 		let caught: unknown
 		try {
-			await handleIfHashBad(uId, 'user@test.com', 'wrongHash', 3, 'correctHash')
+			await handleIfHashBad({ uId, uEmail: 'user@test.com', hash: 'wrongHash', requestTimes: 3, dbHash: 'correctHash' })
 		} catch (e) {
 			caught = e
 		}
@@ -54,7 +54,7 @@ describe('handleIfHashBad', () => {
 
 		let caught: unknown
 		try {
-			await handleIfHashBad(uId, 'user@test.com', 'someHash', 0, undefined)
+			await handleIfHashBad({ uId, uEmail: 'user@test.com', hash: 'someHash', requestTimes: 0, dbHash: undefined })
 		} catch (e) {
 			caught = e
 		}
@@ -69,7 +69,7 @@ describe('handleIfHashBad', () => {
 
 		let caught: unknown
 		try {
-			await handleIfHashBad(uId, 'user@test.com', 'wrongHash', undefined, 'correctHash')
+			await handleIfHashBad({ uId, uEmail: 'user@test.com', hash: 'wrongHash', requestTimes: undefined, dbHash: 'correctHash' })
 		} catch (e) {
 			caught = e
 		}
@@ -81,7 +81,7 @@ describe('handleIfHashBad', () => {
 	it('hash matches dbHash → resolves without throwing and without side effects', async () => {
 		const uId = new Types.ObjectId()
 
-		const result = await handleIfHashBad(uId, 'user@test.com', 'sameHash', 2, 'sameHash')
+		const result = await handleIfHashBad({ uId, uEmail: 'user@test.com', hash: 'sameHash', requestTimes: 2, dbHash: 'sameHash' })
 
 		expect(result).to.equal(undefined)
 		expect(updateOneStub.called).to.equal(false)

@@ -1,3 +1,4 @@
+import { assertNoTraversal } from '@private/files/assertNoTraversal.mjs'
 import fs from 'fs-extra'
 import path from 'path'
 
@@ -8,6 +9,11 @@ import path from 'path'
  * @param destinationDir
  */
 export async function moveTempFile(sourceFilePath: string, destFilename: string, destinationDir: string) {
+	// destFilename is a filename, not a path: a `..` in it escapes destinationDir via path.join below.
+	// sourceFilePath and destinationDir are genuine caller-owned paths and are intentionally NOT
+	// checked here — validating those is the consumer's responsibility.
+	assertNoTraversal(destFilename, 'destFilename')
+
 	// Ensure the destination directory exists
 	await fs.ensureDir(destinationDir)
 
