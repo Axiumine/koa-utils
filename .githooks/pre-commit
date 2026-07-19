@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+#
+# koa-utils — pre-commit coverage gate.
+#
+# Enforces the same 100% bar as CI (qodana.yaml testCoverageThresholds 100/100).
+# Thresholds live in .c8rc.json ("check-coverage": true, "per-file": true, all
+# metrics at 100) — this hook only decides *when* to run c8, never *how strict*.
+#
+# Wired via `git config core.hooksPath .githooks`, done by `yarn hooks:install`
+# (also run automatically by the `prepare` script on `yarn install`).
+#
+# Bypass: `git commit --no-verify` (CI still gates — the bypass is local only).
+#
+# Caveat: the suite runs against the working tree, not the staged snapshot. If
+# unstaged edits are in flight, what is tested is not exactly what is committed.
+# Deliberate: stashing inside a hook risks losing work when the hook fails.
+
+set -euo pipefail
+
+# Only code, test or build-config changes can move coverage. Docs-only commits skip.
+RELEVANT_PATHS='^(src/|test/|package\.json$|\.c8rc\.json$|\.mocharc\.json$|tsconfig.*\.json$)'
+
+# Deletions count: removing a spec file lowers coverage just as surely as adding
+# untested code, so D stays in the filter.
+STAGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
+
+if [ -z "$STAGED" ]; then
+	exit 0
+fi
+
+if ! printf '%s\n' "$STAGED" | grep -Eq "$RELEVANT_PATHS"; then
+	echo "pre-commit: no code/test/build-config changes staged — coverage gate skipped."
+	exit 0
+fi
+
+if ! command -v yarn > /dev/null 2>&1; then
+	echo "pre-commit: yarn not found in PATH — cannot run the coverage gate." >&2
+	echo "            Install yarn, or bypass once with: git commit --no-verify" >&2
+	exit 1
+fi
+
+echo "pre-commit: running build + tests + 100% coverage gate (yarn test:coverage)…"
+
+if ! yarn test:coverage; then
+	cat >&2 << 'EOF'
+
+pre-commit: BLOCKED — build, tests, or the 100% coverage threshold failed.
+
+Coverage below 100% on any file fails the commit (.c8rc.json: per-file, all
+metrics at 100). Add tests under test/ mirroring the src/ layout until the c8
+summary reports 100% on statements, branches, functions and lines.
+
+Full report: .qodana/code-coverage/lcov-report/index.html
+Bypass once (CI will still block): git commit --no-verify
+EOF
+	exit 1
+fi
+
+echo "pre-commit: 100% coverage held. Proceeding with commit."
