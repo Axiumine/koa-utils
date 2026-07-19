@@ -12,6 +12,16 @@ import { verifySignedRefreshToken } from '../authenticatedAuthorizationHandler/v
 
 dotenv.config()
 
+const requireIntrospectionOrThrow = (header: IContextLogout['request']['header'], throwOnFail: () => never): true => {
+	if (typeof header !== 'undefined' && header['x-introspectioncode'] === `${process.env.INTROSPECTION_CODE}`) {
+		return true
+	}
+	throw throwOnFail()
+}
+
+const extractBearerAccessToken = (authorization: string | undefined): string =>
+	authorization?.startsWith('Bearer access:') ? authorization.replace('Bearer ', '') : ''
+
 export const authenticatedLogoutHandler = (keys: Keygrip) => async (ctx: IContextLogout, next: Next) => {
 	/***************************
 	 * CLIENT:
@@ -28,26 +38,12 @@ export const authenticatedLogoutHandler = (keys: Keygrip) => async (ctx: IContex
 	// refresh
 	const cookie = ctx.request.header?.cookie // refresh
 	if (typeof cookie === 'undefined') {
-		if (
-			typeof ctx.request.header !== 'undefined' &&
-			ctx.request.header['x-introspectioncode'] === `${process.env.INTROSPECTION_CODE}`
-		) {
-			introspection = true
-		} else {
-			throw throwPreconditionFailedNoAuthCookie()
-		}
+		introspection = requireIntrospectionOrThrow(ctx.request.header, throwPreconditionFailedNoAuthCookie)
 	}
 
 	const authorization = ctx.request.header?.authorization // access
 	if (typeof authorization === 'undefined') {
-		if (
-			typeof ctx.request.header !== 'undefined' &&
-			ctx.request.header['x-introspectioncode'] === `${process.env.INTROSPECTION_CODE}`
-		) {
-			introspection = true
-		} else {
-			throw throwPreconditionFailedNoAuthHeader()
-		}
+		introspection = requireIntrospectionOrThrow(ctx.request.header, throwPreconditionFailedNoAuthHeader)
 	}
 
 	if (!introspection) {
@@ -67,7 +63,7 @@ export const authenticatedLogoutHandler = (keys: Keygrip) => async (ctx: IContex
 		// The 'Bearer access:' prefix must be checked before building the Redis key:
 		// without this check the client controls the entire key and could reach refresh: entries.
 		// Tokens with the wrong prefix are ignored, not rejected: the access token remains optional.
-		const accessToken = authorization?.startsWith('Bearer access:') ? authorization.replace('Bearer ', '') : ''
+		const accessToken = extractBearerAccessToken(authorization)
 		if (accessToken !== '') {
 			const redAccessSession = await redisClient.hGet(`${process.env.REDIS_KEY}${accessToken}`, 'id') // 'access:' already present
 			if (redAccessSession != null) {
