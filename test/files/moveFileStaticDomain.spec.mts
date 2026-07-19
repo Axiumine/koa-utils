@@ -57,4 +57,32 @@ describe('moveFileStaticDomain', () => {
 		}
 		expect((err as Error).message).to.equal('move failed')
 	})
+
+	it('rejects a `..` traversal in folder', async () => {
+		let err: unknown
+		try {
+			await moveFileStaticDomain('/tmp/src.pdf', '../..', 'b', 'c')
+		} catch (e) {
+			err = e
+		}
+		expect((err as Error).message).to.equal('Invalid folder: path traversal')
+		expect(ensureDirStub.called).to.be.false
+		expect(moveStub.called).to.be.false
+	})
+
+	it('rejects a `..` traversal in secondFolder', async () => {
+		let err: unknown
+		try {
+			await moveFileStaticDomain('/tmp/src.pdf', 'a', 'b/../..', 'c')
+		} catch (e) {
+			err = e
+		}
+		expect((err as Error).message).to.equal('Invalid secondFolder: path traversal')
+		expect(ensureDirStub.called).to.be.false
+	})
+
+	it('allows a multi-segment folder (non-breaking)', async () => {
+		await moveFileStaticDomain('/tmp/src.pdf', '2026/07', 'docs', 'c')
+		expect(ensureDirStub.calledOnceWith(`${process.env.STATIC_FOLDER}/2026/07/docs`)).to.be.true
+	})
 })
