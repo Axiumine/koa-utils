@@ -22,6 +22,8 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - **Every new or modified `.mts` in `src/` ships with tests in the same change.** Coverage is 100% on statements, branches, functions and lines — per file, not just in aggregate. A change that adds an uncovered line is incomplete, not "to be tested later".
 - Cover *every* branch you write, including the ones that feel unreachable: each `if`/`else`, every `??` / `?.` / `||` fallback, every `catch`, and every early return. `per-file: true` means one uncovered ternary arm in one file fails the whole run.
 - Before declaring any task done, run `yarn test:coverage` and confirm the c8 summary reads 100% on all four metrics. Do not report "tests pass" from `yarn test` alone — it does not check coverage.
+- **Reindex GitNexus after every commit and every merge**: `node .gitnexus/run.cjs analyze` from the project root, as the last step before reporting the work as done. A stale index makes `impact`, `detect_changes` and `query` answer from the pre-change graph, silently understating blast radius on the next task. `.gitnexus/` is gitignored, so reindexing never dirties the working tree.
+- This rule lives here, not in the `<!-- gitnexus:start -->` block below (or in `AGENTS.md`, which is that block in full): `analyze` regenerates everything between those markers and drops any hand-added line.
 
 ## Coverage — hard 100%
 
@@ -109,7 +111,7 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **koa-utils** (5569 symbols, 7379 relationships, 26 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **koa-utils** (5730 symbols, 7538 relationships, 33 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
