@@ -53,30 +53,20 @@ describe('reEncode', () => {
 		cleanup()
 	})
 
-	// KNOWN BUG — see the file header. When the source extension already equals the target,
-	// finalFilepath === filePath and sharp rejects with "Cannot use same file for input and
-	// output". This asserts the behaviour that ships today; fixing the source must change this
-	// expectation deliberately, not silently.
-	it('jpeg → jpeg (same extension): throws, because input and output resolve to one path', async () => {
+	it('jpeg → jpeg (same extension): re-encodes in place, skips the unlink, uses default quality=100', async () => {
+		// The bytes are read into a Buffer before encoding, so writing back to the very same path
+		// is fine. This is also the only way to reach the `finalFilepath !== filePath` false arm.
 		const src = makeSrcJpeg(`reencode-${Date.now()}-same.jpeg`)
 
-		let err: unknown
-		try {
-			await reEncode(src, 'jpeg')
-		} catch (e) {
-			err = e
-		}
+		const result = await reEncode(src, 'jpeg')
 
-		expect(err).to.be.instanceOf(Error)
-		expect((err as Error).message).to.equal('Error processing the image')
-		expect(existsSync(src)).to.equal(true) // untouched — nothing was re-encoded
+		expect(result).to.equal(src)
+		expect(existsSync(src)).to.equal(true) // rewritten in place, never unlinked
 	})
 
-	it('.JPEG → jpeg (case-insensitive match): re-encodes, skips the unlink, keeps the original', async () => {
-		// originalFileExt is lowercased to 'jpeg' and equals ext, so the unlink block is skipped —
-		// yet finalFilepath ('.jpeg') differs from the source ('.JPEG'), so sharp still succeeds.
-		// This is the only way to reach the `originalFileExt !== ext` false arm, since an exact
-		// extension match always throws (above). Also exercises the default quality = 100.
+	it('.JPEG → jpeg (case differs): writes the lowercase path and removes the original', async () => {
+		// The two paths differ only by case, so this really is a new file and the original must go —
+		// otherwise the caller is left holding a stale duplicate of the same image.
 		const src = makeSrcJpeg(`reencode-${Date.now()}-upper.JPEG`)
 		const expectedOut = src.replace(/\.[^.]+$/, '.jpeg')
 		createdPaths.push(expectedOut)
@@ -85,7 +75,7 @@ describe('reEncode', () => {
 
 		expect(result).to.equal(expectedOut)
 		expect(existsSync(expectedOut)).to.equal(true)
-		expect(existsSync(src)).to.equal(true) // unlink was skipped, original left behind
+		expect(existsSync(src)).to.equal(false)
 	})
 
 	it('jpg → png (different extension, explicit quality): re-encodes and unlinks the original', async () => {
@@ -149,23 +139,18 @@ describe('reEncode', () => {
 		expect((err as Error).message).to.equal('Error processing the image')
 	})
 
-	it('filePath with no extension: originalFileExt falls back to empty string, sharp rejects (same in/out path)', async () => {
+	it('filePath with no extension: rewrites that same path and does not delete it', async () => {
 		const src = path.join(os.tmpdir(), `reencode-noext-${Date.now()}`)
 		writeFileSync(src, Buffer.from(MINIMAL_JPEG_B64, 'base64'))
 		createdPaths.push(src)
 
 		// No dot in filePath → the `\.[^.]+$` regex cannot match, so finalFilepath === filePath.
-		// Sharp then rejects because input and output would be the very same file, landing in
-		// the outer catch block — while still exercising the `parts.length > 1 ? ... : ''` branch.
-		let err: unknown
-		try {
-			await reEncode(src, 'png')
-		} catch (e) {
-			err = e
-		}
+		// Comparing paths (rather than extensions) is what keeps the unlink from deleting the
+		// very file just written: '' !== 'png' would have been true and wiped it out.
+		const result = await reEncode(src, 'png')
 
-		expect(err).to.be.instanceOf(Error)
-		expect((err as Error).message).to.equal('Error processing the image')
+		expect(result).to.equal(src)
+		expect(existsSync(src)).to.equal(true)
 	})
 
 	it('unlink failure after a successful re-encode: reports to Sentry and throws 500 Internal Server Error', async () => {

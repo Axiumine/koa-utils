@@ -32,7 +32,7 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - **`src/private/**` is covered and measured like everything else.** It was excluded until the coverage gate landed, which hid the auth/email-verification chain — an inverted `if` in `handleIfAccountDisabled` could be introduced and the suite still reported 100%. Do not re-exclude it.
 - When a line truly cannot be exercised (unreachable defensive branch), raise it with the owner before excluding it. Do not add `/* c8 ignore */` on your own initiative.
 - `@sentry/node` and `sharp` are sealed ES module namespaces — `sinon.stub()` on them fails with "ES Modules cannot be stubbed". Assert the observable effect instead (Sentry is never init'd in the suite, so `captureException` is a safe no-op), or drive the real library against a fixture.
-- Baseline as of this writing: 526 tests, 4079/4079 statements, 521/521 branches, 177/177 functions. Regressions from that baseline are bugs in the change, not in the gate.
+- Baseline as of this writing: 526 tests, 4082/4082 statements, 517/517 branches, 177/177 functions. Regressions from that baseline are bugs in the change, not in the gate.
 
 ## Never
 
@@ -95,7 +95,8 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - `tdwKoaErrorHandler` skips body for status `[100,101,102,204,205,304]`. Adding a 304-returning route? Make sure clients don't expect JSON.
 - `customFormatErrorFn` re-throws GraphQL errors — it does not return them. This is by design so Koa's error middleware catches them.
 - `emailChangeHashVerify` returns `false` on multiple branches that arguably should throw (line 40 `@fixme`). Don't "fix" silently; coordinate with the owner.
-- `reEncode` (and so the public `reEncodeToJpeg` / `reEncodeToPng` / `reEncodeToWebp`) throws `Error('Error processing the image')` whenever the source extension already equals the target: `finalFilepath === filePath`, and sharp rejects with "Cannot use same file for input and output". `.jpg → jpeg` works, `.jpeg → jpeg` does not. `test/private/files/reEncode.spec.mts` asserts the current broken behaviour on purpose — coordinate with the owner before changing it, and update that spec deliberately when you do.
+- `reEncode` reads the source into a Buffer before encoding, on purpose: `sharp(filePath)` refuses to use one file as both input and output, which happens whenever the source already carries the target extension (`reEncodeToJpeg('x.jpeg')`). Do not "optimise" it back to `sharp(filePath)`.
+- `reEncode` decides whether to delete the original by comparing **paths** (`finalFilepath !== filePath`), not extensions. Comparing extensions deletes the file just written whenever the two paths coincide (e.g. a `filePath` with no extension at all).
 - `signUp` sends "already valid" email **and** throws 409 for existing users — privacy/timing trade-off. Don't remove either side.
 
 ## Owner / style
@@ -108,7 +109,7 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **koa-utils** (5076 symbols, 6793 relationships, 26 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **koa-utils** (5576 symbols, 7393 relationships, 26 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
