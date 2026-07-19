@@ -28,9 +28,11 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - Thresholds live in `.c8rc.json`: `check-coverage: true`, `per-file: true`, `lines`/`statements`/`functions`/`branches` all at `100`. `yarn test:coverage` exits non-zero the moment any file drops below.
 - `.githooks/pre-commit` runs `yarn test:coverage` on every commit that touches `src/`, `test/`, `package.json`, `.c8rc.json`, `.mocharc.json` or a `tsconfig*.json`. Docs-only commits skip it. Wired by `yarn hooks:install` (via `prepare`), which sets `git config core.hooksPath .githooks`.
 - The right fix for a red gate is always a new test, never a lower threshold and never a new exclude.
-- `.c8rc.json` `exclude` is for genuinely untestable artefacts only — type-only emit (`I*.mjs`, `types/`, `interfaces/`), `private/`, and build output. Do not park real logic there to get green.
+- `.c8rc.json` `exclude` is for genuinely untestable artefacts only — type-only emit (`I*.mjs`, `types/`, `interfaces/`, `TCommonHeaders`, `TCookieRefreshToken`), the fully commented-out `checkForNSFW.mjs`, and build output. Do not park real logic there to get green.
+- **`src/private/**` is covered and measured like everything else.** It was excluded until the coverage gate landed, which hid the auth/email-verification chain — an inverted `if` in `handleIfAccountDisabled` could be introduced and the suite still reported 100%. Do not re-exclude it.
 - When a line truly cannot be exercised (unreachable defensive branch), raise it with the owner before excluding it. Do not add `/* c8 ignore */` on your own initiative.
-- Baseline as of this writing: 460 tests, 3263/3263 statements, 427/427 branches, 145/145 functions. Regressions from that baseline are bugs in the change, not in the gate.
+- `@sentry/node` and `sharp` are sealed ES module namespaces — `sinon.stub()` on them fails with "ES Modules cannot be stubbed". Assert the observable effect instead (Sentry is never init'd in the suite, so `captureException` is a safe no-op), or drive the real library against a fixture.
+- Baseline as of this writing: 526 tests, 4079/4079 statements, 521/521 branches, 177/177 functions. Regressions from that baseline are bugs in the change, not in the gate.
 
 ## Never
 
@@ -93,6 +95,7 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - `tdwKoaErrorHandler` skips body for status `[100,101,102,204,205,304]`. Adding a 304-returning route? Make sure clients don't expect JSON.
 - `customFormatErrorFn` re-throws GraphQL errors — it does not return them. This is by design so Koa's error middleware catches them.
 - `emailChangeHashVerify` returns `false` on multiple branches that arguably should throw (line 40 `@fixme`). Don't "fix" silently; coordinate with the owner.
+- `reEncode` (and so the public `reEncodeToJpeg` / `reEncodeToPng` / `reEncodeToWebp`) throws `Error('Error processing the image')` whenever the source extension already equals the target: `finalFilepath === filePath`, and sharp rejects with "Cannot use same file for input and output". `.jpg → jpeg` works, `.jpeg → jpeg` does not. `test/private/files/reEncode.spec.mts` asserts the current broken behaviour on purpose — coordinate with the owner before changing it, and update that spec deliberately when you do.
 - `signUp` sends "already valid" email **and** throws 409 for existing users — privacy/timing trade-off. Don't remove either side.
 
 ## Owner / style
