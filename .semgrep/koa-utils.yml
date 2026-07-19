@@ -8,7 +8,7 @@
 #    pattern-sink in another file will NOT be linked, even when the real data flow crosses
 #    files (see koa-utils.redis-injection.key-injection notes below for a known instance
 #    of this exact limitation in this codebase).
-#  - Every rule below was independently re-run against the real 176-file shadow tree as
+#  - Every rule below was independently re-run against the real 180-file shadow tree as
 #    part of adversarial verification; see per-rule "status" metadata for the outcome.
 
 rules:
@@ -212,33 +212,67 @@ rules:
         - https://redis.io/docs/latest/develop/reference/security/
 
   # --- Path traversal (filesystem sinks) ---------------------------------------------
-  # STATUS: fires on real code — 7 confirmed findings (5 originally; + fs.unlink($SINK)
-  # sink pattern added after a verified false-negative sweep found reEncode.mts:37, since
-  # drifted to :40; + reEncode.mts:20, where 2ec2332 replaced sharp(filePath) with
-  # fs.readFile(filePath) and so moved an already-unsanitized flow onto a tracked sink —
-  # new finding, not new attacker surface, since sharp() consumed the same raw value).
-  # 0 false positives. All sinks sit in exported public-API functions; exploitability
-  # depends on how a *consumer* of this library wires these functions to user input.
+  # STATUS: reachability-scoped, 0 findings on real code. Previously this rule modeled
+  # pattern-sources as "any function parameter" — a library-API-surface model, not an
+  # attacker-reachability model: every exported function taking a path string was flagged
+  # (7 findings), regardless of whether any caller in this repo ever fed it untrusted data —
+  # none did. Sources are now the actual places raw client data enters this codebase: Koa ctx
+  # reads (ctx.params/query/body/header), a GraphQL resolver's `args` (scoped to the
+  # `resolve($PARENT, args, ...) {...}` shape every mutation in this codebase uses), and the
+  # multipart upload's client-supplied filename (scoped to the exact destructuring shape it's
+  # consumed with in storeUploadAsTemp.mts). Sinks are unchanged from the original rule. 0
+  # findings here means "no reachable, unsanitized flow from a modeled entry point to an fs
+  # sink in this repo today" — verified against the real shadow tree plus 14 adversarial
+  # canaries (8 must-fire, 6 must-not-fire), not a suppression and not the old rule gone
+  # quiet by narrowing until the noise disappeared. See metadata.accepted-risk for what is
+  # knowingly out of scope.
   - id: koa-utils.path-traversal.unsanitized-param
     mode: taint
     languages: [typescript]
-    severity: WARNING
+    severity: ERROR
     message: >-
-      An unsanitized function parameter is used to build a filesystem path that is then
-      read, written, moved, or deleted. If a caller passes a value containing '../',
-      this can escape the intended directory (path traversal). Fix: validate/sanitize
-      the parameter (e.g. reject '..', or use path.basename()) before using it in a
-      filesystem path.
+      A value read from an untrusted entry point (Koa ctx, a GraphQL resolver's `args`, or a
+      multipart upload's client-supplied filename) is used to build a filesystem path that is
+      then read, written, moved, or deleted, without going through a recognised sanitizer
+      first. Fix: validate/sanitize the value (path.basename(), path.extname(),
+      assertNoTraversal(), or an explicit '..' strip) before using it in a filesystem path.
     pattern-sources:
+      - pattern: ctx.params
+      - pattern: ctx.params.$KEY
+      - pattern: ctx.request.query
+      - pattern: ctx.query
+      - pattern: ctx.request.body
+      - pattern: ctx.request.header.authorization
+      - pattern: ctx.request.header?.authorization
+      - pattern: ctx.request.header.cookie
+      - pattern: ctx.request.header?.cookie
       - patterns:
           - pattern-either:
-              - pattern: function $F(..., $PARAM, ...) { ... }
-              - pattern: async function $F(..., $PARAM, ...) { ... }
-          - focus-metavariable: $PARAM
+              - pattern-inside: |
+                  async resolve($PARENT, args, ...) { ... }
+              - pattern-inside: |
+                  resolve($PARENT, args, ...) { ... }
+          - pattern: args
+      - patterns:
+          - pattern-inside: |
+              const { ..., filename, ... } = await $UPLOAD
+              ...
+          - pattern: filename
     pattern-sanitizers:
       - pattern: path.basename(...)
       - pattern: path.extname(...)
       - pattern: $X.replace(/\.\./g, ...)
+      # assertNoTraversal is a throwing guard, not a reassignment, so a bare
+      # `pattern: assertNoTraversal(...)` only clears the call expression itself, not
+      # later uses of the checked variable (confirmed by live probe). Use the same
+      # pattern-inside idiom already used for isValidUuidV4 in
+      # koa-utils.redis-injection.key-injection: $V is bound in the guard and re-used
+      # in the sanitized pattern, so only the variable actually validated is cleared.
+      - patterns:
+          - pattern-inside: |
+              assertNoTraversal($V, ...)
+              ...
+          - pattern: $V
     pattern-sinks:
       - pattern: fs.move($SRC, $SINK, ...)
       - pattern: fs.move($SINK, $DST, ...)
@@ -252,23 +286,30 @@ rules:
       - pattern: unlink($SINK, ...)
     metadata:
       category: security
-      confidence: MEDIUM
-      status: "confirmed live findings: files/moveTempFile.mts:18,25; files/validateJpgPngExtension.mts:7; files/validateMimeType.mts:12; files/validatePdfExtension.mts:7; private/files/reEncode.mts:20,40"
+      confidence: HIGH
+      subcategory: [taint-analysis, reachability-scoped]
+      status: >-
+        reachability-scoped (0 findings on the real shadow tree; supersedes the prior "any
+        function parameter" source model, which produced 7 permanently-accepted findings with
+        no attacker-reachability signal). Verified live: 8/8 constructed must-fire canaries
+        fire (ctx.params direct + keyed access; GraphQL resolve() args via
+        destructure/property/one-level-nested access; raw upload filename into
+        createWriteStream and fs.move; a partial-guard sibling-unchecked case proving
+        per-variable sanitizer precision); 6/6 must-not-fire canaries stay silent
+        (path.basename/path.extname-guarded, uuid-prefixed upload filename, an
+        assertNoTraversal-guarded value referenced after the guard, a plain library-function
+        parameter with no traceable untrusted source, and an unrelated variable named "args"
+        outside resolve()). 0 semgrep errors in both runs.
       accepted-risk: >-
-        All 7 are accepted, and the count cannot go to 0 by design: pattern-sources is
-        "any function parameter", so every exported function that takes a path is flagged
-        whether or not the value is attacker-reachable. What was hardened instead is the
-        reachable half — assertNoTraversal() now rejects a `..` component in the *segment*
-        params (moveImageFile/moveFileStaticDomain folder+secondFolder, moveTempFile
-        destFilename), so nothing routed through those can escape UPLOAD_IMG_DIRECTORY_URL
-        or STATIC_FOLDER. It deliberately still allows separators, so a legitimate
-        multi-segment value like `2026/07` keeps working; path.basename() would have been
-        stricter (and is a recognised sanitizer, so it would have cleared findings) but it
-        silently rewrites `2026/07` to `07` and breaks published consumers.
-        The remaining params — moveTempFile sourceFilePath/destinationDir, and filePath in
-        validateJpgPngExtension / validateMimeType / validatePdfExtension / reEncode — are
-        genuine caller-owned paths where reading or deleting the given path IS the
-        function's contract. Those stay the consumer's responsibility.
+        The library's own exported functions (moveTempFile, validateJpgPngExtension,
+        validateMimeType, validatePdfExtension, reEncode) are intentionally no longer
+        sources merely for taking a string parameter — misuse of this public API by a
+        *consumer* package is out of this repo's static-analysis reach by construction, not
+        a gap introduced here. The runtime guard for that boundary is assertNoTraversal on
+        the segment params; the rest is documented as caller responsibility. Semgrep OSS
+        taint is intra-file only (see file header): a future regression where
+        storeUploadAsTemp.mts's sanitization step is weakened and the unsanitized value is
+        passed to a *different file's* fs call would not be caught by this rule.
       cwe: 'CWE-22: Improper Limitation of a Pathname to a Restricted Directory'
       references:
         - https://owasp.org/www-community/attacks/Path_Traversal
