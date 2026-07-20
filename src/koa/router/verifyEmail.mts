@@ -1,13 +1,7 @@
 import { IContextVerifyEmail } from '@private/graphQL/schema/context/IContextVerifyEmail.mjs'
+import { assertVerifyEmailAllowed } from '@private/lib/access/assertVerifyEmailAllowed.mjs'
 import { enableEmailAccess } from '@private/lib/access/db/enableEmailAccess.mjs'
 import { userData4VerifyEmail } from '@private/lib/access/db/userData4VerifyEmail.mjs'
-import { handleBadDB } from '@private/lib/access/handleBadDB.mjs'
-import { handleIfAccountDeleted } from '@private/lib/access/handleIfAccountDeleted.mjs'
-import { handleIfAccountDisabled } from '@private/lib/access/handleIfAccountDisabled.mjs'
-import { handleIfEmailAlreadyValid } from '@private/lib/access/handleIfEmailAlreadyValid.mjs'
-import { handleIfHashBad } from '@private/lib/access/handleIfHashBad.mjs'
-import { handleIfMoreThan3DaysPassed } from '@private/lib/access/handleIfMoreThan3DaysPassed.mjs'
-import { handleIfTooMuchRequestsTimes } from '@private/lib/access/handleIfTooMuchRequestsTimes.mjs'
 import { isSafeRedirectTarget } from '@lib/isSafeRedirectTarget.mjs'
 
 /* c8 ignore start -- ESM live-binding limit: inner async handler stubs (@private/lib/access/*) are non-configurable in tsx loader, integration coverage on consumer */
@@ -19,23 +13,14 @@ export const routerVerifyEmail = () => async (ctx: IContextVerifyEmail) => {
 	try {
 		// search if the email exists
 		const user = await userData4VerifyEmail(uEmail)
-		const uId = user._id
-		const userAccount = user.account
-		const userAccountEmail = userAccount.email
-		const requestTimes = userAccountEmail.requestTimes
-		const dateLastReq = userAccountEmail.dateLastReq
-		const { deleted, disabled } = userAccount
 
-		await handleIfEmailAlreadyValid(email, userAccountEmail.valid)
-		handleBadDB(requestTimes, dateLastReq)
-		await handleIfTooMuchRequestsTimes(email, requestTimes)
-		await handleIfHashBad({ uId, uEmail: email, hash, requestTimes, dbHash: userAccountEmail.hash })
+		// Every access guard lives in assertVerifyEmailAllowed, which is unit-tested.
+		// This handler is unreachable in the suite (the DB read above cannot be stubbed
+		// under the tsx loader), so any logic left inline here is untestable by
+		// construction — see the note on that function.
+		const uId = await assertVerifyEmailAllowed(user, email, hash)
 
-		await handleIfMoreThan3DaysPassed(email, dateLastReq)
-		await handleIfAccountDeleted(email, deleted)
-		await handleIfAccountDisabled(email, disabled)
-
-		// ok enable email
+		// ok enable email — only ever reached once every guard above has passed
 		await enableEmailAccess(uId, email)
 		ctx.redirect('/x/registration-done') // url without prefix
 		// ctx.redirect('https://google.it') // external url
