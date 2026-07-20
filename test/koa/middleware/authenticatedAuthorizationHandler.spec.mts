@@ -5,6 +5,7 @@ import sinon from 'sinon'
 import * as RedisMod from '../../../dist/dataSources/Redis.mjs'
 
 import { expectGraphQLErrorAsync } from '../../helpers/assertGraphQLError.mjs'
+import { restoreIntrospectionCode, saveIntrospectionCode } from '../../helpers/introspectionCode.mjs'
 
 // Real Keygrip instance — used to produce valid signed cookies so
 // verifySignedRefreshToken (non-stubbable ESM export) passes.
@@ -126,7 +127,7 @@ describe('authenticatedAuthorizationHandler', () => {
 
 	it('calls next when Redis empty but introspection code matches', async () => {
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
-		const savedCode = process.env.INTROSPECTION_CODE
+		const savedCode = saveIntrospectionCode()
 		process.env.INTROSPECTION_CODE = 'icode'
 		try {
 			const mw = authenticatedAuthorizationHandler(keys)
@@ -138,7 +139,29 @@ describe('authenticatedAuthorizationHandler', () => {
 			await mw(ctx, async () => { nextCalled = true })
 			expect(nextCalled).to.equal(true)
 		} finally {
-			process.env.INTROSPECTION_CODE = savedCode
+			restoreIntrospectionCode(savedCode)
+		}
+	})
+
+	it('throws 498 for header "undefined" when INTROSPECTION_CODE is unset', async () => {
+		// `${process.env.INTROSPECTION_CODE}` used to coerce an unset variable to the string
+		// 'undefined', letting a stale-but-signed cookie skip the expired-session rejection.
+		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
+		const savedCode = saveIntrospectionCode()
+		delete process.env.INTROSPECTION_CODE
+		try {
+			const mw = authenticatedAuthorizationHandler(keys)
+			const ctx = {
+				request: { header: { cookie: VALID_COOKIE, 'x-introspectioncode': 'undefined' } },
+				state: {}
+			} as never
+			await expectGraphQLErrorAsync(
+				() => mw(ctx, async () => undefined),
+				498,
+				'Invalid Token'
+			)
+		} finally {
+			restoreIntrospectionCode(savedCode)
 		}
 	})
 })

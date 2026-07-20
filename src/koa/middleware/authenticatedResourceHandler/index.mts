@@ -2,6 +2,7 @@ import { IContextAuthenticatedResource } from '@context/IContextAuthenticatedRes
 import { redisClient } from '@dataSources/Redis.mjs'
 import { isSessionBlocked } from '@lib/isSessionBlocked.mjs'
 import { isValidUuidV4 } from '@lib/isValidUuidV4.mjs'
+import { verifyIntrospectionCode } from '@private/lib/verifyIntrospectionCode.mjs'
 import { throwAccessTokenExpiredOrDeleted } from '@throw/throwAccessTokenExpiredOrDeleted.mjs'
 import { throwAccessTokenRequired } from '@throw/throwAccessTokenRequired.mjs'
 import { throwForbiddenError } from '@throw/throwForbiddenError.mjs'
@@ -55,7 +56,7 @@ export const authenticatedResourceHandler = () => async (ctx: IContextAuthentica
 			...redData,
 			id: new Types.ObjectId(redData.id) // fix id as ObjectId
 		}
-	} else if (ctx.request.header?.['x-introspectioncode'] !== `${process.env.INTROSPECTION_CODE}`) {
+	} else if (!verifyIntrospectionCode(ctx.request.header?.['x-introspectioncode'])) {
 		throw throwAccessTokenExpiredOrDeleted()
 	} // else return next
 

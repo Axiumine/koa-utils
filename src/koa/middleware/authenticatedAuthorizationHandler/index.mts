@@ -1,6 +1,7 @@
 import { IContextRefresh } from '@context/IContextRefresh.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
 import { isSessionBlocked } from '@lib/isSessionBlocked.mjs'
+import { verifyIntrospectionCode } from '@private/lib/verifyIntrospectionCode.mjs'
 import { throwForbiddenError } from '@throw/throwForbiddenError.mjs'
 import { throwRefreshTokenExpiredOrDeleted } from '@throw/throwRefreshTokenExpiredOrDeleted.mjs'
 import * as dotenv from 'dotenv'
@@ -35,7 +36,7 @@ export const authenticatedAuthorizationHandler = (keys: Keygrip) => async (ctx: 
 			id: new Types.ObjectId(redData.id),
 			refreshToken: refreshTokenRedis
 		}
-	} else if (ctx.request.header?.['x-introspectioncode'] !== `${process.env.INTROSPECTION_CODE}`) {
+	} else if (!verifyIntrospectionCode(ctx.request.header?.['x-introspectioncode'])) {
 		throw throwRefreshTokenExpiredOrDeleted()
 	} // else return next()
 

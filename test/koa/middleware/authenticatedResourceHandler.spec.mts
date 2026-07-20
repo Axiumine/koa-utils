@@ -4,6 +4,7 @@ import sinon from 'sinon'
 import * as RedisMod from '../../../dist/dataSources/Redis.mjs'
 
 import { expectGraphQLErrorAsync } from '../../helpers/assertGraphQLError.mjs'
+import { restoreIntrospectionCode, saveIntrospectionCode } from '../../helpers/introspectionCode.mjs'
 
 const VALID_UUID = '11111111-1111-4111-8111-111111111111'
 
@@ -131,14 +132,42 @@ describe('authenticatedResourceHandler', () => {
 
 	it('calls next when session empty but valid introspection code provided', async () => {
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
+		const savedCode = saveIntrospectionCode()
 		process.env.INTROSPECTION_CODE = 'secret123'
-		const mw = authenticatedResourceHandler()
-		const ctx = {
-			request: { header: { authorization: `Bearer access:${VALID_UUID}`, 'x-introspectioncode': 'secret123' } },
-			state: {}
-		} as never
-		let nextCalled = false
-		await mw(ctx, async () => { nextCalled = true })
-		expect(nextCalled).to.equal(true)
+		try {
+			const mw = authenticatedResourceHandler()
+			const ctx = {
+				request: { header: { authorization: `Bearer access:${VALID_UUID}`, 'x-introspectioncode': 'secret123' } },
+				state: {}
+			} as never
+			let nextCalled = false
+			await mw(ctx, async () => { nextCalled = true })
+			expect(nextCalled).to.equal(true)
+		} finally {
+			restoreIntrospectionCode(savedCode)
+		}
+	})
+
+	it('throws 498 for header "undefined" when INTROSPECTION_CODE is unset', async () => {
+		// The check used to be `header !== `${process.env.INTROSPECTION_CODE}``, which compares
+		// against the string 'undefined' once the variable is unset. Any caller could send that
+		// value and walk past the expired/deleted-token rejection with no secret whatsoever.
+		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
+		const savedCode = saveIntrospectionCode()
+		delete process.env.INTROSPECTION_CODE
+		try {
+			const mw = authenticatedResourceHandler()
+			const ctx = {
+				request: { header: { authorization: `Bearer access:${VALID_UUID}`, 'x-introspectioncode': 'undefined' } },
+				state: {}
+			} as never
+			await expectGraphQLErrorAsync(
+				() => mw(ctx, async () => undefined),
+				498,
+				'Invalid Token'
+			)
+		} finally {
+			restoreIntrospectionCode(savedCode)
+		}
 	})
 })

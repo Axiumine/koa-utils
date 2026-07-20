@@ -5,6 +5,7 @@ import sinon from 'sinon'
 import * as RedisMod from '../../../dist/dataSources/Redis.mjs'
 
 import { expectGraphQLErrorAsync } from '../../helpers/assertGraphQLError.mjs'
+import { restoreIntrospectionCode, saveIntrospectionCode } from '../../helpers/introspectionCode.mjs'
 
 // Real Keygrip instance — verifySignedRefreshToken is a non-stubbable ESM export,
 // so we provide a properly signed cookie to pass it for real.
@@ -47,7 +48,7 @@ describe('authenticatedLogoutHandler', () => {
 	})
 
 	it('sets introspection=true and calls next when no cookie but introspection code present', async () => {
-		const savedCode = process.env.INTROSPECTION_CODE
+		const savedCode = saveIntrospectionCode()
 		process.env.INTROSPECTION_CODE = 'icode'
 		try {
 			const mw = authenticatedLogoutHandler(keys)
@@ -59,12 +60,12 @@ describe('authenticatedLogoutHandler', () => {
 			await mw(ctx, async () => { nextCalled = true })
 			expect(nextCalled).to.equal(true)
 		} finally {
-			process.env.INTROSPECTION_CODE = savedCode
+			restoreIntrospectionCode(savedCode)
 		}
 	})
 
 	it('sets introspection=true and calls next when no authorization but introspection code present', async () => {
-		const savedCode = process.env.INTROSPECTION_CODE
+		const savedCode = saveIntrospectionCode()
 		process.env.INTROSPECTION_CODE = 'icode'
 		try {
 			const mw = authenticatedLogoutHandler(keys)
@@ -76,7 +77,30 @@ describe('authenticatedLogoutHandler', () => {
 			await mw(ctx, async () => { nextCalled = true })
 			expect(nextCalled).to.equal(true)
 		} finally {
-			process.env.INTROSPECTION_CODE = savedCode
+			restoreIntrospectionCode(savedCode)
+		}
+	})
+
+	it('throws 412 for header "undefined" when INTROSPECTION_CODE is unset', async () => {
+		// requireIntrospectionOrThrow compared against `${process.env.INTROSPECTION_CODE}`, so an
+		// unset variable turned the header value 'undefined' into a valid introspection bypass:
+		// the caller skipped the whole logout body and still got a success response.
+		const savedCode = saveIntrospectionCode()
+		delete process.env.INTROSPECTION_CODE
+		try {
+			const mw = authenticatedLogoutHandler(keys)
+			const ctx = {
+				request: { header: { 'x-introspectioncode': 'undefined' } },
+				state: {}
+			} as never
+			await expectGraphQLErrorAsync(
+				() => mw(ctx, async () => undefined),
+				412,
+				'Precondition Failed',
+				'No authorization cookie.'
+			)
+		} finally {
+			restoreIntrospectionCode(savedCode)
 		}
 	})
 
