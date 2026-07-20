@@ -17,23 +17,38 @@ export async function storeUploadAsTemp(upload: Promise<IFileUpload>, maxFileSiz
 	const storedFileName = uuidv4() + path.extname(filename).toLowerCase()
 	const storedFileUrl = `${UPLOAD_TEMP_DIRECTORY_URL}/${storedFileName}`
 	let fileSize = 0 // Variable to track file size
+	let sizeExceeded = false // Set once the limit is passed; read by the 'close' handler
 
 	// Store the file in the filesystem.
 	await new Promise((resolve, reject) => {
 		// Create a stream to which the upload will be written.
 		const writeStream = createWriteStream(storedFileUrl)
 
-		// Check file size during streaming
+		// Check file size during streaming.
+		// Only flags and stops the stream — the rejection is issued from the 'close'
+		// handler below. Rejecting from inside unlink's callback here would lose the
+		// race: writeStream.destroy() emits 'close' synchronously ahead of the async
+		// unlink, so 'close' resolved the promise first and the later reject() was a
+		// no-op on an already-settled promise. An oversize upload therefore reported
+		// SUCCESS while returning a path that had just been deleted.
 		stream.on('data', (chunk: Buffer) => {
 			fileSize += chunk.length
-			if (fileSize > maxFileSize) {
+			if (!sizeExceeded && fileSize > maxFileSize) {
+				sizeExceeded = true
 				writeStream.destroy() // Stop the stream
-				unlink(storedFileUrl, () => reject(new Error(`File size exceeds the limit of {maxFileSize}MB`)))
 			}
 		})
 
-		// Resolve the Promise only once the file handle is fully closed
-		writeStream.on('close', () => resolve(undefined))
+		// Resolve the Promise only once the file handle is fully closed — and only if
+		// the size limit held. Cleanup happens first so the reject is issued with the
+		// partial file already removed.
+		writeStream.on('close', () => {
+			if (sizeExceeded) {
+				unlink(storedFileUrl, () => reject(new Error(`File size exceeds the limit of ${maxFileSize} bytes`)))
+			} else {
+				resolve(undefined)
+			}
+		})
 
 		// If there's an error writing the file, remove the partially written file
 		// and reject the promise.

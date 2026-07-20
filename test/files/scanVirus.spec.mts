@@ -92,10 +92,13 @@ describe('scanVirus', () => {
 			const { initClamScan, scanVirus } = await import('../../dist/files/scanVirus.mjs')
 			await initClamScan()
 
-			// No assertion needed on Sentry since captureException is non-configurable;
-			// just confirm scanVirus resolves without throwing
-			await scanVirus('/tmp/clean.txt')
+			// Sentry cannot be stubbed (sealed ESM namespace) and is never initialised in
+			// the suite, so the alert is asserted through the returned result instead.
+			const res = await scanVirus('/tmp/clean.txt')
 			expect(fakeInstance.scanFile.calledOnceWith('/tmp/clean.txt')).to.be.true
+			expect(res.isInfected).to.equal(false)
+			expect(res.alerted, 'a clean file must not raise the alert').to.equal(false)
+			expect(res.scanned).to.equal(true)
 		})
 
 		it('calls scanFile and proceeds when file is infected', async () => {
@@ -107,9 +110,16 @@ describe('scanVirus', () => {
 			const { initClamScan, scanVirus } = await import('../../dist/files/scanVirus.mjs')
 			await initClamScan()
 
-			// scanVirus swallows the infected detection (only reports to Sentry), so no throw
-			await scanVirus('/tmp/infected.exe')
+			// scanVirus deliberately does not throw on detection — blocking is the caller's
+			// decision — but the detection must be reported. Asserting only that scanFile
+			// ran let `if (isInfected)` be inverted with no test noticing: the alert would
+			// fire on clean files and stay silent on infected ones.
+			const res = await scanVirus('/tmp/infected.exe')
 			expect(fakeInstance.scanFile.calledOnce).to.be.true
+			expect(res.isInfected).to.equal(true)
+			expect(res.viruses).to.deep.equal(['Trojan.test'])
+			expect(res.alerted, 'an infected file must raise the alert').to.equal(true)
+			expect(res.scanned).to.equal(true)
 		})
 
 		it('swallows scanFile errors (caught internally)', async () => {
@@ -119,9 +129,14 @@ describe('scanVirus', () => {
 			const { initClamScan, scanVirus } = await import('../../dist/files/scanVirus.mjs')
 			await initClamScan()
 
-			// Error is caught inside scanVirus and sent to Sentry — should not re-throw
-			await scanVirus('/tmp/bad.txt')
+			// Error is caught inside scanVirus and sent to Sentry — should not re-throw.
+			// scanned:false means UNKNOWN, not clean — a caller must be able to tell the
+			// difference between "scan says clean" and "scan never completed".
+			const res = await scanVirus('/tmp/bad.txt')
 			expect(fakeInstance.scanFile.calledOnce).to.be.true
+			expect(res.scanned, 'a failed scan must not report as scanned').to.equal(false)
+			expect(res.isInfected).to.equal(false)
+			expect(res.alerted).to.equal(false)
 		})
 	})
 })

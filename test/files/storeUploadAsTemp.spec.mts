@@ -61,20 +61,27 @@ describe('storeUploadAsTemp', () => {
 		try { if (existsSync(result.filePath)) unlinkSync(result.filePath) } catch {}
 	})
 
-	it('size-limit branch: writeStream.destroy() races with close → resolves (source behaviour)', async () => {
-		// NOTE: the source calls writeStream.destroy() then unlink→reject inside the callback,
-		// but destroy() emits 'close' synchronously which settles the Promise via resolve() first.
-		// The reject in the unlink callback is a no-op on an already-settled Promise.
-		// This documents the known behaviour: oversized uploads currently resolve rather than reject.
+	it('rejects an oversize upload and removes the partial file', async () => {
+		// Previously this test documented the opposite: destroy() emits 'close', which
+		// resolved the Promise before the unlink callback's reject() could run, so an
+		// oversize upload reported SUCCESS while returning a path that had just been
+		// deleted. The rejection is now issued from the 'close' handler itself, after
+		// cleanup, so there is no race to lose.
 		const { storeUploadAsTemp } = await import('../../dist/files/storeUploadAsTemp.mjs')
-		const bigBuf = Buffer.alloc(1024 * 100) // 100 KB
+		const bigBuf = Buffer.alloc(1024 * 100) // 100 KB against a 1-byte limit
 		const upload = makeUploadFromBuffer(bigBuf, 'big.jpg')
 
-		// Does NOT throw — the close event wins the race
-		const result = await storeUploadAsTemp(upload, 1)
-		expect(result).to.be.an('object')
-		// clean up
-		try { if (existsSync(result.filePath)) unlinkSync(result.filePath) } catch {}
+		let caught: unknown
+		let result: { filePath: string } | undefined
+		try {
+			result = await storeUploadAsTemp(upload, 1)
+		} catch (e) {
+			caught = e
+		}
+
+		expect(caught, 'an oversize upload must reject').to.be.instanceOf(Error)
+		expect((caught as Error).message).to.contain('exceeds the limit')
+		expect(result, 'no IStoreFile may be returned for a rejected upload').to.equal(undefined)
 	})
 
 	it('stream error branch: writeStream destroy race → resolves (source behaviour)', async () => {
