@@ -1,8 +1,8 @@
+import { isSafeRedirectTarget } from '@lib/isSafeRedirectTarget.mjs'
 import { IContextVerifyEmail } from '@private/graphQL/schema/context/IContextVerifyEmail.mjs'
 import { assertVerifyEmailAllowed } from '@private/lib/access/assertVerifyEmailAllowed.mjs'
 import { enableEmailAccess } from '@private/lib/access/db/enableEmailAccess.mjs'
 import { userData4VerifyEmail } from '@private/lib/access/db/userData4VerifyEmail.mjs'
-import { isSafeRedirectTarget } from '@lib/isSafeRedirectTarget.mjs'
 
 /* c8 ignore start -- ESM live-binding limit: inner async handler stubs (@private/lib/access/*) are non-configurable in tsx loader, integration coverage on consumer */
 export const routerVerifyEmail = () => async (ctx: IContextVerifyEmail) => {

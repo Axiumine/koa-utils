@@ -43,11 +43,7 @@ export interface IVerifyEmailUser {
  * returned id, so the irreversible side effect cannot be reordered ahead of a guard —
  * a mutation that did exactly that also survived.
  */
-export async function assertVerifyEmailAllowed(
-	user: IVerifyEmailUser,
-	email: string,
-	hash: string
-): Promise<Types.ObjectId> {
+export async function assertVerifyEmailAllowed(user: IVerifyEmailUser, email: string, hash: string): Promise<Types.ObjectId> {
 	const uId = user._id
 	const userAccount = user.account
 	const userAccountEmail = userAccount.email
