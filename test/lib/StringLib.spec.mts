@@ -1,5 +1,6 @@
 import { StringLib } from '@lib/StringLib.mjs'
 import { expect } from 'chai'
+import sinon from 'sinon'
 
 describe('StringLib', () => {
 	const s = new StringLib()
@@ -33,15 +34,70 @@ describe('StringLib', () => {
 		it('returns alphanumeric chars (base36)', () => {
 			expect(s.randomString(40)).to.match(/^[0-9a-z]+$/)
 		})
+
+		it('does not draw from Math.random — reset and email hashes depend on this', () => {
+			// randomString backs every password-reset hash and email-confirmation hash in
+			// the package. Math.random() is V8's xorshift128+: its state is recoverable
+			// from observed outputs, after which the next hash is predictable — request a
+			// reset for your own account, read your hash, predict the victim's. Length
+			// gives no protection; entropy is bounded by the generator.
+			const spy = sinon.spy(Math, 'random')
+			try {
+				s.randomString(50)
+				expect(spy.called, 'hashes must come from a CSPRNG, not Math.random').to.equal(false)
+			} finally {
+				spy.restore()
+			}
+		})
+
+		it('returns an empty string for a non-positive length', () => {
+			expect(s.randomString(0)).to.equal('')
+			expect(s.randomString(-5)).to.equal('')
+		})
+
+		it('does not repeat across many draws', () => {
+			const seen = new Set<string>()
+			for (let i = 0; i < 200; i++) {
+				seen.add(s.randomString(50))
+			}
+			expect(seen.size).to.equal(200)
+		})
 	})
 
 	describe('getRandomArbitrary', () => {
+		it('returns min when the range is empty or inverted', () => {
+			expect(s.getRandomArbitrary(7, 7)).to.equal(7)
+			expect(s.getRandomArbitrary(7, 3)).to.equal(7)
+		})
+
+		it('covers the whole range, not just the low end (no modulo bias)', () => {
+			const seen = new Set<number>()
+			for (let i = 0; i < 500; i++) {
+				seen.add(s.getRandomArbitrary(0, 10))
+			}
+			// every bucket must appear — a biased or constant generator would not fill them
+			expect(seen.size).to.equal(10)
+		})
+
 		it('returns integer within [min, max)', () => {
 			for (let i = 0; i < 100; i++) {
 				const n = s.getRandomArbitrary(5, 10)
 				expect(Number.isInteger(n)).to.equal(true)
 				expect(n).to.be.at.least(5)
 				expect(n).to.be.lessThan(10)
+			}
+		})
+	})
+
+	describe('getRandomOTP — must not be predictable', () => {
+		it('does not draw from Math.random', () => {
+			// A predictable one-time password defeats the point of one.
+			const spy = sinon.spy(Math, 'random')
+			try {
+				s.getRandomOTP()
+				expect(spy.called, 'OTPs must come from a CSPRNG').to.equal(false)
+			} finally {
+				spy.restore()
 			}
 		})
 	})
