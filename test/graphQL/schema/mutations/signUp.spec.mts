@@ -78,6 +78,12 @@ describe('signUp — resolve (deep stubs)', () => {
 		// email should be lowercased + trimmed
 		expect(sendEmailVerifyStub.firstCall.args[0]).to.equal('new@test.com')
 		expect(emailAlreadyValidStub.called).to.equal(false)
+		// The session must be closed on the SUCCESS path too, not only when the
+		// transaction throws. Moving endSession() out of `finally` into `catch` leaves
+		// every successful call leaking a mongoose ClientSession, and the error-path
+		// test still passes because tryCatchRethrow always throws.
+		const session = (await startSessionStub.returnValues[0]) as { endSession: sinon.SinonStub }
+		expect(session.endSession.called, 'session must be ended on the success path').to.equal(true)
 	})
 
 	it('existing user → throws 409 Conflict and sends emailAlreadyValid email', async () => {

@@ -100,6 +100,12 @@ describe('resetPwd — resolve', () => {
 		expect(result).to.equal(true)
 		expect(updateOneStub.calledOnce).to.equal(true)
 		expect(sendEmailResetStub.calledOnce).to.equal(true)
+		// The session must be closed on the SUCCESS path too, not only when the
+		// transaction throws. Moving endSession() out of `finally` into `catch` leaves
+		// every successful call leaking a mongoose ClientSession, and the error-path
+		// test still passes because tryCatchRethrow always throws.
+		const session = (await startSessionStub.returnValues[0]) as { endSession: sinon.SinonStub }
+		expect(session.endSession.called, 'session must be ended on the success path').to.equal(true)
 	})
 
 	it('prior request < 10 min ago → throws 429 Too Many Requests', async () => {

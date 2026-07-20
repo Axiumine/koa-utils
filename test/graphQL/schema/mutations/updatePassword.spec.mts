@@ -207,6 +207,11 @@ describe('updatePassword — resolve', () => {
 		expect(result).to.equal(true)
 		expect(sendConfermaStub.calledOnce).to.equal(true)
 		expect(sendConfermaStub.firstCall.args[0]).to.equal('user@test.com')
+		// The session must be closed on the SUCCESS path too. The existing
+		// 'endSession always called in finally' test only drives the 403 branch, where
+		// endSession still runs even if it is moved out of `finally` into `catch`.
+		const session = (await startSessionStub.returnValues[0]) as { endSession: sinon.SinonStub }
+		expect(session.endSession.called, 'session must be ended on the success path').to.equal(true)
 	})
 
 	it('endSession always called in finally', async () => {

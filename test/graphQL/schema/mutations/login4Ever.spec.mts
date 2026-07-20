@@ -88,6 +88,12 @@ describe('login4Ever — resolve (deep stubs)', () => {
 		expect(result).to.have.property('accessToken').that.is.a('string').and.not.equal('')
 		expect(hSetStub.called).to.equal(true)
 		expect((ctx.cookies.set as sinon.SinonStub).calledWith('refresh_token')).to.equal(true)
+		// The session must be closed on the SUCCESS path too, not only when the
+		// transaction throws. Moving endSession() out of `finally` into `catch` leaves
+		// every successful call leaking a mongoose ClientSession, and the error-path
+		// test still passes because tryCatchRethrow always throws.
+		const session = (await startSessionStub.returnValues[0]) as { endSession: sinon.SinonStub }
+		expect(session.endSession.called, 'session must be ended on the success path').to.equal(true)
 	})
 
 	it('user not found → throws 401 Unauthorized', async () => {
