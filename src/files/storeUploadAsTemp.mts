@@ -1,6 +1,5 @@
 import { createWriteStream, unlink } from 'node:fs'
 
-import * as Sentry from '@sentry/node'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -18,6 +17,7 @@ export async function storeUploadAsTemp(upload: Promise<IFileUpload>, maxFileSiz
 	const storedFileUrl = `${UPLOAD_TEMP_DIRECTORY_URL}/${storedFileName}`
 	let fileSize = 0 // Variable to track file size
 	let sizeExceeded = false // Set once the limit is passed; read by the 'close' handler
+	let writeFailure: Error | null = null // Set on a write/stream error; read by the 'close' handler
 
 	// Store the file in the filesystem.
 	await new Promise((resolve, reject) => {
@@ -39,32 +39,34 @@ export async function storeUploadAsTemp(upload: Promise<IFileUpload>, maxFileSiz
 			}
 		})
 
-		// Resolve the Promise only once the file handle is fully closed — and only if
-		// the size limit held. Cleanup happens first so the reject is issued with the
-		// partial file already removed.
+		// Best-effort cleanup, then reject. Cleanup is fire-and-forget by design: the
+		// upload has already failed, and an unlink error must not mask the real cause.
+		const removeThenReject = (reason: Error) => unlink(storedFileUrl, () => reject(reason))
+
+		// 'close' is the single settle point. Every failure path below only RECORDS what
+		// went wrong and stops the stream; nothing settles the Promise itself. Rejecting
+		// from inside an unlink callback instead would lose the race — destroy() emits
+		// 'close' ahead of the async unlink, so 'close' settled the Promise first and the
+		// later reject() was a no-op. That is why an oversize upload used to report
+		// SUCCESS with a filePath that had just been deleted, and why a write error did
+		// the same.
 		writeStream.on('close', () => {
 			if (sizeExceeded) {
-				unlink(storedFileUrl, () => reject(new Error(`File size exceeds the limit of ${maxFileSize} bytes`)))
+				removeThenReject(new Error(`File size exceeds the limit of ${maxFileSize} bytes`))
+			} else if (writeFailure !== null) {
+				removeThenReject(writeFailure)
 			} else {
 				resolve(undefined)
 			}
 		})
 
-		// If there's an error writing the file, remove the partially written file
-		// and reject the promise.
-		/* c8 ignore start -- race-condition error path, not reachable in deterministic tests */
-		writeStream.on('error', (e) => {
-			unlink(storedFileUrl, (unlinkError) => {
-				if (unlinkError) {
-					// Log or handle the unlink error in some way
-					Sentry.captureException(e, {
-						extra: { detail: 'unlink error' }
-					})
-				}
-				reject(new Error('File size exceeds the limit.'))
-			})
+		// Record the write error; 'close' follows and does the rejecting. The previous
+		// version rejected here with 'File size exceeds the limit.' regardless of the
+		// actual cause, which was misleading for every non-size failure — the real error
+		// is propagated now.
+		writeStream.on('error', (e: Error) => {
+			writeFailure = e
 		})
-		/* c8 ignore stop */
 
 		// In Node.js <= v13, errors are not automatically propagated between piped streams. If there is an error receiving the upload, destroy the write stream with the corresponding error.
 		stream.on('error', (error: Error) => writeStream.destroy(error))

@@ -84,9 +84,13 @@ describe('storeUploadAsTemp', () => {
 		expect(result, 'no IStoreFile may be returned for a rejected upload').to.equal(undefined)
 	})
 
-	it('stream error branch: writeStream destroy race → resolves (source behaviour)', async () => {
-		// Similarly: when a Readable is destroyed, writeStream.on('error') fires,
-		// but the close event from destroy also fires, resolving the Promise first.
+	it('rejects with the underlying error when the read stream fails', async () => {
+		// Same defect as the size-limit path: writeStream.on('error') unlinked and then
+		// rejected from the unlink callback, but 'close' had already resolved the
+		// Promise — so a FAILED upload reported success. The error is now recorded and
+		// the single settle point in 'close' rejects with it. The old code also rejected
+		// with 'File size exceeds the limit.' regardless of cause; the real error is
+		// propagated now.
 		const { storeUploadAsTemp } = await import('../../dist/files/storeUploadAsTemp.mjs')
 		const { Readable } = await import('node:stream')
 		const errStream = new Readable({
@@ -97,9 +101,16 @@ describe('storeUploadAsTemp', () => {
 
 		const upload = makeUploadFromStream(errStream, 'fail.jpg')
 
-		// Does NOT throw due to the same close-event race in source
-		const result = await storeUploadAsTemp(upload)
-		expect(result).to.be.an('object')
-		try { if (existsSync(result.filePath)) unlinkSync(result.filePath) } catch {}
+		let caught: unknown
+		let result: { filePath: string } | undefined
+		try {
+			result = await storeUploadAsTemp(upload)
+		} catch (e) {
+			caught = e
+		}
+
+		expect(caught, 'a failed upload must reject').to.be.instanceOf(Error)
+		expect((caught as Error).message).to.equal('read stream destroyed')
+		expect(result, 'no IStoreFile may be returned for a failed upload').to.equal(undefined)
 	})
 })
