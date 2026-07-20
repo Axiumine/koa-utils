@@ -4,3 +4,4 @@ export const redisClient: any = {}
 export const isValidUuidV4: any = () => true
 export const moveTempFile: any = () => {}
 export const reEncode: any = () => {}
+export const isSafeRedirectTarget: any = () => true

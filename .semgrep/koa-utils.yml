@@ -622,17 +622,23 @@ rules:
               - pattern: ctx.cookies.get(...)
               - pattern: (($E) as Error).message
               - pattern: $E.message
+    # Only the vetted helper counts as a sanitizer. The previous list accepted ANY
+    # `if ($RE.test($X))`, `if ($X.startsWith($PREFIX))` or `if ($X === $LIT)` guard,
+    # with the regex/prefix/literal left as unconstrained metavariables — Semgrep cannot
+    # evaluate what a pattern admits, so guard STRENGTH was entirely untested. This was
+    # not theoretical: replacing the real regex test in koa/router/verifyEmail.mts with
+    # `link.startsWith('/')` was verified to pass BOTH this scan (0 findings) and the
+    # full 564-test suite, while accepting '//evil.com' — a live open redirect.
+    # Narrowing to the named function makes the weakening structurally visible: an ad-hoc
+    # guard is now reported rather than silently trusted, and the strength of the one
+    # blessed guard is pinned by test/lib/isSafeRedirectTarget.spec.mts instead of by a
+    # pattern that cannot see it.
     pattern-sanitizers:
+      - pattern: isSafeRedirectTarget(...)
       - patterns:
-          - pattern-either:
-              - pattern: |
-                  if ($RE.test($X)) { ... }
-              - pattern: |
-                  if ($X.startsWith($PREFIX)) { ... }
-              - pattern: |
-                  if ($X === $LIT) { ... }
-      - pattern-either:
-          - pattern: $RE.test($X)
-          - pattern: encodeURIComponent($X)
+          - pattern-inside: |
+              if (isSafeRedirectTarget($V)) { ... }
+          - pattern: $V
+      - pattern: encodeURIComponent($X)
     pattern-sinks:
       - pattern: $CTX.redirect(...)

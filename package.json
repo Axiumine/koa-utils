@@ -575,6 +575,10 @@
 			"import": "./dist/lib/isSessionBlocked.mjs",
 			"types": "./dist/lib/isSessionBlocked.d.mts"
 		},
+		"./lib/isSafeRedirectTarget": {
+			"import": "./dist/lib/isSafeRedirectTarget.mjs",
+			"types": "./dist/lib/isSafeRedirectTarget.d.mts"
+		},
 		"./lib/isValidUuidV4": {
 			"import": "./dist/lib/isValidUuidV4.mjs",
 			"types": "./dist/lib/isValidUuidV4.d.mts"

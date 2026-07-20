@@ -8,9 +8,7 @@ import { handleIfEmailAlreadyValid } from '@private/lib/access/handleIfEmailAlre
 import { handleIfHashBad } from '@private/lib/access/handleIfHashBad.mjs'
 import { handleIfMoreThan3DaysPassed } from '@private/lib/access/handleIfMoreThan3DaysPassed.mjs'
 import { handleIfTooMuchRequestsTimes } from '@private/lib/access/handleIfTooMuchRequestsTimes.mjs'
-
-// allow url encoded urls after /x/
-const ALLOW_ENCODED_URLS_AFTER_X = /^\/x\/[a-zA-Z0-9._\-%/]+$/
+import { isSafeRedirectTarget } from '@lib/isSafeRedirectTarget.mjs'
 
 /* c8 ignore start -- ESM live-binding limit: inner async handler stubs (@private/lib/access/*) are non-configurable in tsx loader, integration coverage on consumer */
 export const routerVerifyEmail = () => async (ctx: IContextVerifyEmail) => {
@@ -43,7 +41,7 @@ export const routerVerifyEmail = () => async (ctx: IContextVerifyEmail) => {
 		// ctx.redirect('https://google.it') // external url
 	} catch (err: unknown) {
 		const link = (err as Error).message as string
-		if (ALLOW_ENCODED_URLS_AFTER_X.test(link)) {
+		if (isSafeRedirectTarget(link)) {
 			ctx.redirect(link)
 		} else {
 			ctx.redirect('/x/error')
