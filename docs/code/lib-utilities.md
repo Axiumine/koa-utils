@@ -1,6 +1,6 @@
 # Lib — Utility Classes
 
-This section documents the small, dependency-free helper classes in `src/lib/`: `ArrayLib`, `DateLib`, `NumLib` and `StringLib`. They provide array diffing, legacy date parsing/formatting, locale-tolerant number parsing, and string/HTML/random-value helpers used throughout the resolvers and middleware. **Import note:** despite the shared naming convention, only `DateLib` and `NumLib` expose `static` methods callable directly on the class; `ArrayLib` and `StringLib` declare plain instance methods, so consumers must `new` them first (e.g. `new StringLib().makeLink(...)`).
+This section documents the small, dependency-free helper classes in `src/lib/`: `ArrayLib`, `DateLib`, `NumLib` and `StringLib`, plus the standalone `buildPrefixedRedisKey` function in `src/lib/Redis/`. They provide array diffing, legacy date parsing/formatting, locale-tolerant number parsing, string/HTML/random-value helpers used throughout the resolvers and middleware, and Redis key prefixing. **Import note:** despite the shared naming convention, only `DateLib` and `NumLib` expose `static` methods callable directly on the class; `ArrayLib` and `StringLib` declare plain instance methods, so consumers must `new` them first (e.g. `new StringLib().makeLink(...)`); `buildPrefixedRedisKey` is a plain function, not a class member. `RedisBoolean` and its `toRedisBooleanValue` / `fromRedisBooleanValue` codec are documented in [Lib — DB Error Mapping & Redis Booleans](./lib-datasource-errors.md), not here.
 
 ## `ArrayLib`
 
@@ -198,7 +198,7 @@ Same tag-stripping behavior as `cleanHtml`, but passes `undefined` straight thro
 randomString(length: number): string
 ```
 
-Builds a random alphanumeric string of exactly `length` characters by repeatedly appending `Math.random().toString(36).substring(2)` chunks until the accumulated string reaches (or exceeds) the requested length, then truncates to the exact length.
+Generates a cryptographically random string of exactly `length` characters: draws `length` bytes from `node:crypto`'s `randomBytes`, then maps each byte to one character of a 32-character alphabet (`0123456789abcdefghijklmnopqrstuv`, a subset of base36) via `byte % 32`. Since `256 % 32 === 0` the mapping is uniform with no modulo bias, so no rejection/retry branch is needed, and one byte always produces exactly one output character (no accumulate-then-truncate step). This is the generator behind every password-reset and email-confirmation hash in the package; it replaced a `Math.random()`-based implementation in v4.0.0 because `Math.random()` is not a CSPRNG — V8 implements it as xorshift128+, whose internal state is recoverable from a modest number of observed outputs, after which every future value is predictable, which made those hashes guessable regardless of their length. At 5 bits of entropy per character, a 50-character hash carries 250 bits.
 
 **Parameters:**
 
@@ -206,7 +206,7 @@ Builds a random alphanumeric string of exactly `length` characters by repeatedly
 |---|---|---|
 | length | number | Desired output string length. |
 
-**Returns:** `string` — a random base-36 alphanumeric string of exactly `length` characters.
+**Returns:** `string` — a cryptographically random string of exactly `length` characters, drawn from the 32-character alphabet `0123456789abcdefghijklmnopqrstuv`.
 
 ### `getRandomOTP()`
 
@@ -226,16 +226,16 @@ Generates a 6-digit numeric one-time-password by calling `this.getRandomArbitrar
 getRandomArbitrary(min: number, max: number): number
 ```
 
-Returns a random integer via `Math.trunc(Math.random() * (max - min) + min)` — effectively uniform over `[min, max)`, with `max` itself excluded (bar floating-point edge cases).
+Returns a cryptographically random integer via `node:crypto`'s `randomInt`, not `Math.random()`. Truncates both bounds to integers (`lo = Math.trunc(min)`, `range = Math.max(0, Math.trunc(max) - lo)`); if `range` is `0` it returns `lo` directly, otherwise it delegates to `randomInt(lo, lo + range)`, which is uniform over `[lo, lo + range)` with no low-end bias. This backs `getRandomOTP()`, so one-time passwords are unpredictable rather than derived from the pre-v4.0.0 `Math.random()` implementation.
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
-| min | number | Inclusive lower bound. |
-| max | number | Exclusive upper bound. |
+| min | number | Inclusive lower bound (truncated to an integer via `Math.trunc`). |
+| max | number | Exclusive upper bound (truncated to an integer via `Math.trunc`). |
 
-**Returns:** `number` — a random integer in `[min, max)`.
+**Returns:** `number` — a cryptographically random integer in `[Math.trunc(min), Math.trunc(max))`, or `Math.trunc(min)` if that range is empty.
 
 ### `isoToTimestamp(isoStr)`
 
@@ -305,3 +305,23 @@ Builds an HTML anchor tag opening in a new tab: `<a target='_blank' href='${link
 | linkText | string | Visible link text; defaults to `''`, which falls back to displaying `link` itself. |
 
 **Returns:** `string` — an `<a target='_blank' href="...">...</a>` HTML string.
+
+## `buildPrefixedRedisKey`
+
+**Import:** `import { buildPrefixedRedisKey } from '@axiumine/koa-utils/lib/Redis/buildPrefixedRedisKey'`
+
+**Signature:**
+```ts
+export function buildPrefixedRedisKey(prefix: 'access:' | 'refresh:', token: string): string
+```
+
+A standalone function (not a class member). Builds a Redis session key by adding its namespace prefix (`'access:'` or `'refresh:'`) — unless `token` already carries it, in which case `token` is returned unchanged. `ctx.state.user.refreshToken` / `accessToken` arrive already prefixed from this package's own `authenticatedLogoutHandler` / `authenticatedAuthorizationHandler`, but a consumer wiring `ctx.state.user` by hand may pass a bare uuid; accepting both shapes means the caller never builds `'refresh:refresh:<uuid>'` and deletes a key that was never written.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| prefix | 'access:' \| 'refresh:' | The Redis key namespace to ensure is present. |
+| token | string | A raw uuid, or a token that may already carry `prefix`. |
+
+**Returns:** `string` — `token` unchanged if it already starts with `prefix`, otherwise `` `${prefix}${token}` ``.

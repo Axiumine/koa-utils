@@ -4,7 +4,7 @@ TypeScript utility library for Koa + GraphQL backends. Ships authentication midd
 
 - **Module format:** ESM only (`.mjs` + `.d.mts`)
 - **Node:** `^24.14.0`
-- **TypeScript:** `5.9`
+- **TypeScript:** `6.0`
 - **License:** GPL-3.0-or-later
 - **Maintainer:** [Giovanni Manzoni](https://www.giovannimanzoni.com)
 
@@ -20,7 +20,7 @@ All runtime dependencies are declared as **peer dependencies**. Install the ones
 
 ```bash
 yarn add @node-rs/bcrypt @sentry/node @socketlabs/email clamscan dotenv \
-  file-type fs-extra graphql keygrip koa koa-logger mongoose pg redis \
+  file-type fs-extra graphql keygrip koa-logger mongoose pg redis \
   reflect-metadata sequelize sequelize-typescript sharp uuid
 ```
 
@@ -110,7 +110,7 @@ const mailer = new SocketLabsLib()
 await mailer.sendEmailVerify('user@example.com', hash)
 ```
 
-> Note: copy is Italian. Subclass / replace template methods for other locales.
+> Note: copy is hard-coded (a few legacy methods still carry YourCompany-branded placeholder text). Subclass / replace template methods for other locales or brands.
 
 ### Helpers
 

@@ -118,7 +118,7 @@ Inspects a MongoDB error and throws a mapped `GraphQLError` for the two recogniz
 - `409 Conflict` (via `throwConflictError` → `throwAlreadyTakenError`) — on `DuplicateKeyError` (code `11000`), checked at both `e.errorResponse.code` and `e.parent.errorResponse.code`.
 - `400 Bad Request` (via `throwErrorWrongUserInput`) — when `e.message` starts with the literal string `[Validator]` (Mongoose schema validation failure); the prefix is stripped and the remaining text trimmed before being used as the error description.
 
-**Notes:** Despite the CLAUDE.md "cheat sheet" phrasing describing this as a 409/422 split, the source as written maps `[Validator]` errors to **400 Bad Request**, not 422 — `throwErrorWrongUserInput` always throws status 400. Do not "fix" this without coordinating with the owner; document behavior as implemented.
+**Notes:** `[Validator]`-prefixed errors map to **400 Bad Request**, not 422 — `throwErrorWrongUserInput` always throws status 400. Docs previously described this as a 409/422 split, which never matched the source; the split is 409 for `DuplicateKeyError` and 400 for `[Validator]`. Do not "fix" the code to match the old wording without coordinating with the owner; document behavior as implemented.
 
 ## `throwMongoDBErrors`
 

@@ -76,7 +76,7 @@ Loads environment variables via `dotenv.config()` at module scope.
 
 **Returns:** `Promise<void>` — resolves whether or not an error was caught; errors are handled internally, never re-thrown.
 
-**Notes:** Status codes with a suppressed body: **100, 101, 102, 204, 205, 304**. `IKoaError` (see below) is the internal shape used to read `.status`, `.extensions`, and `.message` off the caught error — it is not exported, so consumers should not rely on importing it directly. Requires `@sentry/node` and `dotenv` as peer dependencies (both declared in `peerDependencies`, not bundled).
+**Notes:** Status codes with a suppressed body: **100, 101, 102, 204, 205, 304**. `IKoaError` (see below) is the shape used to read `.status`, `.extensions`, and `.message` off the caught error; it is also published under `./koa/IKoaError` for consumers who want the same typing. Requires `@sentry/node` and `dotenv` as peer dependencies (both declared in `peerDependencies`, not bundled).
 
 ## `IFileUpload`
 
@@ -98,7 +98,7 @@ Describes the shape of a single uploaded file as delivered by a GraphQL multipar
 
 ## `IKoaError`
 
-**Import:** _internal — not exported_
+**Import:** `import { IKoaError } from '@axiumine/koa-utils/koa/IKoaError'`
 
 **Signature:**
 ```ts
@@ -121,4 +121,4 @@ interface IKoaError {
 
 The internal error shape `tdwKoaErrorHandler` casts caught `unknown` errors to before reading `.status`, `.extensions.http.status`, `.extensions.description`, and `.message`. `extensions` mirrors the object built by `throwGraphQLError(status, title, description)` (`{ http: { status }, description }`), so any GraphQL error thrown via that helper satisfies this shape. Non-GraphQL errors only need a `.status` and `.message` for the handler to behave correctly — the other fields (`body`, `path`, `stack`) are typed for completeness but not read by `tdwKoaErrorHandler`.
 
-**Notes:** This file has no entry in `package.json` `exports`, unlike its sibling `IFileUpload`. It is used purely as an internal type annotation inside `tdwKoaErrorHandler.mts`; consumers cannot `import` it from the published package and should not attempt `koa/IKoaError` — that subpath does not exist in `exports`.
+**Notes:** Used as the internal type annotation inside `tdwKoaErrorHandler.mts` for the caught error; also published under `./koa/IKoaError` for consumers who want to type their own error-handling code against the same shape.

@@ -184,7 +184,7 @@ export const logout = {
 }
 ```
 
-Ends the current session. Deletes the refresh-token Redis key (`${REDIS_KEY}refresh:${ctx.state.user.refreshToken}`) unconditionally, and additionally deletes the access-token Redis key (`${REDIS_KEY}access:${ctx.state.user.accessToken}`) only if `ctx.state.user?.accessToken` is a non-empty string. Clears the `refresh_token` cookie via `ctx.cookies.set('refresh_token', '', refreshTokenOptions)`. Any error thrown by the Redis calls is swallowed and only reported to Sentry — the mutation never throws and always returns `true`.
+Ends the current session. Deletes the refresh-token Redis key (`${REDIS_KEY}${buildPrefixedRedisKey('refresh:', ctx.state.user.refreshToken)}`) unconditionally, and additionally deletes the access-token Redis key (`${REDIS_KEY}${buildPrefixedRedisKey('access:', ctx.state.user.accessToken)}`) only if `ctx.state.user?.accessToken` is a non-empty string. `buildPrefixedRedisKey` is idempotent — it prepends the `'refresh:'`/`'access:'` prefix only if the token doesn't already carry it — because `ctx.state.user.refreshToken`/`accessToken` already arrive prefixed from `authenticatedLogoutHandler`, and naive concatenation would double-prefix and delete a key that was never written. Clears the `refresh_token` cookie via `ctx.cookies.set('refresh_token', '', refreshTokenOptions)`. Any error thrown by the Redis calls is swallowed and only reported to Sentry — the mutation never throws and always returns `true`.
 
 **Returns:** `Boolean!` — always `true`, even if the Redis deletes failed.
 

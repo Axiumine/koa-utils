@@ -14,12 +14,13 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - When adding a new public symbol, add a matching entry to `package.json` `exports` (and consider `_moduleAliases`). The package has no barrel — every consumer-visible file needs its own export key.
 - For new GraphQL errors, wrap `throwGraphQLError(status, title, desc)` in a new `src/graphQL/throw/throwXxxError.mts`. Do not throw raw `GraphQLError` from business code.
 - For new mutations, follow the pattern in `src/graphQL/schema/mutations/*.mts`: export an object with `description`, `type`, `args`, `resolve`. Wrap DB work in `mongoose.startSession()` + `session.withTransaction(...)` + `endSession()` in `finally`. Catch with `tryCatchRethrow(e as GraphQLError | Error)`.
-- For Mongo errors inside a mutation, do not branch — let `tryCatchRethrow` → `throwIfMongoErr` map `DuplicateKeyError` to 409 and `[Validator]` prefixed messages to 422.
+- For Mongo errors inside a mutation, do not branch — let `tryCatchRethrow` → `throwIfMongoErr` map `DuplicateKeyError` to 409 and `[Validator]` prefixed messages to 400.
 - Redis key conventions: prefix everything with `${process.env.REDIS_KEY}`. Refresh tokens stored under `${REDIS_KEY}refresh:<uuid>`, access under `${REDIS_KEY}access:<uuid>`.
 - Bcrypt: use `encryptPassword` (hash) / `compareHashAsync` (verify), never call `@node-rs/bcrypt` directly. `SALT_ROUNDS=14` is intentional.
 - Input validation: call `checkEmailLen(uEmail)` and `checkPwdLen(password)` at the start of every resolver that accepts them. Always `email.toLowerCase().trim()` before validation.
 - `tokenOptions.secure = false` is intentional — TLS is terminated at Nginx and `secure` is set there. Do not change this in source.
 - **Every new or modified `.mts` in `src/` ships with tests in the same change.** Coverage is 100% on statements, branches, functions and lines — per file, not just in aggregate. A change that adds an uncovered line is incomplete, not "to be tested later".
+- **Every new or modified `.mts` in `src/` also ships its documentation update in the same change.** See "Documentation — keep in sync with code" below for which file to touch. Docs are not a follow-up task; a change that leaves a doc describing the old behaviour is incomplete.
 - Cover *every* branch you write, including the ones that feel unreachable: each `if`/`else`, every `??` / `?.` / `||` fallback, every `catch`, and every early return. `per-file: true` means one uncovered ternary arm in one file fails the whole run.
 - Before declaring any task done, run `yarn test:coverage` and confirm the c8 summary reads 100% on all four metrics. Do not report "tests pass" from `yarn test` alone — it does not check coverage.
 - **Reindex GitNexus after every commit and every merge**: `node .gitnexus/run.cjs analyze` from the project root, as the last step before reporting the work as done. A stale index makes `impact`, `detect_changes` and `query` answer from the pre-change graph, silently understating blast radius on the next task. `.gitnexus/` is gitignored, so reindexing never dirties the working tree.
@@ -34,10 +35,56 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - **`src/private/**` is covered and measured like everything else.** It was excluded until the coverage gate landed, which hid the auth/email-verification chain — an inverted `if` in `handleIfAccountDisabled` could be introduced and the suite still reported 100%. Do not re-exclude it.
 - When a line truly cannot be exercised (unreachable defensive branch), raise it with the owner before excluding it. Do not add `/* c8 ignore */` on your own initiative.
 - `@sentry/node` and `sharp` are sealed ES module namespaces — `sinon.stub()` on them fails with "ES Modules cannot be stubbed". Assert the observable effect instead (Sentry is never init'd in the suite, so `captureException` is a safe no-op), or drive the real library against a fixture.
-- Baseline as of this writing: 526 tests, 4082/4082 statements, 517/517 branches, 177/177 functions. Regressions from that baseline are bugs in the change, not in the gate.
+- The invariant is 100% on statements, branches, functions and lines, per file, every run — not a fixed count of tests or lines that will rot as the suite grows. Read the actual numbers off the `yarn test:coverage` summary. A run that reports anything below 100% on any file is a bug in the change, not in the gate.
+
+## Documentation — keep in sync with code
+
+Docs in this repo are hand-written reference, not generated (the one exception is the `<!-- gitnexus:start -->` block). Nothing verifies them, so they drift silently and consumers read the stale version on npm. Treat a doc update as part of the code change, in the same commit — never as a follow-up.
+
+**Which file to touch, by what you changed:**
+
+| You changed | Update |
+|---|---|
+| `src/dataSources/**` | `docs/code/data-sources.md` |
+| `src/email/**` | `docs/code/email.md` |
+| `src/files/**` | `docs/code/files.md` + `src/files/Readme.md` |
+| `src/graphQL/models/**` | `docs/code/graphql-models.md` |
+| `src/graphQL/schema/context/**`, `schema/interfaces/**` | `docs/code/graphql-context.md` |
+| `src/graphQL/schema/mutations/**`, `schema/GraphQLInput/**` | `docs/code/graphql-mutations.md` |
+| `src/graphQL/schema/types/**` | `docs/code/graphql-types.md` |
+| `src/graphQL/throw/**`, `src/graphQL/status.mts` | `docs/code/graphql-errors.md` |
+| `src/koa/*.mts`, `src/koa/router/**` | `docs/code/koa-core.md` |
+| `src/koa/middleware/**` | `docs/code/koa-middleware.md` |
+| `src/lib/*.mts` (core helpers) | `docs/code/lib-core.md` |
+| `src/lib/db/**` | `docs/code/lib-db.md` |
+| `src/lib/MariaDB/**`, `lib/MongoDB/**`, `lib/PostgreSQL/**` | `docs/code/lib-datasource-errors.md` |
+| `src/lib/Redis/**` and remaining `src/lib/` utilities | `docs/code/lib-utilities.md` |
+| `src/private/**` | `docs/code/internal.md` |
+| Any file added, removed or moved under `src/` | `REPO.md` (the repo map) |
+| Public API surface, install steps, `engines`, usage examples | `README.md` |
+| A new `docs/code/*.md` page, or the `version` in `package.json` | `docs/code/README.md` (index table + the "Current version" line) |
+| Scripts, `.c8rc.json` thresholds, path aliases, auth flow, pitfalls, coverage baseline | `CLAUDE.md` (this file) |
+| Nothing by hand — regenerate with `node .gitnexus/run.cjs analyze` | `AGENTS.md`, and the `<!-- gitnexus:start -->` block here |
+
+**What counts as a doc change, not just a code change:**
+
+- Renaming or removing an exported symbol, or changing its signature, parameter names, parameter types or return type.
+- Changing an HTTP status code, error `title` or `description` in a `throwXxx` helper — `docs/code/graphql-errors.md` quotes them verbatim.
+- Adding or removing a field on a Mongoose model or a GraphQL type.
+- Changing a Redis key format, a cookie name, an env var name, or a TTL/expiry window.
+- Changing observable behaviour a doc describes in prose, even when the signature is untouched.
+- Adding a new export: `docs/code/README.md` index, the area doc, `REPO.md`, and `package.json` `exports` all move together.
+
+**Before reporting a task done:**
+
+1. `git diff --name-only` — for every touched `src/` path, confirm the mapped doc above is also in the diff, or state explicitly why no doc claim was affected.
+2. Re-read the sections you edited and check every code snippet still compiles against the real signature. A snippet that no longer matches the implementation is worse than no snippet.
+3. Bumped `version` in `package.json`? Update the "Current version" line in `docs/code/README.md` in the same commit.
 
 ## Never
 
+- Do not let a `src/` change ship without the mapped doc update in the same commit, and do not open a "docs to follow" TODO instead. If a change genuinely affects no documented claim, say so in the summary rather than staying silent.
+- Do not hand-edit `AGENTS.md` or anything between the `<!-- gitnexus:start -->` / `<!-- gitnexus:end -->` markers — `analyze` overwrites both.
 - Do not edit `dist/`, `node_modules/`, `yarn.lock`, `skills-lock.json`, `.npmrc`, or `.yarnrc` without explicit instruction. `.npmrc` contains a publish token.
 - Do not import from `src/private/**` outside the package, and do not add `private/*` to `package.json` `exports`. Those modules are internal.
 - Do not introduce `.ts` files — extension is `.mts`. Do not write `import x from './y'` — write `'./y.mjs'`.
@@ -96,7 +143,7 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 - `redData?.disabled` and `redData?.deleted` are truthy for the strings `'true'` and `'false'` alike — Redis stores everything as string. Storage code sets these only when actually blocking.
 - `tdwKoaErrorHandler` skips body for status `[100,101,102,204,205,304]`. Adding a 304-returning route? Make sure clients don't expect JSON.
 - `customFormatErrorFn` re-throws GraphQL errors — it does not return them. This is by design so Koa's error middleware catches them.
-- `emailChangeHashVerify` returns `false` on multiple branches that arguably should throw (line 40 `@fixme`). Don't "fix" silently; coordinate with the owner.
+- `emailChangeHashVerify` returns `false` on multiple branches that arguably should throw, flagged with `@fixme` comments (the "email not found" branch, and the missing-`dateLastReq` guard). Don't "fix" silently; coordinate with the owner.
 - `reEncode` reads the source into a Buffer before encoding, on purpose: `sharp(filePath)` refuses to use one file as both input and output, which happens whenever the source already carries the target extension (`reEncodeToJpeg('x.jpeg')`). Do not "optimise" it back to `sharp(filePath)`.
 - `reEncode` decides whether to delete the original by comparing **paths** (`finalFilepath !== filePath`), not extensions. Comparing extensions deletes the file just written whenever the two paths coincide (e.g. a `filePath` with no extension at all).
 - `signUp` sends "already valid" email **and** throws 409 for existing users — privacy/timing trade-off. Don't remove either side.
@@ -104,14 +151,14 @@ Guidance for AI agents editing this package. Read `REPO.md` for the full map.
 ## Owner / style
 
 - Maintainer: Giovanni Manzoni (`@giovannimanzoni`). Single CODEOWNER.
-- Comments are English-only. The codebase was mixed Italian/English and was fully translated; do not reintroduce Italian.
+- Comments are English-only. The codebase was mixed Italian/English and has been mostly translated, but a few stragglers remain (e.g. `src/koa/logRequestToDb.mts`); clean up any you touch, and do not reintroduce Italian.
 - Commit style (recent): conventional commits (`feat:`, `docs:`, `fix:` ...). Subject ≤ ~50 chars.
 - License: GPL-3.0-or-later. Any file added should be compatible.
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **koa-utils** (6504 symbols, 8574 relationships, 36 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **koa-utils** (6820 symbols, 8901 relationships, 36 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

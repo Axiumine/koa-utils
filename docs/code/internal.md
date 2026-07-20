@@ -51,6 +51,28 @@ Validates a file's real MIME type via its magic number (not its extension or dec
 
 **Returns:** `Promise<string>` — the detected extension if the MIME type is allowed, else `''` (used as a falsy "rejected" sentinel by callers such as the public `validateMimeType`).
 
+### `assertNoTraversal`
+
+**Import:** _internal — not exported_
+
+**Signature:**
+```ts
+export function assertNoTraversal(value: string, name: string)
+```
+
+Rejects a path-traversal attempt in a value that gets interpolated into a filesystem path: throws `Error(`Invalid ${name}: path traversal`)` if `value` (split on `/` or `\`) contains a literal `..` segment. Deliberately narrow — it still allows separators, so a legitimate multi-segment value such as `2026/07` keeps working; a stricter `path.basename()` would close more but would silently rewrite `2026/07` to `07` and break published consumers. Used by `moveFileStaticDomain`, `moveTempFile`, and `moveImageFile`.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| value | string | The caller-supplied value to check |
+| name | string | Parameter name, used in the error message |
+
+**Returns:** `void`.
+
+**Throws:** `Error` — if `value` contains a `..` path segment.
+
 ## `graphQL/Consts`
 
 Shared user-facing error copy for internal error paths.
@@ -328,7 +350,7 @@ Admin equivalent of `checkUserLoginAuthorization`: `infoUserAdminForLogin(uEmail
 export async function setLastLoginSQL(id: number): Promise<boolean>
 ```
 
-MariaDB equivalent of the Mongo `updateLoginStats*` helpers: builds `UPDATE user SET lastlogin = '<timestamp>' WHERE id = <id>` (timestamp formatted `YYYY-MM-DD HH:MM:SS`) and runs it via `sequelize.query`. On success returns `true`; on any thrown error, captures it via `Sentry.captureException` and returns `false` — **the error is swallowed, not rethrown**, so callers must check the boolean return rather than relying on a catch.
+MariaDB equivalent of the Mongo `updateLoginStats*` helpers: runs `UPDATE user SET lastlogin = :timestamp WHERE id = :id` (timestamp formatted `YYYY-MM-DD HH:MM:SS`) via `sequelize.query` with `id`/`timestamp` passed as `replacements`. On success returns `true`; on any thrown error, captures it via `Sentry.captureException` and returns `false` — **the error is swallowed, not rethrown**, so callers must check the boolean return rather than relying on a catch.
 
 **Parameters:**
 
@@ -338,7 +360,7 @@ MariaDB equivalent of the Mongo `updateLoginStats*` helpers: builds `UPDATE user
 
 **Returns:** `Promise<boolean>` — `true` on success, `false` on any DB error (logged to Sentry, not thrown).
 
-**Notes:** Unlike `infoUserForLoginSQL`, the `id`/`timestamp` values here are interpolated directly into the SQL string rather than passed as `replacements`. `id: number` and the ISO-derived `timestamp` are not attacker-controlled free text, but this is a stylistic inconsistency with the rest of the SQL helpers in this codebase — worth flagging if this function is ever changed to accept a wider type.
+**Notes:** Same parameterized-`replacements` pattern as `infoUserForLoginSQL`: the query is built with named placeholders (`UPDATE user SET lastlogin = :timestamp WHERE id = :id`) and `id`/`timestamp` are passed via `sequelize.query`'s `replacements` object, never interpolated into the SQL string.
 
 ### `setRedisLoginSession`
 
@@ -418,7 +440,7 @@ Applies `_buildLoginStatsUpdate(lastLogin, rememberMe)`'s `$set`/`$unset` to `Us
 
 ## `lib/access/db/` — email-verification & reset-password DB writes
 
-All internal, all operate on the `UserBase` Mongoose model. Three (`confirmNewEmail`, `deleteUserByEmail`, `removeResetReq`) are **default exports**; the rest are named exports.
+All internal, all operate on the `UserBase` Mongoose model. Four are **default exports** — `confirmNewEmail`, `deleteUserByEmail`, `removeResetReq`, and `updatePassword` (defined in `updatePasswordDb.mts`, where file name and export name differ); the rest are named exports.
 
 | Symbol | Signature | Description |
 |---|---|---|
@@ -429,12 +451,45 @@ All internal, all operate on the `UserBase` Mongoose model. Three (`confirmNewEm
 | `incReqTimes` | `(_id: ObjectId) => Promise<UpdateWriteOpResult>` | `$inc`s `account.email.requestTimes` by 1 (`runValidators: true`). |
 | `removeResetReq` (default) | `(session: ClientSession, email: string) => Promise<UpdateWriteOpResult>` | `$unset`s `account.resetDateReq`/`account.resetHash` by `login.email`. Note: passes `{ upsert: true }` — if no document matches the email, this creates a new (mostly empty) document rather than no-op. |
 | `saveResetReq` | `(session: ClientSession, _id: Types.ObjectId, now: Date, hash: string) => Promise<void>` | `$set`s `account.resetDateReq = now` and `account.email.hash = hash` (`runValidators: true`). Catches errors and rethrows via `throwMongoDBErrors(e as IMongoDBError)`. |
-| `setEmailHash` | `(session: ClientSession, idUtente: Types.ObjectId) => Promise<string>` | Generates a hash via `emailHash()`, `$set`s `account.email.hash`, resets `account.email.requestTimes = 1`, sets `account.email.dateLastReq = now` (`runValidators: true`); returns the generated hash. Carries an `@fixme` comment ("else va in exception, controllare" — verify the failure path throws as expected). |
+| `setEmailHash` | `(session: ClientSession, idUtente: Types.ObjectId) => Promise<string>` | Generates a hash via `emailHash()`, `$set`s `account.email.hash`, resets `account.email.requestTimes = 1`, sets `account.email.dateLastReq = now` (`runValidators: true`); returns the generated hash. Carries an `@fixme` comment ("else it goes into exception @fixme check" — verify the failure path throws as expected). |
+| `updatePassword` (default, file `updatePasswordDb.mts`) | `(session: ClientSession, _id: mongoose.Types.ObjectId, password: string) => Promise<UpdateWriteOpResult>` | Hashes `password` via `hash(password, SALT_ROUNDS)` and `$set`s `login.password` (`runValidators: true`). Note the default export is named `updatePassword`, not `updatePasswordDb` — the file name and the export name differ. Imported by the public mutation `updatePassword` (`src/graphQL/schema/mutations/updatePassword.mts`). |
 | `userData4VerifyEmail` | `(uEmail: string) => Promise<user projection>` | `.lean()` read of `_id`, `account.email.hash/valid/dateLastReq/requestTimes`, `account.deleted/disabled` by `login.email`. If no user matches, calls `Sentry.captureMessage` then throws a plain `Error(EMAIL_CHECK_LINK)` (not a GraphQL error). |
 
 ## `lib/access/` — verification guard chain (`handleIf*`, `handleBadDB`)
 
-Each of these is an async guard called in sequence by the email-verification flow (backing `routerVerifyEmail`). On failure they all throw a plain `Error` whose `.message` is a redirect path (`EMAIL_CHECK_LINK = '/x/email-check'` for every guard except `handleBadDB`, see below) rather than a `GraphQLError`; the router is expected to catch it and redirect using `e.message`. Maintainers adding a new guard must preserve this convention.
+`routerVerifyEmail` no longer calls these guards directly. It fetches the user via `userData4VerifyEmail`, then delegates the whole check to `assertVerifyEmailAllowed(user, email, hash)` (`src/private/lib/access/assertVerifyEmailAllowed.mts`), which is the function that actually calls the guards below in sequence — `handleIfEmailAlreadyValid`, `handleBadDB`, `handleIfTooMuchRequestsTimes`, `handleIfHashBad`, `handleIfMoreThan3DaysPassed`, `handleIfAccountDeleted`, `handleIfAccountDisabled` — and returns the user's `_id` once every guard has passed. The router then calls `enableEmailAccess` on that id. On failure the guards all throw a plain `Error` whose `.message` is a redirect path (`EMAIL_CHECK_LINK = '/x/email-check'` for every guard except `handleBadDB`, see below) rather than a `GraphQLError`; the router is expected to catch it and redirect using `e.message`. Maintainers adding a new guard must preserve this convention.
+
+### `assertVerifyEmailAllowed`
+
+**Import:** _internal — not exported_
+
+**Signature:**
+```ts
+export interface IVerifyEmailUser {
+	_id: Types.ObjectId
+	account: {
+		email: { hash?: string; valid: boolean; dateLastReq?: Date; requestTimes?: number }
+		deleted?: boolean
+		disabled?: boolean
+	}
+}
+
+export async function assertVerifyEmailAllowed(user: IVerifyEmailUser, email: string, hash: string): Promise<Types.ObjectId>
+```
+
+Runs every guard that must pass before an email-verification link is honored, in order, against the projection `userData4VerifyEmail` returns. `dbHash` passed to `handleIfHashBad` is always the value stored on the account (`user.account.email.hash`), never the one supplied in the URL. Enabling the account is deliberately not done here — the caller (`routerVerifyEmail`) does it on the returned id, so that irreversible side effect can't be reordered ahead of a guard.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| user | IVerifyEmailUser | The projection returned by `userData4VerifyEmail` |
+| email | string | The email from the verification URL |
+| hash | string | The hash from the verification URL |
+
+**Returns:** `Promise<Types.ObjectId>` — `user._id`, once every guard has passed.
+
+**Throws:** Whatever the first failing guard throws (see the table below).
 
 | Symbol | Signature | Description |
 |---|---|---|
@@ -442,7 +497,7 @@ Each of these is an async guard called in sequence by the email-verification flo
 | `handleIfAccountDeleted` | `(email: string, deleted: boolean = false) => Promise<void>` | If `deleted`, sends an "account disabled" notice via `new SocketLabsLib().accountDisabled(email)`, then throws `Error(EMAIL_CHECK_LINK)`. |
 | `handleIfAccountDisabled` | `(email: string, disabled: boolean = false) => Promise<void>` | Same pattern as `handleIfAccountDeleted`, gated on `disabled`. |
 | `handleIfEmailAlreadyValid` | `(uEmail: string, valid: boolean) => Promise<void>` | If `valid`, sends the "email already valid" notice via `SocketLabsLib().emailAlreadyValid(uEmail)`, then throws `Error(EMAIL_CHECK_LINK)`. Ties into the `signUp` "already valid" email + 409 dual-path behavior documented in `CLAUDE.md`. |
-| `handleIfHashBad` | `(uId: ObjectId, uEmail: string, hash: string, requestTimes: number = 0, dbHash?: string) => Promise<void>` | If `hash !== dbHash`: increments the stored request counter via `incReqTimes(uId)`, sends `SocketLabsLib().wrongHash(uEmail, requestTimes + 1)`, then throws `Error(EMAIL_CHECK_LINK)`. |
+| `handleIfHashBad` | `({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) => Promise<void>` | Single destructured object argument (`IHandleIfHashBadArgs = { uId: mongoose.Types.ObjectId; uEmail: string; hash: string; requestTimes?: number; dbHash?: string }`). If `hash !== dbHash`: increments the stored request counter via `incReqTimes(uId)`, sends `SocketLabsLib().wrongHash(uEmail, requestTimes + 1)`, then throws `Error(EMAIL_CHECK_LINK)`. |
 | `handleIfMoreThan3DaysPassed` | `(uEmail: string, dateLastReq: Date = new Date()) => Promise<void>` | Computes "3 days ago" and compares timestamps via `StringLib.isoToTimestamp`; if `dateLastReq` is older than 3 days, sends `SocketLabsLib().hashReqTooOld(uEmail)`, **deletes the user account** (`deleteUserByEmail(uEmail)`), then throws `Error(EMAIL_CHECK_LINK)`. |
 | `handleIfTooMuchRequestsTimes` | `(uEmail: string, requestTimes: number = 99) => Promise<void>` | If `requestTimes >= 5`, sends `SocketLabsLib().tooMuchVerifyRequests(uEmail)`, **deletes the user account** (`deleteUserByEmail(uEmail)`), then throws `Error(EMAIL_CHECK_LINK)`. |
 
@@ -469,3 +524,22 @@ Tiny helper for building a raw JSON response body outside the GraphQL layer (e.g
 | description | string | Longer description field |
 
 **Returns:** `string` — the JSON-stringified `{ message, description }` object.
+
+## `lib/verifyIntrospectionCode`
+
+**Import:** _internal — not exported_
+
+**Signature:**
+```ts
+export const verifyIntrospectionCode = (headerValue: string | undefined): boolean => { ... }
+```
+
+Constant-time check of the `x-introspectioncode` header against `process.env.INTROSPECTION_CODE`, via `Buffer.from` + `node:crypto`'s `timingSafeEqual`. Fails closed: if `INTROSPECTION_CODE` is unset or empty, or `headerValue` is not a string, or the two buffers differ in byte length, it returns `false` without calling `timingSafeEqual` (which throws on unequal-length buffers). Only when both are non-empty strings of equal byte length does it fall through to the constant-time comparison. Guards against the previous call-site pattern of comparing against the *interpolated* `` `${process.env.INTROSPECTION_CODE}` ``, which coerced an unset variable to the literal string `'undefined'` and let a client satisfy the check by sending that exact header value with no real secret configured. Used by three middlewares to allow an introspection bypass: `authenticatedResourceHandler`, `authenticatedAuthorizationHandler`, and `authenticatedLogoutHandler`.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| headerValue | string \| undefined | The `x-introspectioncode` header value from the incoming request |
+
+**Returns:** `boolean` — `true` only if `INTROSPECTION_CODE` is set and `headerValue` matches it byte-for-byte; `false` otherwise.

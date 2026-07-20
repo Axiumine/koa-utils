@@ -2,7 +2,7 @@
 
 A TypeScript utility library for Koa-based backends authored by Giovanni Manzoni / Axiumine. Bundles authentication, GraphQL error handling, data-source connectors (MongoDB, MariaDB, PostgreSQL, Redis), file upload pipelines, transactional email (SocketLabs), and reusable middleware.
 
-Distributed on npm as ESM-only (`.mjs`) with `.d.mts` declarations. Node `^24.14.0`, TypeScript `5.9`.
+Distributed on npm as ESM-only (`.mjs`) with `.d.mts` declarations. Node `^24.14.0`, TypeScript `6.0`.
 
 ---
 
@@ -11,7 +11,7 @@ Distributed on npm as ESM-only (`.mjs`) with `.d.mts` declarations. Node `^24.14
 ```
 src/
 ├── dataSources/      # Connect/disconnect helpers for Mongo, MariaDB, PostgreSQL, Redis
-├── email/            # SocketLabsLib — transactional email client (Italian copy)
+├── email/            # SocketLabsLib — transactional email client (hard-coded copy)
 ├── files/            # Upload pipeline: store → validate ext+mime → ClamAV scan → re-encode (sharp) → move
 ├── graphQL/
 │   ├── models/MongoDB/   # Mongoose models (UserBase, log/*)
@@ -45,13 +45,16 @@ src/
 │   ├── tryCatchRethrow.mts     # GraphQL/Mongo error normaliser
 │   ├── throwIfNotValidEnumValue.mts
 │   ├── sleepMs.mts
+│   ├── isSafeRedirectTarget.mts # allow-lists `/x/...` redirect targets
+│   ├── isSessionBlocked.mts    # true when a Redis session is disabled/deleted
+│   ├── isValidUuidV4.mts       # uuid v4 shape check
 │   ├── ArrayLib / DateLib / NumLib / StringLib  # static utility classes
 │   ├── IAuthorizationDisDel.mts
 │   ├── makeOnboardingData.mts
 │   ├── MariaDB/                # IMariaDBErr, MariaDBErrType, throwSqlErrors
 │   ├── MongoDB/                # IMongoDBError, MongoDBErrType, throwIfMongoErr, throwMongoErrors, IOnboarding
 │   ├── PostgreSQL/             # IPostgresError, IPostgresErrorCodes, makePostgreSqlLogError
-│   ├── Redis/                  # RedisBoolean enum + to/from helpers
+│   ├── Redis/                  # buildPrefixedRedisKey, RedisBoolean enum + to/from helpers
 │   ├── db/
 │   │   ├── log/                # hitStat, logGlobalError, logGraphql, logThrow
 │   │   ├── login/              # ILoginSet, ILoginUnset
@@ -75,8 +78,17 @@ src/
 | `yarn build:all` | `build:cjs` + `build:esm` for dual format |
 | `yarn build:esm` | `tspc -p tsconfig.json`, rename `.js` → `.mjs`, flatten `dist/esm/*` → `dist/` |
 | `yarn build:cjs` | `tsc -p tsconfig.cjs.json`, rename `.js` → `.cjs`, flatten `dist/cjs/*` → `dist/` |
-| `yarn prepare` | `rm -rf dist && yarn build` — runs on `npm install` |
+| `yarn build:tests` | `tspc -p tsconfig.build-tests.json` into `dist-test/`, rename `.js` → `.mjs` |
+| `yarn prepare` | `hooks:install` + `rm -rf dist && yarn build` — runs on `npm install` |
+| `yarn prepare:all` | `rm -rf dist && yarn build:all` |
+| `yarn hooks:install` | `git config core.hooksPath .githooks` (no-op outside a git repo) |
 | `yarn lint` | `eslint --fix` + `prettier --write 'src/**/*.mts'` |
+| `yarn test` | `build` + `build:tests` + `mocha` — no coverage check |
+| `yarn test:watch` | `mocha --watch` |
+| `yarn test:coverage` | `build` + `build:tests` + `c8 mocha` — fails below 100% coverage on any file |
+| `yarn qodana` | `test:coverage` then a dockerised Qodana scan |
+| `yarn qodana:cli` | `test:coverage` then `qodana scan` via local CLI, sourcing `.env` |
+| `yarn semgrep` / `semgrep:all` / `semgrep:canary` | run `scripts/semgrep*.sh` (local, `--registry`, canary variants) |
 | `yarn upload` | `npm publish` (uses `.npmrc` token) |
 | `yarn clean` | `rm -rf ./dist` |
 | `yarn cloc` / `yarn scc` | code metrics, exclude node_modules/dist |
@@ -103,7 +115,7 @@ Source files use `.mts` extension and `.mjs` import specifiers (NodeNext module 
 
 ## 3. Package exports
 
-`package.json` enumerates ~120 explicit subpath exports — no barrel, no root entry. Consumers import deep paths:
+`package.json` enumerates 143 explicit subpath exports — no barrel, no root entry. Consumers import deep paths:
 
 ```ts
 import { authenticatedResourceHandler } from '@axiumine/koa-utils/koa/middleware/authenticatedResourceHandler'
@@ -134,7 +146,7 @@ Every exported subpath maps to `{ import: dist/.../X.mjs, types: dist/.../X.d.mt
 
 `throwGraphQLError(status, title, desc)` wraps `new GraphQLError(title, { extensions: { http: { status }, description } })`. Every `throw*` helper in `graphQL/throw/` is a thin wrapper with a fixed HTTP code + title. `tdwKoaErrorHandler` is the top-level Koa middleware that catches, sets `ctx.status` from `extensions.http.status`, sets `ctx.body = { message, description }` (skipped for 100/101/102/204/205/304), and emits `'error'` on the app. `customFormatErrorFn` is the formatter passed to graphql-http / koa-graphql.
 
-`tryCatchRethrow(e)` is the standard `.catch` body inside every mutation: forwards Mongo errors via `throwIfMongoErr` (turns `DuplicateKeyError` into 409, `[Validator]` prefix into 422), re-throws GraphQL errors verbatim, captures the rest to Sentry and throws `throwInternalError()`.
+`tryCatchRethrow(e)` is the standard `.catch` body inside every mutation: forwards Mongo errors via `throwIfMongoErr` (turns `DuplicateKeyError` into 409, `[Validator]` prefix into 400), re-throws GraphQL errors verbatim, captures the rest to Sentry and throws `throwInternalError()`.
 
 ### Data sources
 
@@ -142,7 +154,9 @@ Each connector reads `.env` via `dotenv.config()` at import time. Functions are 
 
 `redisClient` supports cluster mode when `REDIS_IS_CLUSTER === '1'` (3 nodes from `REDIS_DB{1,2,3}_HOST/PORT`); otherwise single via `REDIS_URL`.
 
-### File uploads (`uploadTempImage`, `uploadTempPdf`)
+### File uploads (`files/uploadTempImage`, `files/uploadTempPdf`)
+
+Note the file/symbol mismatch: `src/files/uploadTempImage.mts` exports a function named `uploadTemp`, not `uploadTempImage` — `uploadTempImage` is only the file name / `package.json` export path (`./files/uploadTempImage`). `src/files/uploadTempPdf.mts` exports `uploadTempPdf`, matching its file name.
 
 Pipeline: `storeUploadAsTemp` (writes stream to `/tmp/<uuid>.<ext>`, enforces 5 MB cap) → `validateJpgPngExtension` / `validatePdfExtension` → `validateMimeTypeImages` / `validateMimeTypePdf` (file-type magic-number check) → `scanVirus` (clamscan, requires `initClamScan()` to be called once at boot) → `reEncodeToWebp` (sharp, strips EXIF) for images / passthrough for PDF. NSFW check is commented out (Sightengine integration scaffolded).
 
@@ -150,7 +164,7 @@ Static-file move targets: `UPLOAD_IMG_DIRECTORY_URL = ${cwd}/upload/uimg`, `${ST
 
 ### Email (`SocketLabsLib`)
 
-Single class wrapping `@socketlabs/email`. Env-driven: `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`, `DEV_TEAM_EMAIL`. Supplies methods for verify, welcome, account disabled/banned, OTP, password reset confirm, wrong-hash, too-old-link, etc. Italian copy hard-coded — adjust before reuse outside `polis24` / Axiumine projects. HTML header/footer can be overridden via constructor args.
+Single class wrapping `@socketlabs/email`. Env-driven: `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`, `DEV_TEAM_EMAIL`. Supplies methods for verify, welcome, account disabled/banned, OTP, password reset confirm, wrong-hash, too-old-link, etc. Copy is hard-coded (not locale-configurable) and some legacy methods still carry YourCompany-branded placeholder text instead of the configured `platformName` — adjust before reuse outside Axiumine projects. HTML header/footer can be overridden via constructor args.
 
 ---
 
@@ -184,7 +198,7 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - **Mongo transactions:** `mongoose.startSession()` + `session.withTransaction(...)` + `endSession()` in `finally`. Always pass the `session` to all model calls.
 - **Errors:** never `throw new Error('...')` inside business logic — always go through a `throw*Error()` helper. Internal-only fatal paths use `throwInternalError()`.
 - **Comments:** existing files contain mixed Italian/English comments, debug `console.debug` calls left in. Preserve original language when editing; do not add cleanup-only commits.
-- **No tests:** repository ships no unit/E2E tests. `tsconfig` excludes `src/__test__/*` defensively but the directory does not exist.
+- **Tests:** `test/` mirrors `src/` layout (99 `*.spec.mts` files, 101 `.mts` files total). Run via Mocha (`.mocharc.json`, spec glob `dist-test/**/*.spec.mjs`) against the `build:tests` output, with sinon + chai + `mongodb-memory-server`. Coverage via c8 (`.c8rc.json`): `check-coverage`, `per-file`, and all four metrics (`lines`/`statements`/`functions`/`branches`) at 100. `.githooks/pre-commit` runs `yarn test:coverage` on every commit touching `src/`, `test/`, `package.json`, `.c8rc.json`, `.mocharc.json` or a `tsconfig*.json`.
 
 ---
 
@@ -192,7 +206,7 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 
 - License: `GPL-3.0-or-later`.
 - Repo: <https://github.com/Axiumine/koa-utils>.
-- Current version: `3.7.3` (`package.json`). Bump version → `yarn upload` (= `npm publish`) → token in `.npmrc` is required.
+- Current version: `4.0.1` (`package.json`). Bump version → `yarn upload` (= `npm publish`) → token in `.npmrc` is required.
 - `peerDependencies` covers every runtime lib (`@node-rs/bcrypt`, `@sentry/node`, `@socketlabs/email`, `clamscan`, `dotenv`, `file-type`, `fs-extra`, `graphql`, `keygrip`, `koa-logger`, `mongoose`, `pg`, `redis`, `reflect-metadata`, `sequelize`, `sequelize-typescript`, `sharp`, `uuid`). Library declares zero `dependencies` — consumer must install peers.
 
 ---
@@ -210,7 +224,7 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - `signUp` sends an email even when the user already exists ("already valid" notice) to avoid leaking account presence — but then throws 409, so a side-channel oracle still exists via timing.
 - Private modules under `src/private/` reach into `@models/*` and DB collections — consumers should not import them directly.
 - `private/graphQL/models/MongoDB/private/UserAdminKoaUtils.mts` defines the admin user model used by `loginAdmin` (not exported).
-- Many SocketLabs methods contain YourCompany-specific copy and a hard-coded `dummy@example.com` recipient in `sendEmailPostSegnalato` — replace before any non-YourCompany use.
+- Many SocketLabs methods contain YourCompany-specific placeholder copy and a hard-coded `dummy@example.com` recipient in `sendEmailPostSegnalato` — consumers should replace both before reuse under their own brand.
 - `tryCatchRethrow` casts `e` to `GraphQLError | Error` but receives `unknown` from `catch (e: unknown)` — relies on `instanceof` narrowing.
 
 ---

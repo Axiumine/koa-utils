@@ -108,7 +108,7 @@ Restricts uploads to `.jpg`, `.jpeg`, `.png` using `validateExtension`. On a fai
 
 ### `validatePdfExtension`
 
-**Import:** _internal — not exported_ (no `./files/validatePdfExtension` entry in `package.json` `exports`, even though the module is a plain named export like its siblings).
+**Import:** `import { validatePdfExtension } from '@axiumine/koa-utils/files/validatePdfExtension'`
 
 **Signature:**
 ```ts
@@ -152,9 +152,9 @@ Magic-number (content-based, not extension-based) MIME validation. Delegates det
 
 ### `validateJpgPngMimeType`
 
-**Import:** `import { validateJpgPngMimeType } from '@axiumine/koa-utils/files/validateMimeTypeImages'`
+**Import:** `import { validateJpgPngMimeType } from '@axiumine/koa-utils/files/validateMimeTypeImages'` or `import { validateJpgPngMimeType } from '@axiumine/koa-utils/files/validateJpgPngMimeType'`
 
-> Note: this symbol lives in `src/files/validateMimeTypeImages.mts` and exports the function `validateJpgPngMimeType` — filename and function name differ. `package.json` declares **two** export keys for it: `./files/validateMimeTypeImages` (works — resolves to the real `dist/files/validateMimeTypeImages.mjs`, use this one) and `./files/validateJpgPngMimeType` (**broken alias** — points to `dist/files/validateJpgPngMimeType.mjs`, which the build never emits). Prefer the `validateMimeTypeImages` subpath.
+> Note: this symbol lives in `src/files/validateMimeTypeImages.mts` and exports the function `validateJpgPngMimeType` — filename and function name differ. `package.json` declares **two** export keys that both resolve to the same built file (`dist/files/validateMimeTypeImages.mjs`): `./files/validateMimeTypeImages` (matches the source filename) and `./files/validateJpgPngMimeType` (matches the exported function name). Either subpath works; pick whichever reads better at the call site.
 
 **Signature:**
 ```ts
@@ -221,14 +221,22 @@ Initializes the module-level ClamAV (`clamscan`) singleton used by `scanVirus`. 
 
 ### `scanVirus`
 
-**Import:** `import { scanVirus } from '@axiumine/koa-utils/files/scanVirus'`
+**Import:** `import { scanVirus, IScanVirusResult } from '@axiumine/koa-utils/files/scanVirus'`
 
 **Signature:**
 ```ts
-export async function scanVirus(filePath: string)
+export async function scanVirus(filePath: string): Promise<IScanVirusResult>
+```
+```ts
+export interface IScanVirusResult {
+	isInfected: boolean
+	viruses: string[]
+	alerted: boolean
+	scanned: boolean
+}
 ```
 
-Scans `filePath` with the singleton initialized by `initClamScan`. If the file is infected, it reports a Sentry warning (tag `file`, context `viruses: { list, count }`, message `Infected file detected: ${filePath}`) — it does **not** throw and does **not** delete the file itself; deletion of infected files is left to ClamAV's own `removeInfected: true` default set in `initClamScan`. If the scan itself errors (e.g. daemon unreachable), the error is only reported to Sentry (`Sentry.captureException`) and swallowed — `scanVirus` never rejects on a scan failure, so the pipeline continues even if the virus scan could not run.
+Scans `filePath` with the singleton initialized by `initClamScan`. If the file is infected, it reports a Sentry warning (tag `file`, context `viruses: { list, count }`, message `Infected file detected: ${filePath}`) and sets `alerted: true` — it does **not** throw and does **not** delete the file itself; deletion of infected files is left to ClamAV's own `removeInfected: true` default set in `initClamScan`. If the scan itself errors (e.g. daemon unreachable), the error is only reported to Sentry (`Sentry.captureException`); `scanVirus` never rejects on a scan failure, instead resolving with `{ isInfected: false, viruses: [], alerted: false, scanned: false }`, so the pipeline continues even if the virus scan could not run. `scanned: false` means the scan did not complete — treat that as unknown, not as clean.
 
 **Parameters:**
 
@@ -236,7 +244,7 @@ Scans `filePath` with the singleton initialized by `initClamScan`. If the file i
 |---|---|---|
 | filePath | string | Path of the file to scan. |
 
-**Returns:** `Promise<void>` — resolves regardless of infection status or scan errors (see quirk above).
+**Returns:** `Promise<IScanVirusResult>` — on a completed scan, `isInfected`/`viruses` come from ClamAV, `alerted` is `true` only when the infected-file Sentry warning fired, and `scanned` is `true`. On a scan failure, resolves with `{ isInfected: false, viruses: [], alerted: false, scanned: false }` instead of rejecting.
 
 **Throws:** `Error('ClamScan has not been initialized. Call initClamScan first.')` — only if `initClamScan` was never called.
 
@@ -266,7 +274,7 @@ Placeholder for a NSFW-content moderation step (intended to call sightengine.com
 export async function reEncodeToJpeg(filename: string, quality = 100)
 ```
 
-Re-encodes an image file to progressive JPEG and strips all metadata (EXIF, etc.). Delegates to the private `reEncode` helper (`@private/files/reEncode.mjs`, not part of the public API), which runs `sharp(filePath).jpeg({ quality, progressive: true }).withMetadata({}).withExif({}).toFile(finalFilepath)` and, if the source extension differed from `'jpeg'`, deletes the original file afterward.
+Re-encodes an image file to progressive JPEG and strips all metadata (EXIF, etc.). Delegates to the private `reEncode` helper (`@private/files/reEncode.mjs`, not part of the public API), which first reads the source file into a `Buffer` (`fs.readFile(filePath)`) and then runs `sharp(input).jpeg({ quality, progressive: true }).withMetadata({}).withExif({}).toFile(finalFilepath)` — the buffered read is deliberate: `sharp` refuses to use the same file path as both input and output, which happens whenever the source already carries the target extension (e.g. `reEncodeToJpeg('x.jpeg')`). If the source extension differed from `'jpeg'`, the original file is deleted afterward.
 
 **Parameters:**
 
@@ -288,7 +296,7 @@ Re-encodes an image file to progressive JPEG and strips all metadata (EXIF, etc.
 export async function reEncodeToPng(filename: string, quality = 100)
 ```
 
-Same as `reEncodeToJpeg` but targets PNG: `sharp(filePath).png({ quality, progressive: true }).withMetadata({}).withExif({}).toFile(finalFilepath)` via the private `reEncode` helper, stripping metadata and deleting the original if its extension differed from `'png'`.
+Same as `reEncodeToJpeg` but targets PNG: `reEncode` reads the source into a `Buffer` first, then runs `sharp(input).png({ quality, progressive: true }).withMetadata({}).withExif({}).toFile(finalFilepath)`, stripping metadata and deleting the original if its extension differed from `'png'`.
 
 **Parameters:**
 
@@ -310,7 +318,7 @@ Same as `reEncodeToJpeg` but targets PNG: `sharp(filePath).png({ quality, progre
 export async function reEncodeToWebp(filename: string, quality = 100)
 ```
 
-Same pattern targeting WebP: `sharp(filePath).webp({ quality, lossless: true }).withMetadata({}).withExif({}).toFile(finalFilepath)` via the private `reEncode` helper. This is the re-encoder used by the image upload pipeline (`uploadTemp`), which always converts to `'webp'` regardless of the original jpg/png extension, and strips metadata/EXIF. Note that `lossless: true` combined with a `quality` argument is somewhat redundant for WebP's lossless mode, but that is what the underlying `sharp` call passes through unchanged.
+Same pattern targeting WebP: `reEncode` reads the source into a `Buffer` first, then runs `sharp(input).webp({ quality, lossless: true }).withMetadata({}).withExif({}).toFile(finalFilepath)`. This is the re-encoder used by the image upload pipeline (`uploadTemp`), which always converts to `'webp'` regardless of the original jpg/png extension, and strips metadata/EXIF. Note that `lossless: true` combined with a `quality` argument is somewhat redundant for WebP's lossless mode, but that is what the underlying `sharp` call passes through unchanged.
 
 **Parameters:**
 
@@ -334,7 +342,7 @@ Same pattern targeting WebP: `sharp(filePath).webp({ quality, lossless: true }).
 export async function moveTempFile(sourceFilePath: string, destFilename: string, destinationDir: string)
 ```
 
-Low-level mover used by both `moveImageFile` and `moveFileStaticDomain`. Ensures `destinationDir` exists (`fs.ensureDir`, creating it recursively if needed), then moves `sourceFilePath` to `${destinationDir}/${destFilename}${ext}` where `ext` is `path.extname(sourceFilePath)` — **the extension is always taken from the source path, not from `destFilename`**, so any extension already present in `destFilename` is ignored/duplicated rather than reused.
+Low-level mover used by both `moveImageFile` and `moveFileStaticDomain`. First validates `destFilename` with the private `assertNoTraversal` helper (`@private/files/assertNoTraversal.mjs`), then ensures `destinationDir` exists (`fs.ensureDir`, creating it recursively if needed), then moves `sourceFilePath` to `${destinationDir}/${destFilename}${ext}` where `ext` is `path.extname(sourceFilePath)` — **the extension is always taken from the source path, not from `destFilename`**, so any extension already present in `destFilename` is ignored/duplicated rather than reused. `sourceFilePath` and `destinationDir` are caller-owned paths and are intentionally not validated here.
 
 **Parameters:**
 
@@ -346,6 +354,8 @@ Low-level mover used by both `moveImageFile` and `moveFileStaticDomain`. Ensures
 
 **Returns:** `Promise<void>`.
 
+**Throws:** `Error('Invalid destFilename: path traversal')` — if `destFilename`, split on `/` or `\`, contains a literal `..` segment.
+
 ### `moveImageFile`
 
 **Import:** `import { moveImageFile } from '@axiumine/koa-utils/files/moveImageFile'`
@@ -355,7 +365,7 @@ Low-level mover used by both `moveImageFile` and `moveFileStaticDomain`. Ensures
 export async function moveImageFile(sourceFilePath: string, folder: string, secondFolder: string, destFilename: string)
 ```
 
-Moves a re-encoded image out of the temp directory into the package's image tree: `${UPLOAD_IMG_DIRECTORY_URL}/${folder}/${secondFolder}` (i.e. `<cwd>/upload/uimg/<folder>/<secondFolder>`), delegating the actual move to `moveTempFile`.
+Validates `folder` and `secondFolder` with `assertNoTraversal`, then moves a re-encoded image out of the temp directory into the package's image tree: `${UPLOAD_IMG_DIRECTORY_URL}/${folder}/${secondFolder}` (i.e. `<cwd>/upload/uimg/<folder>/<secondFolder>`), delegating the actual move to `moveTempFile`.
 
 **Parameters:**
 
@@ -368,6 +378,8 @@ Moves a re-encoded image out of the temp directory into the package's image tree
 
 **Returns:** `Promise<void>`.
 
+**Throws:** `Error('Invalid folder: path traversal')` or `Error('Invalid secondFolder: path traversal')` — if `folder`/`secondFolder` contains a `..` segment. Also propagates `moveTempFile`'s `destFilename` traversal check.
+
 ### `moveFileStaticDomain`
 
 **Import:** `import { moveFileStaticDomain } from '@axiumine/koa-utils/files/moveFileStaticDomain'`
@@ -377,7 +389,7 @@ Moves a re-encoded image out of the temp directory into the package's image tree
 export async function moveFileStaticDomain(sourceFilePath: string, folder: string, secondFolder: string, destFilename: string)
 ```
 
-Moves a file into a consumer-configured static-serving root read from the `STATIC_FOLDER` env var: `${process.env.STATIC_FOLDER}/${folder}/${secondFolder}`, delegating to `moveTempFile`. Intended for non-image assets (e.g. re-encoded PDFs) served from a static domain outside the `upload/uimg` image tree.
+Validates `folder` and `secondFolder` with `assertNoTraversal`, then moves a file into a consumer-configured static-serving root read from the `STATIC_FOLDER` env var: `${process.env.STATIC_FOLDER}/${folder}/${secondFolder}`, delegating to `moveTempFile`. Intended for non-image assets (e.g. re-encoded PDFs) served from a static domain outside the `upload/uimg` image tree.
 
 **Parameters:**
 
@@ -389,6 +401,8 @@ Moves a file into a consumer-configured static-serving root read from the `STATI
 | destFilename | string | Base destination filename (extension is derived from `sourceFilePath`, see `moveTempFile`). |
 
 **Returns:** `Promise<void>`.
+
+**Throws:** `Error('Invalid folder: path traversal')` or `Error('Invalid secondFolder: path traversal')` — if `folder`/`secondFolder` contains a `..` segment. Also propagates `moveTempFile`'s `destFilename` traversal check.
 
 **Notes:** Reads `process.env.STATIC_FOLDER`; if unset, the destination path literally contains `undefined`.
 
@@ -414,7 +428,7 @@ Step 1 of the pipeline: awaits the incoming `IFileUpload` (from `../koa/IFileUpl
 
 **Returns:** `Promise<IStoreFile>` — `{ originalFilename, fileName, filePath }` for the stored temp file.
 
-**Throws:** `Error('File size exceeds the limit of {maxFileSize}MB')` — when the stream exceeds `maxFileSize`; note the message is a literal, non-interpolated `{maxFileSize}` (missing the `$` in the template literal), so it always prints that placeholder text rather than the actual limit. Also `Error('File size exceeds the limit.')` on a write-stream error path (not unit-tested — race-condition only).
+**Throws:** `Error('File size exceeds the limit of ${maxFileSize} bytes')` — when the stream exceeds `maxFileSize`, reporting the limit in bytes. On a write/read-stream error, rejects with the underlying `Error` itself (not a generic message) — the 'error' handler records it and the 'close' handler rejects with the recorded error after unlinking the partial file. Both paths are covered by `test/files/storeUploadAsTemp.spec.mts`.
 
 ### `uploadTemp`
 

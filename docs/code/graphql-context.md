@@ -129,7 +129,7 @@ The context shape used by the `refresh` mutation, following `authenticatedAuthor
 
 ## `IContextKoaErrorHandler`
 
-**Import:** _internal — not exported_
+**Import:** `import { IContextKoaErrorHandler } from '@axiumine/koa-utils/graphQL/schema/context/IContextKoaErrorHandler'`
 
 **Signature:**
 ```ts
@@ -145,6 +145,6 @@ export interface IContextKoaErrorHandler {
 }
 ```
 
-The context shape consumed by `tdwKoaErrorHandler` (exported separately as `./koa/tdwKoaErrorHandler`, but this context-type file itself is not part of `package.json` `exports`). `status` is the HTTP status code being written to the response; `body` is the JSON error payload the handler sets, with a required `message` and an optional `description`; `app.emit` mirrors Koa's `Application#emit`, used by the handler to forward the error as an `'error'` event (e.g. for Sentry/logging integrations) with the typed `IKoaError` payload and the context itself.
+The context shape consumed by `tdwKoaErrorHandler` (exported separately as `./koa/tdwKoaErrorHandler`). `status` is the HTTP status code being written to the response; `body` is the JSON error payload the handler sets, with a required `message` and an optional `description`; `app.emit` mirrors Koa's `Application#emit`, used by the handler to forward the error as an `'error'` event (e.g. for Sentry/logging integrations) with the typed `IKoaError` payload and the context itself.
 
-**Notes:** Although the symbol is exported from its own source module (`export interface IContextKoaErrorHandler`), it has no corresponding entry under `package.json`'s `exports` map, so it cannot be imported by consumers via a package subpath — it is effectively internal to how `tdwKoaErrorHandler` is typed within this library. Per the project-wide convention, `tdwKoaErrorHandler` skips writing a body for statuses `[100, 101, 102, 204, 205, 304]`, so `ctx.body` on this type should not be assumed populated for those statuses. `IKoaError` (from `src/koa/IKoaError.mts`) is likewise not present in `exports` and is internal.
+**Notes:** Published under `./graphQL/schema/context/IContextKoaErrorHandler`, so consumers can import this type directly when typing their own error-handling middleware. Per the project-wide convention, `tdwKoaErrorHandler` skips writing a body for statuses `[100, 101, 102, 204, 205, 304]`, so `ctx.body` on this type should not be assumed populated for those statuses. `IKoaError` (from `src/koa/IKoaError.mts`) is also published, under `./koa/IKoaError`.

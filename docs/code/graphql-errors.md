@@ -48,7 +48,7 @@ The base primitive all other `throwXxxError` helpers wrap. Constructs a `graphql
 | title | string | Becomes the `GraphQLError` message (its "title"). |
 | description | string | Optional; defaults to `''`. Extra detail placed at `extensions.description`. |
 
-**Returns:** `never` (always throws) — declared as `void`-returning but the function body unconditionally throws.
+**Returns:** `never` (always throws) — no explicit return-type annotation; TypeScript infers `never` from the unconditional throw.
 
 **Throws:** `GraphQLError` — always, with the given `status`/`title`/`description`.
 
@@ -219,12 +219,12 @@ Throws a fixed 406 (title `ERR_OOPS`, description `ERR_MISCONFIGURED`) for a req
 **Signature:**
 ```ts
 export const throwAlreadyTakenError = (desc: string = 'You have already done this.') => {
-	// es. invio email a chi l'ha già ricevuta
+	// e.g. sending an email to someone who already received it
 	throw throwGraphQLError(409, 'Conflict', desc)
 }
 ```
 
-Throws a 409 Conflict for "you already did this" situations — the Italian inline comment gives the canonical example: sending a verification/notification email to someone who already received it. Description defaults to a generic message but should usually be overridden with the specific situation.
+Throws a 409 Conflict for "you already did this" situations — the inline comment gives the canonical example: sending a verification/notification email to someone who already received it. Description defaults to a generic message but should usually be overridden with the specific situation.
 
 **Parameters:**
 
@@ -243,7 +243,7 @@ Throws a 409 Conflict for "you already did this" situations — the Italian inli
 **Signature:**
 ```ts
 export const throwConflictError = (desc: string = 'You have already done this.') => {
-	// es. invio email a chi l'ha già ricevuta
+	// e.g. sending an email to someone who has already received it
 	throw throwAlreadyTakenError(desc)
 }
 ```
@@ -528,11 +528,11 @@ Throws a fixed 501 (title `ERR_OOPS`, description `ERR_MISCONFIGURED`) for a cod
 
 These are unrelated to the HTTP-status `throwXxxError` family above: they are plain string literals meant to populate the `status` field of GraphQL response payload types (e.g. alongside `RetStatusType` / `RetStatusMexType`), not `extensions.http.status` values. All seven are declared in the same file, `src/graphQL/status.mts`.
 
-> **Discrepancy found:** `package.json`'s `exports` map only publishes this file under the key `"./graphQL/schema/status"`, pointing at `./dist/graphQL/schema/status.mjs` — but the source lives at `src/graphQL/status.mts` and builds to `dist/graphQL/status.mjs` (no `schema` segment). The exports entry does not match where the built file actually is, so `import ... from '@axiumine/koa-utils/graphQL/schema/status'` will 404 against a real install. Flagging for the maintainer to fix (either move the source under `schema/`, add a second correct exports entry, or correct the existing path).
+`package.json`'s `exports` map publishes this file under **two** keys that both resolve to the same built file (`dist/graphQL/status.mjs`): `"./graphQL/status"` (matches where the source actually lives, `src/graphQL/status.mts`) and `"./graphQL/schema/status"` (kept for backwards compatibility with earlier call sites). Either subpath works; new code should prefer `./graphQL/status`.
 
 ### `stOk`
 
-**Import:** `import { stOk } from '@axiumine/koa-utils/graphQL/schema/status'` _(see discrepancy note above — this exports path does not currently resolve to a built file)_
+**Import:** `import { stOk } from '@axiumine/koa-utils/graphQL/status'` (or the legacy `@axiumine/koa-utils/graphQL/schema/status`)
 
 **Signature:**
 ```ts
@@ -543,7 +543,7 @@ Generic "operation succeeded" status value.
 
 ### `stExist`
 
-**Import:** `import { stExist } from '@axiumine/koa-utils/graphQL/schema/status'` _(see discrepancy note above)_
+**Import:** `import { stExist } from '@axiumine/koa-utils/graphQL/status'` (or the legacy `@axiumine/koa-utils/graphQL/schema/status`)
 
 **Signature:**
 ```ts
@@ -554,7 +554,7 @@ Indicates the target resource/record already exists (e.g. a duplicate signup or 
 
 ### `stFailToSendEmail`
 
-**Import:** `import { stFailToSendEmail } from '@axiumine/koa-utils/graphQL/schema/status'` _(see discrepancy note above)_
+**Import:** `import { stFailToSendEmail } from '@axiumine/koa-utils/graphQL/status'` (or the legacy `@axiumine/koa-utils/graphQL/schema/status`)
 
 **Signature:**
 ```ts
@@ -565,7 +565,7 @@ Indicates the underlying operation succeeded but the follow-up transactional ema
 
 ### `stNotFoundNotMatch`
 
-**Import:** `import { stNotFoundNotMatch } from '@axiumine/koa-utils/graphQL/schema/status'` _(see discrepancy note above)_
+**Import:** `import { stNotFoundNotMatch } from '@axiumine/koa-utils/graphQL/status'` (or the legacy `@axiumine/koa-utils/graphQL/schema/status`)
 
 **Signature:**
 ```ts
@@ -576,7 +576,7 @@ Indicates a lookup found no matching record, or a record was found but a seconda
 
 ### `stErrBackend`
 
-**Import:** `import { stErrBackend } from '@axiumine/koa-utils/graphQL/schema/status'` _(see discrepancy note above)_
+**Import:** `import { stErrBackend } from '@axiumine/koa-utils/graphQL/status'` (or the legacy `@axiumine/koa-utils/graphQL/schema/status`)
 
 **Signature:**
 ```ts
@@ -587,7 +587,7 @@ Indicates a generic backend-side error occurred while processing the request.
 
 ### `stWait`
 
-**Import:** `import { stWait } from '@axiumine/koa-utils/graphQL/schema/status'` _(see discrepancy note above)_
+**Import:** `import { stWait } from '@axiumine/koa-utils/graphQL/status'` (or the legacy `@axiumine/koa-utils/graphQL/schema/status`)
 
 **Signature:**
 ```ts
@@ -598,7 +598,7 @@ Indicates the caller should wait before retrying (e.g. a cooldown/rate-limit sty
 
 ### `stExpired`
 
-**Import:** `import { stExpired } from '@axiumine/koa-utils/graphQL/schema/status'` _(see discrepancy note above)_
+**Import:** `import { stExpired } from '@axiumine/koa-utils/graphQL/status'` (or the legacy `@axiumine/koa-utils/graphQL/schema/status`)
 
 **Signature:**
 ```ts
