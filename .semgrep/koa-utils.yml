@@ -490,6 +490,94 @@ rules:
       references:
         - https://owasp.org/www-community/attacks/Path_Traversal
 
+  # --- Path traversal (private helper holding the sink) --------------------------------
+  # STATUS: fires on 0 real lines today. Closes the last standing known-gap by asking a
+  # DIFFERENT question rather than by tracking a flow Semgrep OSS cannot track.
+  #
+  # The gap: `const p = ctx.params.x; await readIt(p)` where readIt holds the fs call.
+  # Semgrep OSS has no interprocedural taint — measured silent across four call shapes
+  # (sync, arrow, hoisted, direct argument) — and `--pro`, which does interfile analysis,
+  # refuses to run without a paid licence ("This is a proprietary extension of semgrep").
+  # So the source->sink flow is genuinely untrackable by any rule content.
+  #
+  # The inversion: instead of "did untrusted data reach this sink?", ask "is this private
+  # helper doing unsanitized filesystem work on a parameter?" — which is answerable
+  # entirely within one function. If a non-exported helper takes a value and hands it to
+  # fs without sanitizing, it is a hazard regardless of who calls it, and it is exactly
+  # the construct the untrackable flow passes through.
+  #
+  # Scoping is what makes this affordable. Restricted to NON-EXPORTED functions: the
+  # abandoned "any function parameter is a source" model produced 7 permanently-accepted
+  # findings, and every one of them was on this package's exported public API
+  # (moveTempFile, reEncode, validate*). Those stay silent here — verified — because
+  # misuse of the public API by a consumer is a documented caller responsibility, not a
+  # defect in this repo.
+  #
+  # HONEST LIMIT: this flags a shape, not a proven flow. It does not establish that any
+  # caller passes untrusted data, so a private helper whose callers all pass literals
+  # would still be reported. Severity is WARNING for that reason. It is a narrower net
+  # than real interprocedural taint, not a substitute for it.
+  - id: koa-utils.path-traversal.local-helper-unsanitized-param
+    mode: taint
+    languages: [typescript]
+    severity: WARNING
+    message: >-
+      A non-exported helper passes one of its parameters into a filesystem operation
+      without sanitizing it first. Semgrep cannot see who calls this helper, so it cannot
+      prove the value is untrusted — but it also cannot prove it is not, and a caller in
+      the same file handing it a ctx/args value would be an unreported path traversal.
+      Fix: sanitize inside the helper (path.basename(), assertNoTraversal()), or hoist the
+      check to every call site and note the invariant on the helper.
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  function $F(..., $P, ...) { ... }
+              - pattern-inside: |
+                  const $F = (..., $P, ...) => { ... }
+              - pattern-inside: |
+                  const $F = async (..., $P, ...) => { ... }
+          # Exported symbols are the public API surface, deliberately out of scope.
+          - pattern-not-inside: |
+              export function $F(..., $P, ...) { ... }
+          - pattern-not-inside: |
+              export const $F = (..., $P, ...) => { ... }
+          - pattern-not-inside: |
+              export const $F = async (..., $P, ...) => { ... }
+          - pattern: $P
+    pattern-sanitizers:
+      - pattern: path.basename(...)
+      - pattern: path.extname(...)
+      - pattern: $X.replace(/\.\./g, ...)
+      - patterns:
+          - pattern-inside: |
+              assertNoTraversal($V, ...)
+              ...
+          - pattern: $V
+    pattern-sinks:
+      - pattern: fs.move($SRC, $SINK, ...)
+      - pattern: fs.move($SINK, $DST, ...)
+      - pattern: fs.writeFile($SINK, ...)
+      - pattern: fs.readFile($SINK, ...)
+      - pattern: fs.remove($SINK)
+      - pattern: fs.ensureDir($SINK)
+      - pattern: fs.unlink($SINK)
+      - pattern: fs.copy($SRC, $SINK, ...)
+      - pattern: fs.appendFile($SINK, ...)
+      - pattern: fs.outputFile($SINK, ...)
+      - pattern: createWriteStream($SINK)
+      - pattern: createReadStream($SINK)
+      - pattern: fs.createWriteStream($SINK)
+      - pattern: fs.createReadStream($SINK)
+    metadata:
+      category: security
+      confidence: LOW
+      subcategory: [taint-analysis, heuristic]
+      status: regression-guard (0 findings on real code; detection proven by `yarn semgrep:canary`)
+      cwe: 'CWE-22: Improper Limitation of a Pathname to a Restricted Directory'
+      references:
+        - https://owasp.org/www-community/attacks/Path_Traversal
+
   # --- Open redirect -------------------------------------------------------------------
   # STATUS: fires on 0 real lines today (the one call site in the codebase,
   # koa/router/verifyEmail.mts, gates ctx.redirect behind a regex-test sanitizer idiom
