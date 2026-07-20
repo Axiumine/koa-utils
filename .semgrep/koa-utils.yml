@@ -127,6 +127,61 @@ rules:
       references:
         - https://www.mongodb.com/docs/manual/faq/security/#how-can-i-prevent-injection-attacks-in-mongodb-
 
+  # --- NoSQL mass assignment (update document) --------------------------------------
+  # STATUS: fires on 0 real lines today. Closes a gap the three rules above did NOT cover:
+  # they all inspect only the FILTER argument, so an attacker-controlled *update document*
+  # — the classic mass-assignment shape, e.g. injecting role/isAdmin/account.email.valid —
+  # was entirely outside the ruleset despite the rule family being named for NoSQL injection.
+  # Every real update site in this codebase builds its document as a typed object with fixed
+  # literal keys (see updateLoginStats4ever.mts:15-28, updatePasswordDb.mts:9), so neither
+  # shape below matches current code. Deliberately does NOT flag `{ $set: someVariable }`:
+  # that is the dominant safe idiom here and matching it would be noise, not signal.
+  - id: koa-utils.nosql-injection.mass-assignment-update-doc
+    languages: [typescript]
+    severity: ERROR
+    message: >
+      A Mongoose update document is built with a spread (...$SPREAD) or a computed property
+      key ([$KEY]: ...) instead of fixed literal field names. If the spread object or the key
+      name derives from client input (request body, GraphQL args), an attacker controls WHICH
+      fields get written, not just their values — the classic mass-assignment escalation
+      (setting role/isAdmin/verified on your own record), and with a computed key they can
+      also inject an update operator. Fix: destructure only the specific fields this mutation
+      is allowed to change and assign them to explicit, literal keys.
+    patterns:
+      - pattern-either:
+          # replacement-style update document built by spreading
+          - pattern: '$MODEL.updateOne($FILTER, { ...$SPREAD }, ...)'
+          - pattern: '$MODEL.updateMany($FILTER, { ...$SPREAD }, ...)'
+          - pattern: '$MODEL.replaceOne($FILTER, { ...$SPREAD }, ...)'
+          - pattern: '$MODEL.findOneAndUpdate($FILTER, { ...$SPREAD }, ...)'
+          - pattern: '$MODEL.findByIdAndUpdate($FILTER, { ...$SPREAD }, ...)'
+          # spread nested inside an update operator
+          - pattern: '$MODEL.updateOne($FILTER, { ..., $set: { ...$SPREAD }, ... }, ...)'
+          - pattern: '$MODEL.updateMany($FILTER, { ..., $set: { ...$SPREAD }, ... }, ...)'
+          - pattern: '$MODEL.findOneAndUpdate($FILTER, { ..., $set: { ...$SPREAD }, ... }, ...)'
+          - pattern: '$MODEL.findByIdAndUpdate($FILTER, { ..., $set: { ...$SPREAD }, ... }, ...)'
+          - pattern: '$MODEL.updateOne($FILTER, { ..., $setOnInsert: { ...$SPREAD }, ... }, ...)'
+          # computed (bracket) key in the update document
+          - pattern: '$MODEL.updateOne($FILTER, { ..., [$KEY]: $VAL, ... }, ...)'
+          - pattern: '$MODEL.updateMany($FILTER, { ..., [$KEY]: $VAL, ... }, ...)'
+          - pattern: '$MODEL.findOneAndUpdate($FILTER, { ..., [$KEY]: $VAL, ... }, ...)'
+          - pattern: '$MODEL.findByIdAndUpdate($FILTER, { ..., [$KEY]: $VAL, ... }, ...)'
+          # computed key nested inside an update operator
+          - pattern: '$MODEL.updateOne($FILTER, { ..., $set: { ..., [$KEY]: $VAL, ... }, ... }, ...)'
+          - pattern: '$MODEL.updateMany($FILTER, { ..., $set: { ..., [$KEY]: $VAL, ... }, ... }, ...)'
+          - pattern: '$MODEL.findOneAndUpdate($FILTER, { ..., $set: { ..., [$KEY]: $VAL, ... }, ... }, ...)'
+    paths:
+      exclude:
+        - "**/*.spec.ts"
+        - "**/*.test.ts"
+    metadata:
+      category: security
+      confidence: MEDIUM
+      status: regression-guard (0 findings on real code; verified via scripts/semgrep-canaries)
+      cwe: 'CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes'
+      references:
+        - https://www.mongodb.com/docs/manual/faq/security/#how-can-i-prevent-injection-attacks-in-mongodb-
+
   # --- SQL injection (Sequelize raw query) ------------------------------------------
   # STATUS: fires on real code — 1 confirmed finding, 0 false positives.
   - id: koa-utils.sql-injection.raw-query-interpolation

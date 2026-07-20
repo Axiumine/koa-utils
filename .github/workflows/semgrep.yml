@@ -1,0 +1,35 @@
+name: Semgrep
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  # Pinned so the gate cannot shift under a :latest retag. Bump deliberately —
+  # the canary job below is what proves a bump did not silently break detection.
+  SEMGREP_IMAGE: semgrep/semgrep:1.169.0
+
+jobs:
+  semgrep:
+    name: SAST
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Runs FIRST and deliberately gates the scan below. A rule that has been
+      # narrowed, typo'd or broken by a Semgrep upgrade reports "0 findings"
+      # exactly like a clean codebase does, so a passing scan is only meaningful
+      # once the ruleset has been shown to still detect the vulnerable fixtures.
+      - name: Canary — prove the ruleset still detects
+        run: ./scripts/semgrep-canary.sh
+
+      # Exits non-zero on any ERROR-severity finding (scripts/semgrep.sh passes
+      # --error; without it semgrep exits 0 even with blocking findings).
+      - name: Scan src/
+        run: ./scripts/semgrep.sh

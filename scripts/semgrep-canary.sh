@@ -28,7 +28,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CANARIES="$ROOT/scripts/semgrep-canaries"
-IMAGE="semgrep/semgrep:latest"
+# Pinnable: CI pins an exact version so the gate cannot shift under a :latest retag.
+IMAGE="${SEMGREP_IMAGE:-semgrep/semgrep:latest}"
 
 [ -d "$CANARIES" ] || { echo "canary: $CANARIES not found" >&2; exit 1; }
 

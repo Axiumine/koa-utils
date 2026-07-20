@@ -24,7 +24,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SHADOW="$(mktemp -d)"
-IMAGE="semgrep/semgrep:latest"
+# Pinnable: CI pins an exact version so the gate cannot shift under a :latest retag.
+IMAGE="${SEMGREP_IMAGE:-semgrep/semgrep:latest}"
 
 cleanup() { rm -rf "$SHADOW"; }
 trap cleanup EXIT
