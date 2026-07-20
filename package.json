@@ -156,8 +156,12 @@
 			"types": "./dist/files/validateJpgPngExtension.d.mts"
 		},
 		"./files/validateJpgPngMimeType": {
-			"import": "./dist/files/validateJpgPngMimeType.mjs",
-			"types": "./dist/files/validateJpgPngMimeType.d.mts"
+			"import": "./dist/files/validateMimeTypeImages.mjs",
+			"types": "./dist/files/validateMimeTypeImages.d.mts"
+		},
+		"./files/validatePdfExtension": {
+			"import": "./dist/files/validatePdfExtension.mjs",
+			"types": "./dist/files/validatePdfExtension.d.mts"
 		},
 		"./graphQL/schema/types/MidNameType": {
 			"import": "./dist/graphQL/schema/types/MidNameType.mjs",
@@ -231,6 +235,10 @@
 			"import": "./dist/graphQL/schema/context/TCommonHeaders.mjs",
 			"types": "./dist/graphQL/schema/context/TCommonHeaders.d.mts"
 		},
+		"./graphQL/schema/context/IContextKoaErrorHandler": {
+			"import": "./dist/graphQL/schema/context/IContextKoaErrorHandler.mjs",
+			"types": "./dist/graphQL/schema/context/IContextKoaErrorHandler.d.mts"
+		},
 		"./lib/sleepMs": {
 			"import": "./dist/lib/sleepMs.mjs",
 			"types": "./dist/lib/sleepMs.d.mts"
@@ -258,6 +266,10 @@
 		"./koa/IFileUpload": {
 			"import": "./dist/koa/IFileUpload.mjs",
 			"types": "./dist/koa/IFileUpload.d.mts"
+		},
+		"./koa/IKoaError": {
+			"import": "./dist/koa/IKoaError.mjs",
+			"types": "./dist/koa/IKoaError.d.mts"
 		},
 		"./files/uploadTempImage": {
 			"import": "./dist/files/uploadTempImage.mjs",
@@ -348,8 +360,12 @@
 			"types": "./dist/graphQL/schema/types/UpdateResultType.d.mts"
 		},
 		"./graphQL/schema/status": {
-			"import": "./dist/graphQL/schema/status.mjs",
-			"types": "./dist/graphQL/schema/status.d.mts"
+			"import": "./dist/graphQL/status.mjs",
+			"types": "./dist/graphQL/status.d.mts"
+		},
+		"./graphQL/status": {
+			"import": "./dist/graphQL/status.mjs",
+			"types": "./dist/graphQL/status.d.mts"
 		},
 		"./graphQL/throw/throwRefreshTokenExpiredOrDeleted": {
 			"import": "./dist/graphQL/throw/throwRefreshTokenExpiredOrDeleted.mjs",
