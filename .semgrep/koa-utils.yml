@@ -31,7 +31,8 @@ rules:
   # STATUS: fires on 0 real lines today. Kept as a regression guard: the sink category
   # (Mongoose findOne/find/update*/delete*/countDocuments filters) genuinely exists all
   # over this codebase, every current filter uses fixed literal keys, and a synthetic
-  # canary confirmed the rule correctly fires on all 4 vulnerable shapes it targets.
+  # canary confirms the rule still fires on the vulnerable shapes it targets
+  # (scripts/semgrep-canaries/must-fire/nosql-*.ts).
   - id: koa-utils.nosql-injection.dynamic-filter-key
     languages: [typescript]
     severity: ERROR
@@ -60,7 +61,7 @@ rules:
     metadata:
       category: security
       confidence: MEDIUM
-      status: regression-guard (0 findings on real code, verified live via synthetic canary)
+      status: regression-guard (0 findings on real code; detection proven by `yarn semgrep:canary`)
       cwe: 'CWE-943: Improper Neutralization of Special Elements in Data Query Logic'
       references:
         - https://www.mongodb.com/docs/manual/faq/security/#how-can-i-prevent-injection-attacks-in-mongodb-
@@ -91,7 +92,7 @@ rules:
     metadata:
       category: security
       confidence: MEDIUM
-      status: regression-guard (0 findings on real code, verified live via synthetic canary)
+      status: regression-guard (0 findings on real code; detection proven by `yarn semgrep:canary`)
       cwe: 'CWE-943: Improper Neutralization of Special Elements in Data Query Logic'
       references:
         - https://www.mongodb.com/docs/manual/faq/security/#how-can-i-prevent-injection-attacks-in-mongodb-
@@ -122,7 +123,7 @@ rules:
     metadata:
       category: security
       confidence: MEDIUM
-      status: regression-guard (0 findings on real code, verified live via synthetic canary)
+      status: regression-guard (0 findings on real code; detection proven by `yarn semgrep:canary`)
       cwe: 'CWE-943: Improper Neutralization of Special Elements in Data Query Logic'
       references:
         - https://www.mongodb.com/docs/manual/faq/security/#how-can-i-prevent-injection-attacks-in-mongodb-
@@ -188,16 +189,22 @@ rules:
     mode: taint
     severity: ERROR
     message: >
-      A template literal containing interpolated expressions (`${...}`) flows into
-      sequelize.query() as the raw SQL string, and the call has no `replacements`
-      option to parameterize the values. Any variable embedded in the template
-      literal is concatenated directly into the SQL text, so if it ever originates
-      from user input this is classic SQL injection. Fix: build the query with
-      `replacements` (or `bind`) instead of string interpolation.
+      A dynamically built string — a template literal with interpolated expressions
+      (`${...}`) or a plain `'sql' + value` concatenation — flows into sequelize.query()
+      as the raw SQL string, and the call has no `replacements` or `bind` option to
+      parameterize the values. Any variable embedded that way is spliced directly into
+      the SQL text, so if it ever originates from user input this is classic SQL
+      injection. Fix: build the query with `replacements` (or `bind`) instead of
+      interpolating or concatenating values into the statement.
     languages: [typescript, javascript]
     pattern-sources:
       - pattern: |
           `...${$VAR}...`
+      # Plain string concatenation, not just template literals. Broad as a source in
+      # isolation, but harmless here: taint mode only reports when a source actually
+      # reaches the sink, and the sink is sequelize.query without replacements/bind.
+      # An arithmetic `a + b` elsewhere in the codebase can never satisfy that.
+      - pattern: $A + $B
     pattern-sinks:
       - patterns:
           - pattern: sequelize.query($SQL, ...)
@@ -210,7 +217,12 @@ rules:
     metadata:
       category: security
       confidence: HIGH
-      status: "confirmed live finding: src/private/graphQL/schema/mutations/setLastLoginSQL.mts:18"
+      # Was "confirmed live finding: setLastLoginSQL.mts:18" until 2026-07-20. That line is
+      # now `sequelize.query(sql, { type, replacements: {...} })` against a non-interpolated
+      # single-quoted string, so it matches neither the pattern-source (template literal)
+      # nor the sink-without-replacements shape. The claim outlived the code it described;
+      # corrected after a live re-run reported 0 findings across all 180 files.
+      status: regression-guard (0 findings on real code; verified via scripts/semgrep-canaries)
       cwe: 'CWE-89: Improper Neutralization of Special Elements used in an SQL Command'
       references:
         - https://sequelize.org/docs/v6/core-concepts/raw-queries/
@@ -219,10 +231,15 @@ rules:
   # STATUS: both original findings were FIXED by b669ad4 ("fix: logout redis keys, validate
   # token uuid"), which put an isValidUuidV4 format check between the header read and the
   # Redis key on both paths. isValidUuidV4 is registered as a sanitizer below, so the rule
-  # is now a regression guard: it should report 0 findings. Note: a 3rd, related instance
-  # (authenticatedLogoutHandler.mts -> graphQL/schema/mutations/logout.mts:21) exists but
-  # crosses a file boundary and is invisible to this rule because Semgrep OSS taint is
-  # intra-file only (see header comment).
+  # is now a regression guard: it should report 0 findings. Note: two further related
+  # instances exist but cross a file boundary and are invisible to this rule because
+  # Semgrep OSS taint is intra-file only (see header comment):
+  #   - authenticatedLogoutHandler/index.mts -> graphQL/schema/mutations/logout.mts:22
+  #     (ctx.state.user.refreshToken -> redisClient.del)
+  #   - graphQL/schema/mutations/refresh.mts:52 (oldRefresh -> redisClient.del)
+  # Both are laundered through ctx.state / a local, so no rule edit makes them visible;
+  # the guarantee is that refreshToken is only ever set from verifySignedRefreshToken's
+  # return value. Covered as scripts/semgrep-canaries/known-gap/, not by a pattern.
   - id: koa-utils.redis-injection.key-injection
     mode: taint
     severity: WARNING
@@ -235,13 +252,18 @@ rules:
       is shared across all session data). Fix: verify/derive the key only from a
       signature-checked or server-generated token, never directly from the raw header.
     languages: [typescript]
+    # Matched by accessor shape rather than by header name — see the same change in
+    # koa-utils.path-traversal.unsanitized-param for why the name allowlist was a gap.
     pattern-sources:
-      - pattern: ctx.request.header?.authorization
-      - pattern: ctx.request.header.authorization
-      - pattern: ctx.request.header?.cookie
-      - pattern: ctx.request.header.cookie
-      - pattern: ctx.request.header?.['authorization']
-      - pattern: ctx.request.header?.['cookie']
+      - pattern: ctx.request.header.$NAME
+      - pattern: ctx.request.header?.$NAME
+      - pattern: ctx.request.header[$NAME]
+      - pattern: ctx.request.header?.[$NAME]
+      - pattern: ctx.headers.$NAME
+      - pattern: ctx.headers?.$NAME
+      - pattern: ctx.headers[$NAME]
+      - pattern: ctx.headers?.[$NAME]
+      - pattern: ctx.cookies.get(...)
     pattern-sanitizers:
       - pattern: verifySignedRefreshToken(...)
       # A v4-uuid format check locks the client-controlled suffix to the only shape the
@@ -255,7 +277,8 @@ rules:
       # the rest of the block. This sanitizer models that shape explicitly. $V is bound
       # in the guard and re-used in the sanitized pattern, so only the variable actually
       # validated is cleared — a sibling variable flowing past the same guard still fires
-      # (verified with a 3-way canary: guarded / unguarded / guarded-but-different-var).
+      # (covered by the guarded / unguarded / guarded-but-different-var fixtures in
+      # scripts/semgrep-canaries/).
       - patterns:
           - pattern-inside: |
               if (!isValidUuidV4($V.slice(...))) { throw $E }
@@ -292,10 +315,13 @@ rules:
   # multipart upload's client-supplied filename (scoped to the exact destructuring shape it's
   # consumed with in storeUploadAsTemp.mts). Sinks are unchanged from the original rule. 0
   # findings here means "no reachable, unsanitized flow from a modeled entry point to an fs
-  # sink in this repo today" — verified against the real shadow tree plus 14 adversarial
-  # canaries (8 must-fire, 6 must-not-fire), not a suppression and not the old rule gone
-  # quiet by narrowing until the noise disappeared. See metadata.accepted-risk for what is
-  # knowingly out of scope.
+  # sink in this repo today" — verified against the real shadow tree plus the fixtures in
+  # scripts/semgrep-canaries/, not a suppression and not the old rule gone quiet by
+  # narrowing until the noise disappeared. See metadata.accepted-risk for what is knowingly
+  # out of scope. Counts deliberately live in the runner's output, not in this comment:
+  # a number frozen in prose is exactly the kind of claim that outlives the code it
+  # described (see the SQL rule's status, which asserted a live finding for months after
+  # the finding was fixed).
   - id: koa-utils.path-traversal.unsanitized-param
     mode: taint
     languages: [typescript]
@@ -312,10 +338,21 @@ rules:
       - pattern: ctx.request.query
       - pattern: ctx.query
       - pattern: ctx.request.body
-      - pattern: ctx.request.header.authorization
-      - pattern: ctx.request.header?.authorization
-      - pattern: ctx.request.header.cookie
-      - pattern: ctx.request.header?.cookie
+      # Headers are matched by ACCESSOR SHAPE, not by an allowlist of header names.
+      # The previous model enumerated the literal names 'authorization' and 'cookie',
+      # so any other header was a different pattern and silently unmodelled — even
+      # though authenticatedResourceHandler/index.mts:58 already reads
+      # ctx.request.header?.['x-introspectioncode'] with this exact shape.
+      - pattern: ctx.request.header.$NAME
+      - pattern: ctx.request.header?.$NAME
+      - pattern: ctx.request.header[$NAME]
+      - pattern: ctx.request.header?.[$NAME]
+      - pattern: ctx.headers.$NAME
+      - pattern: ctx.headers?.$NAME
+      - pattern: ctx.headers[$NAME]
+      - pattern: ctx.headers?.[$NAME]
+      # Koa's idiomatic cookie API, used in src/koa/middleware/debug/index.mts:10.
+      - pattern: ctx.cookies.get(...)
       - patterns:
           - pattern-either:
               - pattern-inside: |
@@ -351,8 +388,24 @@ rules:
       - pattern: fs.remove($SINK)
       - pattern: fs.ensureDir($SINK)
       - pattern: fs.unlink($SINK)
+      # Not used in src/ today. Listed so the sink set tracks the fs-extra API rather
+      # than only the calls that happen to exist now — an unlisted sink is a silent
+      # gap, and the cost of listing an unused one is zero.
+      - pattern: fs.copy($SRC, $SINK, ...)
+      - pattern: fs.copy($SINK, $DST, ...)
+      - pattern: fs.rename($SRC, $SINK, ...)
+      - pattern: fs.rename($SINK, $DST, ...)
+      - pattern: fs.appendFile($SINK, ...)
+      - pattern: fs.outputFile($SINK, ...)
+      - pattern: fs.rm($SINK, ...)
+      - pattern: fs.readdir($SINK, ...)
+      # Both the bare import and the namespaced form. Only the bare form was listed,
+      # so `fs.createWriteStream(p)` — with fs-extra already imported as `fs` in four
+      # files here — was invisible while `createWriteStream(p)` was caught.
       - pattern: createWriteStream($SINK)
       - pattern: createReadStream($SINK)
+      - pattern: fs.createWriteStream($SINK)
+      - pattern: fs.createReadStream($SINK)
       - pattern: unlink($SINK, ...)
     metadata:
       category: security
@@ -361,15 +414,12 @@ rules:
       status: >-
         reachability-scoped (0 findings on the real shadow tree; supersedes the prior "any
         function parameter" source model, which produced 7 permanently-accepted findings with
-        no attacker-reachability signal). Verified live: 8/8 constructed must-fire canaries
-        fire (ctx.params direct + keyed access; GraphQL resolve() args via
-        destructure/property/one-level-nested access; raw upload filename into
-        createWriteStream and fs.move; a partial-guard sibling-unchecked case proving
-        per-variable sanitizer precision); 6/6 must-not-fire canaries stay silent
-        (path.basename/path.extname-guarded, uuid-prefixed upload filename, an
-        assertNoTraversal-guarded value referenced after the guard, a plain library-function
-        parameter with no traceable untrusted source, and an unrelated variable named "args"
-        outside resolve()). 0 semgrep errors in both runs.
+        no attacker-reachability signal). Sources are matched by accessor shape — ctx reads
+        including any header name and ctx.cookies.get, a GraphQL resolver's args, and the
+        multipart upload filename — not by an allowlist of names. Detection and
+        false-positive behaviour are proven on every run by `yarn semgrep:canary`
+        (scripts/semgrep-canaries/), which is the authority for what currently fires; this
+        field deliberately carries no counts.
       accepted-risk: >-
         The library's own exported functions (moveTempFile, validateJpgPngExtension,
         validateMimeType, validatePdfExtension, reEncode) are intentionally no longer
@@ -388,8 +438,11 @@ rules:
   # STATUS: fires on 0 real lines today (the one call site in the codebase,
   # koa/router/verifyEmail.mts, gates ctx.redirect behind a regex-test sanitizer idiom
   # this rule recognizes). Kept as a regression guard: the sink (ctx.redirect) and
-  # sanitizer idiom both genuinely exist in this codebase, and a synthetic 3-bad/1-good
-  # canary confirmed the rule correctly discriminates unguarded from guarded redirects.
+  # sanitizer idiom both genuinely exist in this codebase, and the canary suite confirms the
+  # rule still discriminates unguarded from guarded redirects. Note the discrimination is
+  # syntactic: any if-guard using .test()/.startsWith()/=== counts as a sanitizer regardless
+  # of whether the regex or prefix actually blocks a protocol-relative '//evil.com' target.
+  # Guard STRENGTH is a unit-test responsibility, not something this rule can verify.
   - id: koa-utils.open-redirect.unvalidated
     mode: taint
     severity: ERROR
@@ -404,7 +457,7 @@ rules:
     metadata:
       category: security
       confidence: MEDIUM
-      status: regression-guard (0 findings on real code, verified live via synthetic canary)
+      status: regression-guard (0 findings on real code; detection proven by `yarn semgrep:canary`)
       subcategory: [open-redirect]
       cwe: "CWE-601: URL Redirection to Untrusted Site ('Open Redirect')"
       owasp: "A01:2021 - Broken Access Control"
@@ -415,6 +468,14 @@ rules:
               - pattern: ctx.request.query
               - pattern: ctx.query
               - pattern: ctx.request.body
+              # A redirect target taken from a header or cookie is fully attacker
+              # controlled; this rule previously had no header/cookie source at all.
+              - pattern: ctx.request.header.$NAME
+              - pattern: ctx.request.header?.$NAME
+              - pattern: ctx.request.header?.[$NAME]
+              - pattern: ctx.headers.$NAME
+              - pattern: ctx.headers?.[$NAME]
+              - pattern: ctx.cookies.get(...)
               - pattern: (($E) as Error).message
               - pattern: $E.message
     pattern-sanitizers:
