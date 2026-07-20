@@ -63,14 +63,20 @@ done
 echo "semgrep: scanning $COUNT files (shadow tree, .mts -> .ts)"
 
 # --- run --------------------------------------------------------------------
-# `|| true` so a non-zero findings exit code still reaches the path rewrite
-# below; the real exit status is re-applied afterwards.
+# `--error` is load-bearing: without it `semgrep scan` exits 0 even when it reports
+# blocking ERROR-severity findings, so a clean scan and a scan full of criticals are
+# indistinguishable to any caller. Verified: 6 blocking findings -> exit 0 without
+# the flag, exit 1 with it. Do not remove — it is the only thing that makes this
+# script usable as a gate rather than a report.
+#
+# `set +e` so a non-zero findings exit code still reaches the path rewrite below;
+# the real exit status is re-applied afterwards.
 set +e
 docker run --rm \
   -v "$SHADOW:/src:ro" \
   -v "$ROOT/.semgrep:/rules:ro" \
   -w /src \
-  "$IMAGE" semgrep "${CONFIGS[@]}" --metrics=off --no-git-ignore "${EXTRA[@]+"${EXTRA[@]}"}" \
+  "$IMAGE" semgrep "${CONFIGS[@]}" --metrics=off --no-git-ignore --error "${EXTRA[@]+"${EXTRA[@]}"}" \
   2>&1 | sed -E 's/\.ts([:"[:space:]]|$)/.mts\1/g'
 STATUS=${PIPESTATUS[0]}
 set -e

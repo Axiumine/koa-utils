@@ -8,8 +8,23 @@
 #    pattern-sink in another file will NOT be linked, even when the real data flow crosses
 #    files (see koa-utils.redis-injection.key-injection notes below for a known instance
 #    of this exact limitation in this codebase).
+#  - Refinement of the above, measured rather than assumed: within a single file, taint
+#    DOES survive a helper hop on the value path (`const p = build(name)` still reports),
+#    but does NOT flow INTO a callee that contains the sink (`readIt('/d/' + name)` where
+#    readIt holds the fs call is silent). See scripts/semgrep-canaries/known-gap/
+#    path-traversal-sink-in-callee.ts.
 #  - Every rule below was independently re-run against the real 180-file shadow tree as
 #    part of adversarial verification; see per-rule "status" metadata for the outcome.
+#
+# Canary suite — `yarn semgrep:canary` (scripts/semgrep-canaries/):
+#   The per-rule "status" strings below assert things about real code and about synthetic
+#   canaries. Those canary claims used to be prose only, with no artifact behind them, so
+#   they could not be re-checked after a rule edit or a Semgrep upgrade. They are now
+#   backed by committed fixtures in three buckets: must-fire (vulnerable, must report),
+#   must-not-fire (safe, must stay silent), and known-gap (vulnerable but currently
+#   invisible — asserted silent as a tripwire, so coverage improvements are noticed
+#   instead of quietly widening the "0 findings" claim). Run it after ANY edit here:
+#   a narrowed or typo'd rule reports 0 findings exactly like a clean codebase does.
 
 rules:
   # --- NoSQL injection (Mongoose) ---------------------------------------------------

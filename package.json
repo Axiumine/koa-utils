@@ -31,6 +31,7 @@
 		"qodana:cli": "yarn test:coverage && set -a && . ./.env && set +a && qodana scan --show-report",
 		"semgrep": "./scripts/semgrep.sh",
 		"semgrep:all": "./scripts/semgrep.sh --registry",
+		"semgrep:canary": "./scripts/semgrep-canary.sh",
 		"upload": "npm publish",
 		"update": "yarn upgrade-interactive --latest --network-timeout 100000",
 		"cloc": "cloc . --exclude-dir=node_modules,dist,.git,upload",
