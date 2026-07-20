@@ -32,6 +32,29 @@ describe('validateMimeType (magic-number)', () => {
 		await fs.remove(pdfFile)
 	})
 
+	it('validateJpgPngMimeType rejects a real PDF (allowlist must stay narrow)', async () => {
+		// The only pre-existing "invalid MIME" fixture anywhere fed undetectable plaintext,
+		// which file-type cannot classify at all — so it passed no matter how wide the
+		// allowlist was. A real-but-disallowed type is what proves the list is narrow.
+		let caught: unknown
+		try {
+			await validateJpgPngMimeType(pdfFile)
+		} catch (e) {
+			caught = e
+		}
+		expect(caught, 'a real PDF must not pass the jpg/png guard').to.exist
+	})
+
+	it('validateMimeTypePdf rejects a real PNG (allowlist must stay narrow)', async () => {
+		let caught: unknown
+		try {
+			await validateMimeTypePdf(pngFile)
+		} catch (e) {
+			caught = e
+		}
+		expect(caught, 'a real PNG must not pass the pdf guard').to.exist
+	})
+
 	it('returns ext when MIME in allowlist (PNG)', async () => {
 		const ext = await validateMimeType(pngFile, ['image/png'])
 		expect(ext).to.equal('png')

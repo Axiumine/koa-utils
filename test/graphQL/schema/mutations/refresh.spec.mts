@@ -124,6 +124,24 @@ describe('refresh — resolve', () => {
 		expect(sent).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
 	})
 
+	it('surfaces a failure to delete the rotated-out refresh key', async () => {
+		// 'deletes old refresh token key' only checks that a matching del call happened.
+		// Sinon records the call synchronously, so dropping the `await` still passes it —
+		// but the rejection then escapes the try/catch instead of triggering the rollback,
+		// and the old refresh key stays alive in Redis. That is session fixation: an
+		// attacker holding the stale token keeps it after the legitimate client rotates.
+		delStub.callsFake((key: string) =>
+			key.includes('refresh:oldToken') ? Promise.reject(new Error('Redis down')) : Promise.resolve(1)
+		)
+		const ctx = makeCtx({ refreshToken: 'refresh:oldToken' })
+
+		await expectGraphQLErrorAsync(
+			() => refresh.resolve(null, {}, ctx),
+			500,
+			'Internal Server Error'
+		)
+	})
+
 	it('when hSet rejects: returns { status: false, accessToken: "" } and deletes new keys', async () => {
 		hSetStub.rejects(new Error('Redis connection lost'))
 		// del for cleanup must succeed

@@ -36,6 +36,27 @@ describe('logout — resolve', () => {
 		sinon.restore()
 	})
 
+	it('clears the refresh_token cookie when accessToken is absent (not just empty string)', async () => {
+		// Every fixture passed an explicit '' for accessToken, so the `|| ''` fallback was
+		// never exercised. authenticatedLogoutHandler leaves accessToken genuinely
+		// undefined when the access session has expired — the common logout case. Without
+		// the fallback, undefined !== '' enters the access branch, buildPrefixedRedisKey
+		// throws on undefined.startsWith, the throw is swallowed by the outer catch, and
+		// the cookie-clearing line below it never runs.
+		const ctx = {
+			state: { user: { refreshToken: 'myRefreshToken' } },
+			cookies: { set: sinon.stub() }
+		} as never
+		const result = await logout.resolve(null, {}, ctx)
+
+		expect(result).to.equal(true)
+		const setCall = (ctx.cookies.set as sinon.SinonStub)
+			.getCalls()
+			.find((c) => c.args[0] === 'refresh_token')
+		expect(setCall, 'refresh_token cookie must be cleared').to.exist
+		expect(setCall?.args[1]).to.equal('')
+	})
+
 	it('happy path: deletes refresh token key and returns true', async () => {
 		const ctx = makeCtx('myRefreshToken')
 		const result = await logout.resolve(null, {}, ctx)

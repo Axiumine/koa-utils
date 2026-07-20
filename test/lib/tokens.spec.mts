@@ -5,6 +5,7 @@ import {
 	REFRESH_TOKEN_EXPIRY
 } from '@lib/tokens.mjs'
 import { expect } from 'chai'
+import sinon from 'sinon'
 
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -44,5 +45,21 @@ describe('tokens', () => {
 			for (let i = 0; i < 50; i++) seen.add(accessTokenExpiry())
 			expect(seen.size).to.be.greaterThan(1)
 		})
+	})
+
+	it('does not draw token material from Math.random', () => {
+		// Format + pairwise-inequality assertions cannot tell a crypto RNG from a
+		// hand-rolled Math.random() v4: the latter can satisfy both. Math.random is a
+		// plain object property (unlike the sealed ESM namespaces), so it can be spied.
+		// accessTokenExpiry() legitimately uses Math.random for jitter — only the token
+		// generators are asserted here.
+		const spy = sinon.spy(Math, 'random')
+		try {
+			generateAccessToken()
+			generateRefreshToken()
+			expect(spy.called, 'tokens must come from a CSPRNG, not Math.random').to.equal(false)
+		} finally {
+			spy.restore()
+		}
 	})
 })
