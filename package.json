@@ -33,8 +33,8 @@
 		"semgrep:all": "./scripts/semgrep.sh --registry",
 		"upload": "npm publish",
 		"update": "yarn upgrade-interactive --latest --network-timeout 100000",
-		"cloc": "cloc . --exclude-dir=node_modules,dist,.hg,upload",
-		"scc": "scc . --exclude-dir=node_modules,dist,.hg -w --sort --directory-walker-job-workers=8 --count-as=mts:TypeScript"
+		"cloc": "cloc . --exclude-dir=node_modules,dist,.git,upload",
+		"scc": "scc . --exclude-dir=node_modules,dist,.git -w --sort --directory-walker-job-workers=8 --count-as=mts:TypeScript"
 	},
 	"engines": {
 		"node": "^24.14.0"
