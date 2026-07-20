@@ -129,6 +129,31 @@ describe('authenticatedLogoutHandler', () => {
 		expect(hGet.callCount).to.equal(1)
 	})
 
+	it('ignores "Bearer refresh:<valid uuid>" — the prefix check, not the uuid check, must reject it', async () => {
+		// The test above uses TOKEN = 'logout-test-uuid', which is not a v4 uuid, so the
+		// uuid check rejects it whether or not the prefix check exists — it cannot
+		// actually demonstrate the property its comment claims. Real refresh tokens ARE
+		// v4 uuids (generateRefreshToken), so this is the shape that matters: removing
+		// the 'Bearer access:' prefix check lets a client hand over a refresh: key and
+		// read refresh entries through the access branch. Verified to fail if that check
+		// is dropped.
+		const uuidToken = '22222222-2222-4222-8222-222222222222'
+		const sig = keys.sign(`refresh_token=${uuidToken}`)
+		const cookie = `refresh_token=${uuidToken}; refresh_token.sig=${sig}`
+		const hGet = sinon.stub(RedisMod.redisClient, 'hGet').resolves('uid')
+		const mw = authenticatedLogoutHandler(keys)
+		const ctx = {
+			request: { header: { cookie, authorization: `Bearer refresh:${uuidToken}` } },
+			state: {}
+		} as never
+		await mw(ctx, async () => undefined)
+		const state = (ctx as never as { state: { user: { refreshToken: string; accessToken?: string } } }).state
+		expect(state.user.refreshToken).to.equal(`refresh:${uuidToken}`)
+		expect(state.user.accessToken).to.be.undefined
+		// only the refresh lookup: the refresh-prefixed value never reaches the access branch
+		expect(hGet.callCount).to.equal(1)
+	})
+
 	it('ignores a well-prefixed access token whose suffix is not a v4 uuid', async () => {
 		// The prefix alone still leaves the rest of the Redis key client-controlled.
 		const hGet = sinon.stub(RedisMod.redisClient, 'hGet').resolves('uid')
