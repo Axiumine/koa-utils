@@ -6,8 +6,8 @@ import { throwErrorWrongUserInput } from '@throw/throwErrorWrongUserInput.mjs'
 
 export function checkPwdLen(password: string) {
 	if (password.length < MIN_PWD_LENGTH) {
-		throw throwErrorWrongUserInput('La password è troppo corta')
+		throw throwErrorWrongUserInput('Password is too short')
 	} else if (password.length > MAX_PWD_LENGTH) {
-		throw throwErrorWrongUserInput('La password è troppo lunga')
+		throw throwErrorWrongUserInput('Password is too long')
 	}
 }

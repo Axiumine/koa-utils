@@ -3,8 +3,8 @@ import { throwErrorWrongUserInput } from '@throw/throwErrorWrongUserInput.mjs'
 
 export function checkEmailLen(email: string) {
 	if (email === '') {
-		throw throwErrorWrongUserInput("L'email non può essere vuota")
+		throw throwErrorWrongUserInput('Email cannot be empty')
 	} else if (email.length > EMAIL_MAX_LEN) {
-		throw throwErrorWrongUserInput(`L'email non può superare i ${EMAIL_MAX_LEN} caratteri`)
+		throw throwErrorWrongUserInput(`Email cannot exceed ${EMAIL_MAX_LEN} characters`)
 	}
 }

@@ -18,7 +18,7 @@ interface IArgs {
 }
 
 export const updatePassword = {
-	description: "cambia la password all'utente",
+	description: "changes the user's password",
 	type: new GraphQLNonNull(GraphQLBoolean),
 	args: {
 		email: { type: new GraphQLNonNull(GraphQLString) },

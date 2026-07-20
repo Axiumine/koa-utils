@@ -18,7 +18,7 @@ describe('mutations — early input validation (before mongoose.startSession)', 
 				() => signUp.resolve(null, { email: '', password: 'x'.repeat(12) }),
 				400,
 				'Bad Request',
-				'L\'email non può essere vuota'
+				'Email cannot be empty'
 			)
 		})
 		it('throws 400 when password too short', async () => {
@@ -26,7 +26,7 @@ describe('mutations — early input validation (before mongoose.startSession)', 
 				() => signUp.resolve(null, { email: 'a@b.it', password: 'short' }),
 				400,
 				'Bad Request',
-				'La password è troppo corta'
+				'Password is too short'
 			)
 		})
 		it('throws 400 when password too long', async () => {
@@ -34,7 +34,7 @@ describe('mutations — early input validation (before mongoose.startSession)', 
 				() => signUp.resolve(null, { email: 'a@b.it', password: 'x'.repeat(73) }),
 				400,
 				'Bad Request',
-				'La password è troppo lunga'
+				'Password is too long'
 			)
 		})
 	})

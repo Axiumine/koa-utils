@@ -10,7 +10,7 @@ describe('checkPwdLen', () => {
 			() => checkPwdLen('x'.repeat(MIN_PWD_LENGTH - 1)),
 			400,
 			'Bad Request',
-			'La password è troppo corta'
+			'Password is too short'
 		)
 	})
 
@@ -19,7 +19,7 @@ describe('checkPwdLen', () => {
 			() => checkPwdLen('x'.repeat(MAX_PWD_LENGTH + 1)),
 			400,
 			'Bad Request',
-			'La password è troppo lunga'
+			'Password is too long'
 		)
 	})
 

@@ -14,7 +14,7 @@ describe('checkEmailLen', () => {
 			() => checkEmailLen(''),
 			400,
 			'Bad Request',
-			'L\'email non può essere vuota'
+			'Email cannot be empty'
 		)
 	})
 
@@ -24,7 +24,7 @@ describe('checkEmailLen', () => {
 			() => checkEmailLen(long),
 			400,
 			'Bad Request',
-			`L'email non può superare i ${EMAIL_MAX_LEN} caratteri`
+			`Email cannot exceed ${EMAIL_MAX_LEN} characters`
 		)
 	})
 

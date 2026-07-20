@@ -57,16 +57,16 @@ export const emailChangeHashVerify = {
 		// if email not found, return
 		if (user === null) {
 			// <- not found or wrong, do not say to the user the real problem !
-			console.debug('email NON trovata ', uEmail)
+			console.debug('email NOT found ', uEmail)
 
 			return false // @fixme throw
 		}
-		console.debug('email trovata')
+		console.debug('email found')
 
 		const SocketLabsObj = new SocketLabsLib()
 		const StrLibObj = new StringLib()
 
-		console.debug('comparo hash ')
+		console.debug('comparing hash ')
 		const accountEmail = user.account.email
 		if (hash === accountEmail.hash) {
 			if (typeof accountEmail.dateLastReq === 'undefined') {
@@ -74,7 +74,7 @@ export const emailChangeHashVerify = {
 				throw throwInternalError()
 			}
 
-			console.debug('hash link di attivazione è valido')
+			console.debug('activation link hash is valid')
 			/****************************************************
 			 * if dateLastReq too old then 3 days send email
 			 */

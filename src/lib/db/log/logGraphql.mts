@@ -19,7 +19,7 @@ export const logGraphql = function (owner: Types.ObjectId, nome: string, status:
   return new Promise((resolve, reject) => {
     newStatsGraphql.save((err: any, res: any) => {
       if (err) {
-        reject('Errore log.' + err)
+        reject('Log error.' + err)
       } else {
         resolve(res)
       }

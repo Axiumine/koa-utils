@@ -3,7 +3,7 @@ import { IContextLog } from '@private/graphQL/schema/context/IContextLog.mjs'
 import { Next } from 'koa'
 
 export async function logRequestToDb(ctx: IContextLog, next: Next) {
-	// qui ${ctx.request.body?.operationName} è undefined
+	// here ${ctx.request.body?.operationName} is undefined
 	const method = ctx.method
 	console.debug(`${method} ${ctx.url}\n\r`)
 	const start = Date.now()
@@ -15,7 +15,7 @@ export async function logRequestToDb(ctx: IContextLog, next: Next) {
 	const user = ctx.state.user?.id || OBJECTID_0_OBJ
 	const operationName = ctx.request.body?.operationName
 	const status = ctx.status
-	console.debug(`${status} ${operationName} eseguita da ${user.toString()} - ${msTot}ms\n\r---------------`)
+	console.debug(`${status} ${operationName} executed by ${user.toString()} - ${msTot}ms\n\r---------------`)
 
 	// logGraphql(user, operationName, status, msTot)
 }

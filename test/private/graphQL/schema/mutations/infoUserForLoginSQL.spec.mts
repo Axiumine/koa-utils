@@ -54,7 +54,7 @@ describe('infoUserForLoginSQL', () => {
 			() => infoUserForLoginSQL('missing@test.com'),
 			400,
 			'Bad Request',
-			"L'utente non esiste"
+			'User does not exist'
 		)
 	})
 })

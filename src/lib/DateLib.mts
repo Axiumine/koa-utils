@@ -19,20 +19,20 @@ export const DateLib = class DateLib {
 	}
 
 	static minElapsed(dt: Date): number {
-		// stampa date di confronto
+		// print dates being compared
 
-		// legge minuti passati
+		// read elapsed minutes
 		const nowDt = new Date()
 		const now = nowDt.getTime()
 
-		console.debug('ora ultimo invio: ', new Date('' + dt))
-		console.debug('ora attuale     : ', nowDt)
+		console.debug('last sent time: ', new Date('' + dt))
+		console.debug('current time  : ', nowDt)
 
 		const lastReq = dt.getTime()
 		// const lastReq = new Date('' + dt).getTime()
 
 		const elapsed = DateLib.timeDiffMin(lastReq, now)
-		console.debug('sono passati ', elapsed)
+		console.debug('minutes elapsed: ', elapsed)
 		return elapsed
 	}
 
