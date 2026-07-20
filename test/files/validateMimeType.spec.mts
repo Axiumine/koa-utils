@@ -13,23 +13,29 @@ const PNG_1x1 = Buffer.from(
 	'0D0A2DB40000000049454E44AE426082',
 	'hex'
 )
+// minimal JPEG (FF D8 FF E0 ... JFIF ... FF D9)
+const JPEG_MIN = Buffer.from('FFD8FFE000104A46494600010100000100010000FFD9', 'hex')
 // minimal PDF (%PDF-1.4 header)
 const PDF_MIN = Buffer.from('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n%%EOF\n', 'latin1')
 
 describe('validateMimeType (magic-number)', () => {
 	let pngFile: string
 	let pdfFile: string
+	let jpegFile: string
 
 	beforeEach(async () => {
 		pngFile = path.join(os.tmpdir(), `koa-utils-mt-${Date.now()}-${Math.random()}.bin`)
 		pdfFile = path.join(os.tmpdir(), `koa-utils-mt-${Date.now()}-${Math.random()}.bin`)
 		await fs.writeFile(pngFile, PNG_1x1)
 		await fs.writeFile(pdfFile, PDF_MIN)
+		jpegFile = path.join(os.tmpdir(), `koa-utils-mt-${Date.now()}-${Math.random()}.bin`)
+		await fs.writeFile(jpegFile, JPEG_MIN)
 	})
 
 	afterEach(async () => {
 		await fs.remove(pngFile)
 		await fs.remove(pdfFile)
+		await fs.remove(jpegFile)
 	})
 
 	it('validateJpgPngMimeType rejects a real PDF (allowlist must stay narrow)', async () => {
@@ -45,14 +51,21 @@ describe('validateMimeType (magic-number)', () => {
 		expect(caught, 'a real PDF must not pass the jpg/png guard').to.exist
 	})
 
-	it('validateMimeTypePdf rejects a real PNG (allowlist must stay narrow)', async () => {
-		let caught: unknown
-		try {
-			await validateMimeTypePdf(pngFile)
-		} catch (e) {
-			caught = e
+	it('validateMimeTypePdf rejects every real non-PDF type (allowlist must stay narrow)', async () => {
+		// Asserting only PNG was too narrow: widening the list with 'image/jpeg'
+		// specifically still passed. Cover each real type the guard must exclude.
+		for (const [label, file] of [
+			['PNG', pngFile],
+			['JPEG', jpegFile]
+		] as const) {
+			let caught: unknown
+			try {
+				await validateMimeTypePdf(file)
+			} catch (e) {
+				caught = e
+			}
+			expect(caught, `a real ${label} must not pass the pdf guard`).to.exist
 		}
-		expect(caught, 'a real PNG must not pass the pdf guard').to.exist
 	})
 
 	it('returns ext when MIME in allowlist (PNG)', async () => {
