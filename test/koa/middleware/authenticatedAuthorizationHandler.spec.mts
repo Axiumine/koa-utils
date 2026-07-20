@@ -79,6 +79,18 @@ describe('authenticatedAuthorizationHandler', () => {
 		expect(state.user.refreshToken).to.equal(REDIS_REFRESH_KEY)
 	})
 
+	it('sets ctx.state.user.id to the ObjectId of the session actually found in Redis', async () => {
+		// refresh's resolver uses ctx.state.user.id as the userId for the new session.
+		// Nothing asserted this, so the id could be detached from the real session
+		// entirely (e.g. a freshly generated ObjectId) without any test noticing.
+		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({ id: '507f1f77bcf86cd799439011', email: 'u@test.com' })
+		const mw = authenticatedAuthorizationHandler(keys)
+		const ctx = { request: { header: { cookie: VALID_COOKIE } }, state: {} } as never
+		await mw(ctx, async () => undefined)
+		const state = (ctx as never as { state: { user: { id: unknown } } }).state
+		expect(String(state.user.id)).to.equal('507f1f77bcf86cd799439011')
+	})
+
 	it('throws 403 Forbidden when session has disabled flag', async () => {
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({ id: '507f1f77bcf86cd799439011', disabled: 'true' })
 		const mw = authenticatedAuthorizationHandler(keys)

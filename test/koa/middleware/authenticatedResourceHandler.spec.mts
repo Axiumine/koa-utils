@@ -72,6 +72,21 @@ describe('authenticatedResourceHandler', () => {
 		expect((ctx as never as { state: { user: { email: string } } }).state.user.email).to.equal('test@test.com')
 	})
 
+	it('sets ctx.state.user.id to the ObjectId of the session actually found in Redis', async () => {
+		// Downstream resolvers scope every read/write to ctx.state.user.id. Only .email
+		// was asserted, so the id could be detached from the real session unnoticed.
+		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({ id: '507f1f77bcf86cd799439011', email: 'test@test.com' })
+		const mw = authenticatedResourceHandler()
+		const ctx = {
+			request: { header: { authorization: `Bearer access:${VALID_UUID}` } },
+			state: {}
+		} as never
+		await mw(ctx, async () => undefined)
+		expect(String((ctx as never as { state: { user: { id: unknown } } }).state.user.id)).to.equal(
+			'507f1f77bcf86cd799439011'
+		)
+	})
+
 	it('throws 403 Forbidden when session has disabled=true', async () => {
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({ id: '507f1f77bcf86cd799439011', disabled: 'true' })
 		const mw = authenticatedResourceHandler()

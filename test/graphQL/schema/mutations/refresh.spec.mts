@@ -6,6 +6,7 @@
  */
 import { refresh } from '../../../../dist/graphQL/schema/mutations/refresh.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
+import { REFRESH_TOKEN_EXPIRY } from '@lib/tokens.mjs'
 import { expect } from 'chai'
 import sinon from 'sinon'
 import { Types } from 'mongoose'
@@ -71,6 +72,22 @@ describe('refresh — resolve', () => {
 		expect(expireStub.callCount).to.equal(2)
 	})
 
+	it('gives the access key the short jittered TTL and the refresh key the 90-day TTL', async () => {
+		// Asserting only callCount lets the two TTLs be swapped: the access token would
+		// live 90 days and the refresh token under 90 minutes. Match each TTL to its own
+		// key, by key, so argument order cannot mask the swap either.
+		const ctx = makeCtx()
+		await refresh.resolve(null, {}, ctx)
+
+		const accessCall = expireStub.getCalls().find((c) => (c.args[0] as string).includes('access:'))
+		const refreshCall = expireStub.getCalls().find((c) => (c.args[0] as string).includes('refresh:'))
+		expect(accessCall, 'access key must get an expiry').to.exist
+		expect(refreshCall, 'refresh key must get an expiry').to.exist
+		// accessTokenExpiry() jitters over 30-90 minutes, in seconds
+		expect(accessCall?.args[1]).to.be.within(30 * 60, 91 * 60)
+		expect(refreshCall?.args[1]).to.equal(REFRESH_TOKEN_EXPIRY)
+	})
+
 	it('deletes old refresh token key', async () => {
 		const ctx = makeCtx({ refreshToken: 'refresh:oldToken' })
 		await refresh.resolve(null, {}, ctx)
@@ -88,6 +105,23 @@ describe('refresh — resolve', () => {
 
 		const setCookieCalled = (ctx.cookies.set as sinon.SinonStub).calledWith('refresh_token')
 		expect(setCookieCalled).to.equal(true)
+	})
+
+	it('sends the NEW refresh token in the cookie, not the rotated-out one', async () => {
+		// sinon's calledWith matches on an argument prefix, so asserting
+		// calledWith('refresh_token') alone never inspects the value. Handing back
+		// oldRefresh would give the client a cookie that can never satisfy Redis again.
+		const ctx = makeCtx({ refreshToken: 'refresh:oldRefreshUUID' })
+		await refresh.resolve(null, {}, ctx)
+
+		const call = (ctx.cookies.set as sinon.SinonStub)
+			.getCalls()
+			.find((c) => c.args[0] === 'refresh_token')
+		expect(call, 'refresh_token cookie must be set').to.exist
+		const sent = call?.args[1] as string
+		expect(sent).to.not.equal('refresh:oldRefreshUUID')
+		expect(sent).to.not.include('refresh:')
+		expect(sent).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
 	})
 
 	it('when hSet rejects: returns { status: false, accessToken: "" } and deletes new keys', async () => {
