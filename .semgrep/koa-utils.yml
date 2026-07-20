@@ -54,6 +54,25 @@ rules:
           - pattern: '$MODEL.deleteOne({ ..., [$KEY]: $VAL, ... }, ...)'
           - pattern: '$MODEL.deleteMany({ ..., [$KEY]: $VAL, ... }, ...)'
           - pattern: '$MODEL.countDocuments({ ..., [$KEY]: $VAL, ... }, ...)'
+          # Same filter, built in a local first. The inline-object-literal patterns above
+          # only match at the call site, so `const f = {[k]: v}; findOne(f)` — an equally
+          # exploitable shape and arguably the more natural way to write it — was invisible.
+          # $F is bound in the declaration and re-used at the call, so only the variable
+          # actually built with a computed key matches.
+          - patterns:
+              - pattern-inside: |
+                  const $F = { ..., [$KEY]: $VAL, ... }
+                  ...
+              - pattern-either:
+                  - pattern: '$MODEL.findOne($F, ...)'
+                  - pattern: '$MODEL.find($F, ...)'
+                  - pattern: '$MODEL.findOneAndUpdate($F, ...)'
+                  - pattern: '$MODEL.findOneAndDelete($F, ...)'
+                  - pattern: '$MODEL.updateOne($F, ...)'
+                  - pattern: '$MODEL.updateMany($F, ...)'
+                  - pattern: '$MODEL.deleteOne($F, ...)'
+                  - pattern: '$MODEL.deleteMany($F, ...)'
+                  - pattern: '$MODEL.countDocuments($F, ...)'
     paths:
       exclude:
         - "**/*.spec.ts"
@@ -85,6 +104,20 @@ rules:
           - pattern: '$MODEL.deleteOne({ ...$SPREAD }, ...)'
           - pattern: '$MODEL.deleteMany({ ...$SPREAD }, ...)'
           - pattern: '$MODEL.countDocuments({ ...$SPREAD }, ...)'
+          # Spread filter built in a local first — see the equivalent note on
+          # koa-utils.nosql-injection.dynamic-filter-key.
+          - patterns:
+              - pattern-inside: |
+                  const $F = { ...$SPREAD }
+                  ...
+              - pattern-either:
+                  - pattern: '$MODEL.findOne($F, ...)'
+                  - pattern: '$MODEL.find($F, ...)'
+                  - pattern: '$MODEL.updateOne($F, ...)'
+                  - pattern: '$MODEL.updateMany($F, ...)'
+                  - pattern: '$MODEL.deleteOne($F, ...)'
+                  - pattern: '$MODEL.deleteMany($F, ...)'
+                  - pattern: '$MODEL.countDocuments($F, ...)'
     paths:
       exclude:
         - "**/*.spec.ts"
@@ -407,6 +440,24 @@ rules:
       - pattern: fs.createWriteStream($SINK)
       - pattern: fs.createReadStream($SINK)
       - pattern: unlink($SINK, ...)
+      # This package's OWN path-taking wrappers, treated as sinks in their own right.
+      # Semgrep OSS taint does not follow a value INTO a callee that holds the fs call
+      # (measured across four call shapes — sync/arrow/hoisted/direct — all silent), so
+      # `const p = ctx.params.x; await moveTempFile(p, ...)` was invisible even though
+      # both halves live in this repo. Naming the wrappers restores coverage for the
+      # flow that actually matters here: untrusted input reaching a file operation
+      # through one of our own helpers. Does NOT make the general case visible — see
+      # known-gap/path-traversal-sink-in-callee.ts for an arbitrary local helper.
+      - pattern: moveTempFile($SINK, ...)
+      - pattern: moveTempFile($SRC, $SINK, ...)
+      - pattern: moveTempFile($SRC, $DST, $SINK, ...)
+      - pattern: reEncode($SINK, ...)
+      - pattern: storeUploadAsTemp($SINK, ...)
+      - pattern: validateMimeType($SINK, ...)
+      - pattern: validateJpgPngExtension($SINK, ...)
+      - pattern: validateJpgPngExtension($NAME, $SINK, ...)
+      - pattern: validatePdfExtension($SINK, ...)
+      - pattern: validatePdfExtension($NAME, $SINK, ...)
     metadata:
       category: security
       confidence: HIGH
@@ -422,14 +473,19 @@ rules:
         field deliberately carries no counts.
       accepted-risk: >-
         The library's own exported functions (moveTempFile, validateJpgPngExtension,
-        validateMimeType, validatePdfExtension, reEncode) are intentionally no longer
-        sources merely for taking a string parameter — misuse of this public API by a
-        *consumer* package is out of this repo's static-analysis reach by construction, not
-        a gap introduced here. The runtime guard for that boundary is assertNoTraversal on
-        the segment params; the rest is documented as caller responsibility. Semgrep OSS
-        taint is intra-file only (see file header): a future regression where
-        storeUploadAsTemp.mts's sanitization step is weakened and the unsanitized value is
-        passed to a *different file's* fs call would not be caught by this rule.
+        validateMimeType, validatePdfExtension, reEncode, storeUploadAsTemp) are not
+        sources merely for taking a string parameter — that model produced 7 findings with
+        no attacker-reachability signal. They ARE sinks: a ctx/args value reaching one of
+        them inside a single file is reported. What remains out of reach is misuse of this
+        public API by a *consumer* package, which no static analysis of this repo can see
+        by construction. The runtime guard for that boundary is assertNoTraversal on the
+        segment params; the rest is documented as caller responsibility.
+        Semgrep OSS taint is intra-file only (see file header), so two shapes stay
+        invisible regardless of rule content: a flow crossing a file boundary, and a flow
+        into an arbitrary local helper that holds the fs call (naming our own wrappers as
+        sinks covers the ones we ship, not a helper written tomorrow). A future regression
+        weakening storeUploadAsTemp.mts's sanitization and passing the value to a
+        *different file's* fs call would not be caught here.
       cwe: 'CWE-22: Improper Limitation of a Pathname to a Restricted Directory'
       references:
         - https://owasp.org/www-community/attacks/Path_Traversal
