@@ -19,6 +19,12 @@
       "skillPath": "skills/javascript-typescript-jest/SKILL.md",
       "computedHash": "0073d19ab0275eb6a8200aced6789a53744667bd717b5d1f44ce708a1740e5d4"
     },
+    "mocha-skill": {
+      "source": "lambdatest/agent-skills",
+      "sourceType": "github",
+      "skillPath": "mocha-skill/SKILL.md",
+      "computedHash": "eb6eeba3caf9a53a8f9d1e8ffafdc1396fcb03381506f0294afcd4897cbae8c9"
+    },
     "typescript-advanced-types": {
       "source": "wshobson/agents",
       "sourceType": "github",
