@@ -164,7 +164,7 @@ Static-file move targets: `UPLOAD_IMG_DIRECTORY_URL = ${cwd}/upload/uimg`, `${ST
 
 ### Email (`SocketLabsLib`)
 
-Single class wrapping `@socketlabs/email`. Env-driven: `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`, `DEV_TEAM_EMAIL`. Supplies methods for verify, welcome, account disabled/banned, OTP, password reset confirm, wrong-hash, too-old-link, etc. Copy is hard-coded (not locale-configurable) and some legacy methods still carry YourCompany-branded placeholder text instead of the configured `platformName` — adjust before reuse outside Axiumine projects. HTML header/footer can be overridden via constructor args.
+Single class wrapping `@socketlabs/email`. Env-driven: `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`, `DEV_TEAM_EMAIL`. Supplies methods for verify, welcome, account disabled/banned, OTP, password reset confirm, wrong-hash, too-old-link, etc. Copy is hard-coded English (not locale-configurable) and branded with the configured `platformName`. HTML header/footer can be overridden via constructor args.
 
 ---
 
@@ -197,8 +197,7 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - **Module shape:** one named export per file, file name matches export. `mutations/X.mts` exports a plain object with `description`, `type`, `args`, `resolve` ready to drop into a `GraphQLObjectType` `fields`.
 - **Mongo transactions:** `mongoose.startSession()` + `session.withTransaction(...)` + `endSession()` in `finally`. Always pass the `session` to all model calls.
 - **Errors:** never `throw new Error('...')` inside business logic — always go through a `throw*Error()` helper. Internal-only fatal paths use `throwInternalError()`.
-- **Comments:** existing files contain mixed Italian/English comments, debug `console.debug` calls left in. Preserve original language when editing; do not add cleanup-only commits.
-- **Tests:** `test/` mirrors `src/` layout (99 `*.spec.mts` files, 101 `.mts` files total). Run via Mocha (`.mocharc.json`, spec glob `dist-test/**/*.spec.mjs`) against the `build:tests` output, with sinon + chai + `mongodb-memory-server`. Coverage via c8 (`.c8rc.json`): `check-coverage`, `per-file`, and all four metrics (`lines`/`statements`/`functions`/`branches`) at 100. `.githooks/pre-commit` runs `yarn test:coverage` on every commit touching `src/`, `test/`, `package.json`, `.c8rc.json`, `.mocharc.json` or a `tsconfig*.json`.
+- **Tests:** `test/` mirrors `src/` layout (118 `*.spec.mts` files, 120 `.mts` files total). Run via Mocha (`.mocharc.json`, spec glob `dist-test/**/*.spec.mjs`) against the `build:tests` output, with sinon + chai + `mongodb-memory-server`. Coverage via c8 (`.c8rc.json`): `check-coverage`, `per-file`, and all four metrics (`lines`/`statements`/`functions`/`branches`) at 100. `.githooks/pre-commit` runs `yarn test:coverage` on every commit touching `src/`, `test/`, `package.json`, `.c8rc.json`, `.mocharc.json` or a `tsconfig*.json`.
 
 ---
 
@@ -206,7 +205,8 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 
 - License: `GPL-3.0-or-later`.
 - Repo: <https://github.com/Axiumine/koa-utils>.
-- Current version: `4.0.1` (`package.json`). Bump version → `yarn upload` (= `npm publish`) → token in `.npmrc` is required.
+- Current version: `5.0.0` (`package.json`). Bump version → `yarn upload` (= `npm publish`) → token in `.npmrc` is required.
+- `CHANGELOG.md` (root) tracks every release back to `3.8.0`, Keep a Changelog format. Update it in the same commit as the version bump.
 - `peerDependencies` covers every runtime lib (`@node-rs/bcrypt`, `@sentry/node`, `@socketlabs/email`, `clamscan`, `dotenv`, `file-type`, `fs-extra`, `graphql`, `keygrip`, `koa-logger`, `mongoose`, `pg`, `redis`, `reflect-metadata`, `sequelize`, `sequelize-typescript`, `sharp`, `uuid`). Library declares zero `dependencies` — consumer must install peers.
 
 ---
@@ -224,7 +224,6 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - `signUp` sends an email even when the user already exists ("already valid" notice) to avoid leaking account presence — but then throws 409, so a side-channel oracle still exists via timing.
 - Private modules under `src/private/` reach into `@models/*` and DB collections — consumers should not import them directly.
 - `private/graphQL/models/MongoDB/private/UserAdminKoaUtils.mts` defines the admin user model used by `loginAdmin` (not exported).
-- Many SocketLabs methods contain YourCompany-specific placeholder copy and a hard-coded `dummy@example.com` recipient in `sendEmailPostSegnalato` — consumers should replace both before reuse under their own brand.
 - `tryCatchRethrow` casts `e` to `GraphQLError | Error` but receives `unknown` from `catch (e: unknown)` — relies on `instanceof` narrowing.
 
 ---

@@ -104,13 +104,13 @@ Pipeline: stream to `/tmp` (5 MB cap) â†’ extension + magic-number MIME check â†
 ### Email
 
 ```ts
-import { SocketLabsLib } from '@axiumine/koa-utils/email/SocketlabsLib'
+import { SocketLabsLib } from '@axiumine/koa-utils/email/SocketLabsLib'
 
 const mailer = new SocketLabsLib()
 await mailer.sendEmailVerify('user@example.com', hash)
 ```
 
-> Note: copy is hard-coded (a few legacy methods still carry YourCompany-branded placeholder text). Subclass / replace template methods for other locales or brands.
+> Note: copy is hard-coded English and branded with `PLATFORM_NAME`. Subclass / replace template methods for other locales.
 
 ### Helpers
 

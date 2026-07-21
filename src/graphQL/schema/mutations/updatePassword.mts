@@ -73,7 +73,7 @@ export const updatePassword = {
 
 				// send new password confirmation email
 				const SocketLabsObj = new SocketLabsLib()
-				await SocketLabsObj.sendConfermaResetPwd(uEmail, resetPwd.name)
+				await SocketLabsObj.sendResetPwdConfirmation(uEmail, resetPwd.name)
 			})
 		} catch (e: unknown) {
 			tryCatchRethrow(e as GraphQLError | Error)

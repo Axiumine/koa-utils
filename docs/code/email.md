@@ -4,9 +4,7 @@ This section documents the transactional email client used to send account-lifec
 
 ## `SocketLabsLib`
 
-**Import:** `import { SocketLabsLib } from '@axiumine/koa-utils/email/SocketlabsLib'`
-
-> The `package.json` `exports` key is `./email/SocketlabsLib` (lower-case `labs`) even though the source file is `src/email/SocketLabsLib.mts` and the exported class is `SocketLabsLib` (upper-case `Labs`). Import using the exact casing of the export key, not the filename or class name.
+**Import:** `import { SocketLabsLib } from '@axiumine/koa-utils/email/SocketLabsLib'`
 
 **Signature:**
 ```ts
@@ -80,8 +78,6 @@ Sends the email-change verification email, used when a user changes their login 
 | name | string | Optional recipient name, same `fixName` treatment. |
 
 **Returns:** `Promise<boolean>` — send success/failure.
-
-**Notes:** The HTML body literal contains a stray `" +` sequence from an incomplete string-concatenation cleanup (`...accedi.<br><br>" +\n      'Puoi confermare...`) — this is copied verbatim into the outgoing email HTML rather than being valid template syntax; it is a pre-existing source quirk, not corrected here.
 
 ### `sendWelcome(emailTo)`
 
@@ -233,7 +229,7 @@ Notifies the user their account is already active/valid and they can log in dire
 async sendSubscriptionEmail(emailTo: string, otp: string): Promise<boolean>
 ```
 
-Sends an OTP-based subscription-activation email. Subject: `` Activate your ${platformName} account} `` (note the literal trailing `}` left in the template string — a pre-existing typo, preserved). Builds `url = ${linkBase}'/x/emailVerify` (note the stray `'` character embedded in the URL — also a pre-existing source quirk) and includes both a clickable link and the raw `otp` code in the body.
+Sends an OTP-based subscription-activation email. Subject: `` Activate your ${platformName} account ``. Builds `url = ${linkBase}/x/emailVerify` and includes both a clickable link and the raw `otp` code in the body.
 
 **Parameters:**
 
@@ -244,11 +240,11 @@ Sends an OTP-based subscription-activation email. Subject: `` Activate your ${pl
 
 **Returns:** `Promise<boolean>` — send success/failure.
 
-### `sendConfermaResetPwd(emailTo, name = '')`
+### `sendResetPwdConfirmation(emailTo, name = '')`
 
 **Signature:**
 ```ts
-async sendConfermaResetPwd(emailTo: string, name: string = ''): Promise<boolean>
+async sendResetPwdConfirmation(emailTo: string, name: string = ''): Promise<boolean>
 ```
 
 Confirms that a password reset has completed and the user can now log in. Subject: `Password reset for ${platformName}`. Links to `linkBase` (the platform home), not a hash-specific URL.
@@ -262,14 +258,14 @@ Confirms that a password reset has completed and the user can now log in. Subjec
 
 **Returns:** `Promise<boolean>` — send success/failure.
 
-### `sendConfermaResetPwdHash(email, name, hash)`
+### `sendResetPwdConfirmationHash(email, name, hash)`
 
 **Signature:**
 ```ts
-async sendConfermaResetPwdHash(email: string, name: string, hash: string): Promise<boolean | null>
+async sendResetPwdConfirmationHash(email: string, name: string, hash: string): Promise<boolean>
 ```
 
-Legacy password-reset confirmation email hard-coded for "YourCompany" rather than the configured `platformName`. Subject is always `'Password reset for YourCompany'` (the `message.subject` field is separately overridden to `'Password change confirmation for YourCompany'` right before sending — the earlier `subject` local is only used inside the HTML body via `getHtmlHeader(subject)`). Builds `linkReset = linkBase + '/index.php?q=reset&hash=' + hash + '&email=' + encodeURI(email)`. Unlike the other send methods, the HTML body here is built with the public `getHtmlHeader(subject)` / `getHtmlFooter()` helpers (a full standalone `<html>...</html>` document) rather than relying only on the constructor's `emailHtmlHeader1/2`/`emailHtmlFooter` fallback — because `sendEmail` unconditionally wraps whatever `htmlBody` it's given with `emailHtmlHeader1 + subject + emailHtmlHeader2 + htmlBody + emailHtmlFooter`, the final message ends up with the fallback template wrapped around a second, complete HTML document. This double-wrapping is a pre-existing behavior, not a bug introduced here. Send errors are caught locally: on failure, `Sentry.captureException(e)` is called and the method returns `null` instead of throwing.
+Legacy password-reset confirmation email. Subject: `` Password change confirmation for ${platformName} ``, used both as the sent subject and inside the HTML body via `getHtmlHeader(subject)`. Builds `linkReset = linkBase + '/index.php?q=reset&hash=' + hash + '&email=' + encodeURI(email)`. Unlike the other send methods, the HTML body here is built with the public `getHtmlHeader(subject)` / `getHtmlFooter()` helpers (a full standalone `<html>...</html>` document) rather than relying only on the constructor's `emailHtmlHeader1/2`/`emailHtmlFooter` fallback — because `sendEmail` unconditionally wraps whatever `htmlBody` it's given with `emailHtmlHeader1 + subject + emailHtmlHeader2 + htmlBody + emailHtmlFooter`, the final message ends up with the fallback template wrapped around a second, complete HTML document. This double-wrapping is a pre-existing behavior, not a bug introduced here. Send errors are caught locally: on failure, `Sentry.captureException(e)` is called and the method returns `false` instead of throwing.
 
 **Parameters:**
 
@@ -279,7 +275,7 @@ Legacy password-reset confirmation email hard-coded for "YourCompany" rather tha
 | name | string | Recipient name (no default; always interpolated as `'Hi ' + name`, unlike the other methods' `fixName` treatment). |
 | hash | string | Reset-confirmation hash embedded in `linkReset`. |
 
-**Returns:** `Promise<boolean \| null>` — the boolean `sendTemplate` result on success, or `null` if `sendTemplate` throws (comment in source: "if the send succeeds, returns the hash, otherwise null" — despite the comment mentioning "the hash", the actual return value is the boolean send result, not the hash).
+**Returns:** `Promise<boolean>` — the `sendTemplate` result on success, or `false` if `sendTemplate` throws synchronously.
 
 ### `sendEmailReset(emailTo, hash, name = '')`
 
@@ -315,10 +311,10 @@ Public "fallback footer" fragment: `'</p></td>' + '  </tr>' + ' </table>' + '</b
 
 **Signature:**
 ```ts
-async sendOTP(emailTo: string, otp: string): Promise<string | null>
+async sendOTP(emailTo: string, otp: string): Promise<boolean>
 ```
 
-Sends a one-time-password email hard-coded for "YourCompany" (does not use `platformName`). Subject is always `'OTP code for YourCompany'`; body text is always `'To confirm your subscription on YourCompany, enter the following OTP code: ' + otp` (text and HTML).
+Sends a one-time-password email. Subject: `` OTP code for ${platformName} ``; body text: `` To confirm your subscription on ${platformName}, enter the following OTP code: ${otp} `` (text and HTML).
 
 **Parameters:**
 
@@ -327,29 +323,29 @@ Sends a one-time-password email hard-coded for "YourCompany" (does not use `plat
 | emailTo | string | Recipient address. |
 | otp | string | One-time password code shown in the email body. |
 
-**Returns:** `Promise<string \| null>` — always `null` (the function has no path that returns a non-null value; both the success path and the `catch` block set `ret = null`). Errors from `sendEmail` are caught and reported to Sentry via `Sentry.captureException(e)` rather than propagated.
+**Returns:** `Promise<boolean>` — the `sendTemplate` result on success, or `false` if `sendTemplate` throws synchronously. Errors from `sendEmail` are caught and reported to Sentry via `Sentry.captureException(e)` rather than propagated.
 
-### `sendEmailPostSegnalato(infoUtente, idPost)`
+### `sendEmailPostReported(userInfo, idPost)`
 
 **Signature:**
 ```ts
-async sendEmailPostSegnalato(infoUtente: IInfoUtente, idPost: number | string): Promise<boolean>
+async sendEmailPostReported(userInfo: IUserInfo, idPost: number | string): Promise<boolean>
 ```
 
-Sends an internal notification that a post has been reported/flagged, always to the hard-coded address `'dummy@example.com'` (ignores `EMAIL_FROM`/`DEV_TEAM_EMAIL` conventions used elsewhere). Subject: `'Post ' + idPost + ' reported'`. Body interpolates the reporting user's name/surname/id from `infoUtente`. Uses `getHtmlHeader(subject)` / `getHtmlFooter()` to build the HTML body (same double-wrapping consideration as `sendConfermaResetPwdHash`, since `sendEmail` re-wraps it again).
+Sends an internal notification that a post has been reported/flagged to `process.env.DEV_TEAM_EMAIL`, the same recipient `alertDevTeam` uses. Subject: `'Post ' + idPost + ' reported'`. Body interpolates the reporting user's name/surname/id from `userInfo`. Uses `getHtmlHeader(subject)` / `getHtmlFooter()` to build the HTML body (same double-wrapping consideration as `sendResetPwdConfirmationHash`, since `sendEmail` re-wraps it again).
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
-| infoUtente | `IInfoUtente` | Info about the user who filed the report (module-internal interface — shape below). |
+| userInfo | `IUserInfo` | Info about the user who filed the report (module-internal interface — shape below). |
 | idPost | number \| string | Identifier of the reported post, interpolated into subject/body. |
 
-`IInfoUtente` shape: `{ _id: string; personalData: { name: string; surname: string } }`.
+`IUserInfo` shape: `{ _id: string; personalData: { name: string; surname: string } }`.
 
 **Returns:** `Promise<boolean>` — send success/failure.
 
-**Notes:** `IInfoUtente` is declared in this file but not exported and has no `package.json` export entry — it is internal to `SocketLabsLib`. An earlier, near-identical implementation of this method is preserved as a commented-out block above `sendEmailChangeVerify` (lines ~78-116 of the source) along with a `@fixme` note about handling `ECONNABORTED` timeout retries from SocketLabs.
+**Notes:** `IUserInfo` is declared in this file but not exported and has no `package.json` export entry — it is internal to `SocketLabsLib`. An earlier, near-identical implementation of this method is preserved as a commented-out block above `sendEmailChangeVerify` in the source, along with a `@fixme` note about handling `ECONNABORTED` timeout retries from SocketLabs.
 
 ### `getHtmlHeader(title)`
 
@@ -358,7 +354,7 @@ Sends an internal notification that a post has been reported/flagged, always to 
 getHtmlHeader(title: string): string
 ```
 
-Public helper that returns a complete standalone HTML document opening (doctype, `<html>`, `<head>` with the given `title` in a `<title>` tag, viewport meta, then `<body>` and an opening 600px-wide centered `<table>`/`<tr>`/`<td>`/`<p>`). Used by `sendConfermaResetPwdHash` and `sendEmailPostSegnalato` to build their HTML bodies. The `title` argument is interpolated directly into `<title>title</title>` without HTML-escaping.
+Public helper that returns a complete standalone HTML document opening (doctype, `<html>`, `<head>` with the given `title` in a `<title>` tag, viewport meta, then `<body>` and an opening 600px-wide centered `<table>`/`<tr>`/`<td>`/`<p>`). Used by `sendResetPwdConfirmationHash` and `sendEmailPostReported` to build their HTML bodies. The `title` argument is interpolated directly into `<title>title</title>` without HTML-escaping.
 
 **Parameters:**
 
@@ -388,7 +384,7 @@ Public closing counterpart to `getHtmlHeader`: `'</p></td>' + '  </tr>' + ' </ta
 private async sendTemplate(emailTo: string, subject: string, textBody: string, htmlBody: string): Promise<boolean>
 ```
 
-Thin wrapper called by every public send method (`sendEmailVerify`, `sendEmailChangeVerify`, `sendWelcome`, `accountDisabled`, `accountBanned`, `alertDevTeam`, `wrongHash`, `tooMuchVerifyRequests`, `hashReqTooOld`, `emailAlreadyValid`, `sendSubscriptionEmail`, `sendConfermaResetPwd`, `sendConfermaResetPwdHash`, `sendEmailReset`, `sendOTP`, `sendEmailPostSegnalato`) instead of calling `sendEmail` directly. Assembles the `ISendEmail` args object — `emailFrom`/`emailFromName` from the instance's `emailFrom`/`platformName` fields, plus the given `emailTo`/`subject`/`textBody`/`htmlBody` — and forwards it to the private `sendEmail`. It is the sole caller of `sendEmail` in active code.
+Thin wrapper called by every public send method (`sendEmailVerify`, `sendEmailChangeVerify`, `sendWelcome`, `accountDisabled`, `accountBanned`, `alertDevTeam`, `wrongHash`, `tooMuchVerifyRequests`, `hashReqTooOld`, `emailAlreadyValid`, `sendSubscriptionEmail`, `sendResetPwdConfirmation`, `sendResetPwdConfirmationHash`, `sendEmailReset`, `sendOTP`, `sendEmailPostReported`) instead of calling `sendEmail` directly. Assembles the `ISendEmail` args object — `emailFrom`/`emailFromName` from the instance's `emailFrom`/`platformName` fields, plus the given `emailTo`/`subject`/`textBody`/`htmlBody` — and forwards it to the private `sendEmail`. It is the sole caller of `sendEmail` in active code.
 
 **Parameters:**
 
@@ -433,7 +429,7 @@ Central send implementation used by every public method. Builds a `BasicMessage`
 private htmlHeader1(): string
 ```
 
-Fallback header fragment (first half) used only when the constructor is called without an explicit `htmlHeader1` argument. Returns the XHTML 1.0 Transitional doctype, `<html lang="it" ...>`, `<head>`, charset meta, and the opening `<title>` tag (left unclosed so the subject can be inserted after it).
+Fallback header fragment (first half) used only when the constructor is called without an explicit `htmlHeader1` argument. Returns the XHTML 1.0 Transitional doctype, `<html lang="en" ...>`, `<head>`, charset meta, and the opening `<title>` tag (left unclosed so the subject can be inserted after it).
 
 **Returns:** `string` — opening HTML/head fragment through `<title>`.
 

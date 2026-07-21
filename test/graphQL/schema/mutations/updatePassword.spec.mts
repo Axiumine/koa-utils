@@ -2,7 +2,7 @@
  * Tests for graphQL/schema/mutations/updatePassword.mts
  *
  * updatePassword uses getResetPwd (→ UserBase.findOne), updatePasswordDb (→ UserBase.updateOne + real bcrypt.hash),
- * removeResetReq (→ UserBase.updateOne.session.exec), SocketLabsLib.sendConfermaResetPwd.
+ * removeResetReq (→ UserBase.updateOne.session.exec), SocketLabsLib.sendResetPwdConfirmation.
  *
  * NOTE: updatePasswordDb calls `import { hash } from '@node-rs/bcrypt'` which is a captured named
  * binding — not stubbable via sinon. The happy-path test lets real bcrypt run (salt=14, ~1-2s).
@@ -78,12 +78,12 @@ describe('updatePassword — resolve', () => {
 	let startSessionStub: sinon.SinonStub
 	let findOneStub: sinon.SinonStub
 	let updateOneStub: sinon.SinonStub
-	let sendConfermaStub: sinon.SinonStub
+	let sendResetConfirmationStub: sinon.SinonStub
 
 	beforeEach(() => {
 		startSessionStub = sinon.stub(mongoose, 'startSession').resolves(makeSession() as never)
 		findOneStub = sinon.stub(UserBase, 'findOne')
-		sendConfermaStub = sinon.stub(SocketLabsLib.prototype, 'sendConfermaResetPwd').resolves()
+		sendResetConfirmationStub = sinon.stub(SocketLabsLib.prototype, 'sendResetPwdConfirmation').resolves()
 	})
 
 	afterEach(() => {
@@ -205,8 +205,8 @@ describe('updatePassword — resolve', () => {
 		})
 
 		expect(result).to.equal(true)
-		expect(sendConfermaStub.calledOnce).to.equal(true)
-		expect(sendConfermaStub.firstCall.args[0]).to.equal('user@test.com')
+		expect(sendResetConfirmationStub.calledOnce).to.equal(true)
+		expect(sendResetConfirmationStub.firstCall.args[0]).to.equal('user@test.com')
 		// The session must be closed on the SUCCESS path too. The existing
 		// 'endSession always called in finally' test only drives the 403 branch, where
 		// endSession still runs even if it is moved out of `finally` into `catch`.

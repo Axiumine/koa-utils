@@ -1,6 +1,6 @@
 {
 	"name": "@axiumine/koa-utils",
-	"version": "4.0.1",
+	"version": "5.0.0",
 	"description": "Koa Utils",
 	"type": "module",
 	"repository": {
@@ -191,7 +191,7 @@
 			"import": "./dist/dataSources/Redis.mjs",
 			"types": "./dist/dataSources/Redis.d.mts"
 		},
-		"./email/SocketlabsLib": {
+		"./email/SocketLabsLib": {
 			"import": "./dist/email/SocketLabsLib.mjs",
 			"types": "./dist/email/SocketLabsLib.d.mts"
 		},

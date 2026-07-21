@@ -20,6 +20,12 @@ function makeSendStubReject(err: Error) {
 	return sinon.stub().rejects(err)
 }
 
+/** Read back the BasicMessage handed to client.send() — subject/textBody/htmlBody as actually built */
+function sentMessage(sendStub: sinon.SinonStub) {
+	const [msg] = sendStub.firstCall.args
+	return msg as { subject: string; textBody: string; htmlBody: string }
+}
+
 // ---------------------------------------------------------------------------
 // Environment setup — minimal values so the constructor doesn't blow up
 // ---------------------------------------------------------------------------
@@ -97,10 +103,10 @@ describe('SocketLabsLib — sendEmailVerify', () => {
 
 	it('passes encoded email in the link body', async () => {
 		await lib.sendEmailVerify('user+tag@example.com', 'hash1', 'Alice')
-		const [msg] = sendStub.firstCall.args
-		// BasicMessage object — setHtmlBody should contain the encoded email
+		const { textBody, htmlBody } = sentMessage(sendStub)
 		expect(sendStub.calledOnce).to.equal(true)
-		expect(msg).to.exist
+		expect(textBody).to.contain('https://test.example.com/check/verify-email/user+tag@example.com/hash1')
+		expect(htmlBody).to.contain('user+tag@example.com/hash1')
 	})
 
 	it('handles empty name (default parameter)', async () => {
@@ -146,6 +152,14 @@ describe('SocketLabsLib — sendEmailChangeVerify', () => {
 	it('handles name parameter', async () => {
 		const result = await lib.sendEmailChangeVerify('u@x.com', 'hashXYZ', 'Bob')
 		expect(result).to.equal(true)
+	})
+
+	it('builds an html body free of leftover concatenation syntax', async () => {
+		await lib.sendEmailChangeVerify('u@x.com', 'hashXYZ', 'Bob')
+		const { htmlBody } = sentMessage(sendStub)
+		expect(htmlBody).to.not.contain(`" +`)
+		expect(htmlBody).to.contain('You can confirm the registration by visiting this link')
+		expect(htmlBody).to.contain('/check/verify-change-email/u@x.com/hashXYZ')
 	})
 
 	it('returns false when send rejects', async () => {
@@ -429,6 +443,14 @@ describe('SocketLabsLib — sendSubscriptionEmail', () => {
 		expect(result).to.equal(true)
 	})
 
+	it('builds the subject and activation url without stray punctuation', async () => {
+		await lib.sendSubscriptionEmail('s@x.com', '123456')
+		const { subject, textBody } = sentMessage(sendStub)
+		expect(subject).to.equal('Activate your TestPlatform account')
+		expect(textBody).to.contain('https://test.example.com/x/emailVerify')
+		expect(textBody).to.not.contain(`.com'/`)
+	})
+
 	it('returns false when send rejects', async () => {
 		sendStub = makeSendStubReject(new Error('fail'))
 		injectClient(lib, sendStub)
@@ -438,10 +460,10 @@ describe('SocketLabsLib — sendSubscriptionEmail', () => {
 })
 
 // ---------------------------------------------------------------------------
-// sendConfermaResetPwd
+// sendResetPwdConfirmation
 // ---------------------------------------------------------------------------
 
-describe('SocketLabsLib — sendConfermaResetPwd', () => {
+describe('SocketLabsLib — sendResetPwdConfirmation', () => {
 	let lib: SocketLabsLib
 	let sendStub: sinon.SinonStub
 
@@ -454,28 +476,28 @@ describe('SocketLabsLib — sendConfermaResetPwd', () => {
 	afterEach(() => sinon.restore())
 
 	it('returns true on success without name', async () => {
-		const result = await lib.sendConfermaResetPwd('r@x.com')
+		const result = await lib.sendResetPwdConfirmation('r@x.com')
 		expect(result).to.equal(true)
 	})
 
 	it('returns true on success with name', async () => {
-		const result = await lib.sendConfermaResetPwd('r@x.com', 'Carlo')
+		const result = await lib.sendResetPwdConfirmation('r@x.com', 'Carlo')
 		expect(result).to.equal(true)
 	})
 
 	it('returns false when send rejects', async () => {
 		sendStub = makeSendStubReject(new Error('fail'))
 		injectClient(lib, sendStub)
-		const result = await lib.sendConfermaResetPwd('r@x.com')
+		const result = await lib.sendResetPwdConfirmation('r@x.com')
 		expect(result).to.equal(false)
 	})
 })
 
 // ---------------------------------------------------------------------------
-// sendConfermaResetPwdHash
+// sendResetPwdConfirmationHash
 // ---------------------------------------------------------------------------
 
-describe('SocketLabsLib — sendConfermaResetPwdHash', () => {
+describe('SocketLabsLib — sendResetPwdConfirmationHash', () => {
 	let lib: SocketLabsLib
 	let sendStub: sinon.SinonStub
 
@@ -488,31 +510,37 @@ describe('SocketLabsLib — sendConfermaResetPwdHash', () => {
 	afterEach(() => sinon.restore())
 
 	it('returns true on success', async () => {
-		const result = await lib.sendConfermaResetPwdHash('r@x.com', 'Luca', 'hash999')
+		const result = await lib.sendResetPwdConfirmationHash('r@x.com', 'Luca', 'hash999')
 		expect(result).to.equal(true)
 	})
 
-	it('returns null when sendEmail returns false (falsy path via inner rejection)', async () => {
-		// sendEmail returns false when the promise rejects in the inner rejection handler
-		// We achieve false by having send() reject — which triggers the inner error handler returning false
-		// Then sendConfermaResetPwdHash gets false back and its `ret ? ret : null` returns null
-		sendStub = makeSendStubReject(new Error('internal'))
-		injectClient(lib, sendStub)
-		const result = await lib.sendConfermaResetPwdHash('r@x.com', 'Mario', 'hash1')
-		expect(result).to.equal(null)
+	it('brands the subject with platformName and reuses it in the html header', async () => {
+		await lib.sendResetPwdConfirmationHash('r@x.com', 'Luca', 'hash999')
+		const { subject, htmlBody } = sentMessage(sendStub)
+		expect(subject).to.equal('Password change confirmation for TestPlatform')
+		expect(htmlBody).to.contain('<title>Password change confirmation for TestPlatform</title>')
+		expect(htmlBody).to.not.contain('YourCompany')
 	})
 
-	it('returns null when sendEmail throws synchronously (catch branch, Sentry path)', async () => {
+	it('returns false when sendEmail reports failure via the inner rejection handler', async () => {
+		// sendEmail resolves false when send() rejects — the inner error handler swallows it
+		sendStub = makeSendStubReject(new Error('internal'))
+		injectClient(lib, sendStub)
+		const result = await lib.sendResetPwdConfirmationHash('r@x.com', 'Mario', 'hash1')
+		expect(result).to.equal(false)
+	})
+
+	it('returns false when sendEmail throws synchronously (catch branch, Sentry path)', async () => {
 		// Make send() throw synchronously so the Promise returned from sendEmail rejects
-		// and the try/catch in sendConfermaResetPwdHash catches it
+		// and the try/catch in sendResetPwdConfirmationHash catches it
 		const throwingClient = {
 			send: () => {
 				throw new Error('sync throw')
 			},
 		}
 		;(lib as unknown as { client: unknown }).client = throwingClient
-		const result = await lib.sendConfermaResetPwdHash('r@x.com', 'Luca', 'hashSync')
-		expect(result).to.equal(null)
+		const result = await lib.sendResetPwdConfirmationHash('r@x.com', 'Luca', 'hashSync')
+		expect(result).to.equal(false)
 	})
 })
 
@@ -566,19 +594,29 @@ describe('SocketLabsLib — sendOTP', () => {
 
 	afterEach(() => sinon.restore())
 
-	it('returns null on success (always returns null per implementation)', async () => {
+	it('returns true on success', async () => {
 		const result = await lib.sendOTP('otp@x.com', '654321')
-		expect(result).to.equal(null)
+		expect(result).to.equal(true)
 	})
 
-	it('returns null when sendEmail rejects via inner handler (false → null)', async () => {
+	it('brands subject and bodies with platformName and carries the otp', async () => {
+		await lib.sendOTP('otp@x.com', '654321')
+		const { subject, textBody, htmlBody } = sentMessage(sendStub)
+		expect(subject).to.equal('OTP code for TestPlatform')
+		expect(textBody).to.equal('To confirm your subscription on TestPlatform, enter the following OTP code: 654321')
+		expect(htmlBody).to.contain('TestPlatform')
+		expect(htmlBody).to.contain('654321')
+		expect(htmlBody).to.not.contain('YourCompany')
+	})
+
+	it('returns false when sendEmail reports failure via the inner rejection handler', async () => {
 		sendStub = makeSendStubReject(new Error('fail'))
 		injectClient(lib, sendStub)
 		const result = await lib.sendOTP('otp@x.com', '654321')
-		expect(result).to.equal(null)
+		expect(result).to.equal(false)
 	})
 
-	it('returns null when sendEmail throws synchronously (catch branch, Sentry path)', async () => {
+	it('returns false when sendEmail throws synchronously (catch branch, Sentry path)', async () => {
 		const throwingClient = {
 			send: () => {
 				throw new Error('sync otp throw')
@@ -586,19 +624,19 @@ describe('SocketLabsLib — sendOTP', () => {
 		}
 		;(lib as unknown as { client: unknown }).client = throwingClient
 		const result = await lib.sendOTP('otp@x.com', '654321')
-		expect(result).to.equal(null)
+		expect(result).to.equal(false)
 	})
 })
 
 // ---------------------------------------------------------------------------
-// sendEmailPostSegnalato
+// sendEmailPostReported
 // ---------------------------------------------------------------------------
 
-describe('SocketLabsLib — sendEmailPostSegnalato', () => {
+describe('SocketLabsLib — sendEmailPostReported', () => {
 	let lib: SocketLabsLib
 	let sendStub: sinon.SinonStub
 
-	const infoUtente = {
+	const userInfo = {
 		_id: 'user123',
 		personalData: { name: 'Giovanni', surname: 'Rossi' },
 	}
@@ -612,19 +650,33 @@ describe('SocketLabsLib — sendEmailPostSegnalato', () => {
 	afterEach(() => sinon.restore())
 
 	it('returns true on success with numeric idPost', async () => {
-		const result = await lib.sendEmailPostSegnalato(infoUtente, 42)
+		const result = await lib.sendEmailPostReported(userInfo, 42)
 		expect(result).to.equal(true)
 	})
 
 	it('returns true on success with string idPost', async () => {
-		const result = await lib.sendEmailPostSegnalato(infoUtente, 'post-slug')
+		const result = await lib.sendEmailPostReported(userInfo, 'post-slug')
 		expect(result).to.equal(true)
+	})
+
+	it('addresses the dev team, not a hard-coded placeholder', async () => {
+		await lib.sendEmailPostReported(userInfo, 42)
+		const [msg] = sendStub.firstCall.args
+		expect((msg as { to: { emailAddress: string }[] }).to).to.deep.equal([{ emailAddress: 'dev@test.example.com' }])
+	})
+
+	it('names the reporting user and the post in subject and body', async () => {
+		await lib.sendEmailPostReported(userInfo, 42)
+		const { subject, textBody, htmlBody } = sentMessage(sendStub)
+		expect(subject).to.equal('Post 42 reported')
+		expect(textBody).to.equal('Hi, post 42 has been reported by Giovanni Rossi (id: user123).')
+		expect(htmlBody).to.contain('reported by Giovanni Rossi (id: user123).')
 	})
 
 	it('returns false when send rejects', async () => {
 		sendStub = makeSendStubReject(new Error('fail'))
 		injectClient(lib, sendStub)
-		const result = await lib.sendEmailPostSegnalato(infoUtente, 99)
+		const result = await lib.sendEmailPostReported(userInfo, 99)
 		expect(result).to.equal(false)
 	})
 })
@@ -665,7 +717,7 @@ describe('SocketLabsLib — getHtmlHeader / getHtmlFooter / htmlFooter', () => {
 })
 
 // ---------------------------------------------------------------------------
-// sendEmail error path — sendConfermaResetPwdHash wraps via try/catch
+// sendEmail error path — sendResetPwdConfirmationHash wraps via try/catch
 // so the sendEmail rejection handler returning false → null is tested above.
 // sendOTP similarly.
 // Verify the sendEmail success resolve path returns true (via any public method).

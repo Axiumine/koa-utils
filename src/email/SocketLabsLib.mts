@@ -15,7 +15,7 @@ interface ISendEmail {
 	htmlBody: string
 }
 
-interface IInfoUtente {
+interface IUserInfo {
 	_id: string
 	personalData: {
 		name: string
@@ -133,8 +133,8 @@ SendResponse {
 		const messageTxt = `Hi${nameFixed}, you or someone else has changed the email you sign in with.
       You can confirm by copying this link ${link} into your browser. The Team.`
 
-		const messageHtml = `Hi${nameFixed},<br>you or someone else has changed the email you sign in with.<br><br>" +
-      'You can confirm the registration by visiting this link ${linkHtml}
+		const messageHtml = `Hi${nameFixed},<br>you or someone else has changed the email you sign in with.<br><br>
+      You can confirm the registration by visiting this link ${linkHtml}
       <br><br>The Team.`
 
 		return await this.sendTemplate(emailTo, subject, messageTxt, messageHtml)
@@ -246,8 +246,8 @@ SendResponse {
 	 * @param otp
 	 */
 	async sendSubscriptionEmail(emailTo: string, otp: string) {
-		const subject = `Activate your ${this.platformName} account}`
-		const url = `${this.linkBase}'/x/emailVerify`
+		const subject = `Activate your ${this.platformName} account`
+		const url = `${this.linkBase}/x/emailVerify`
 		const urlHtml = this.StringObj.makeLink(url)
 		const linkHomeHtml = this.StringObj.makeLink(this.linkBase, this.platformName)
 
@@ -260,7 +260,7 @@ SendResponse {
 		return await this.sendTemplate(emailTo, subject, textBody, htmlBody)
 	}
 
-	async sendConfermaResetPwd(emailTo: string, name: string = '') {
+	async sendResetPwdConfirmation(emailTo: string, name: string = '') {
 		const subject = `Password reset for ${this.platformName}`
 		const link = this.linkBase
 		const linkHtml = this.StringObj.makeLink(link, this.platformName)
@@ -272,9 +272,9 @@ SendResponse {
 		return await this.sendTemplate(emailTo, subject, textBody, htmlBody)
 	}
 
-	async sendConfermaResetPwdHash(email: string, name: string, hash: string) {
+	async sendResetPwdConfirmationHash(email: string, name: string, hash: string): Promise<boolean> {
 		const encodedEmail = encodeURI(email)
-		const subject = 'Password reset for YourCompany'
+		const subject = `Password change confirmation for ${this.platformName}`
 		const linkReset = this.linkBase + '/index.php?q=reset&hash=' + hash + '&email=' + encodedEmail
 
 		const textBody = 'Hi ' + name + ', you have confirmed your new password. You can now log in at: ' + this.linkBase + ' . '
@@ -287,14 +287,12 @@ SendResponse {
 			'<br><br>The Team' +
 			this.getHtmlFooter()
 
-		let ret: boolean | null
 		try {
-			ret = await this.sendTemplate(email, 'Password change confirmation for YourCompany', textBody, htmlBody)
+			return await this.sendTemplate(email, subject, textBody, htmlBody)
 		} catch (e) {
 			Sentry.captureException(e)
-			ret = null
+			return false
 		}
-		return ret ? ret : null // if the send succeeds, returns the hash, otherwise null
 	}
 
 	async sendEmailReset(emailTo: string, hash: string, name: string = '') {
@@ -325,34 +323,31 @@ SendResponse {
 	 * @param emailTo
 	 * @param otp
 	 */
-	async sendOTP(emailTo: string, otp: string) {
-		let textBody = 'To confirm your subscription on YourCompany, enter the following OTP code: ' + otp
-		let htmlBody = '<p>To confirm your subscription on YourCompany, enter the following OTP code: ' + otp + '</p>'
+	async sendOTP(emailTo: string, otp: string): Promise<boolean> {
+		const subject = `OTP code for ${this.platformName}`
+		const textBody = `To confirm your subscription on ${this.platformName}, enter the following OTP code: ${otp}`
+		const htmlBody = `<p>To confirm your subscription on ${this.platformName}, enter the following OTP code: ${otp}</p>`
 
-		let ret: string | null
 		try {
-			await this.sendTemplate(emailTo, 'OTP code for YourCompany', textBody, htmlBody)
-			ret = null
+			return await this.sendTemplate(emailTo, subject, textBody, htmlBody)
 		} catch (e) {
 			Sentry.captureException(e)
-			ret = null
+			return false
 		}
-		/* c8 ignore next -- ret is always null in this function */
-		return ret ? ret : null // if the send succeeds, returns the hash, otherwise null
 	}
 
-	async sendEmailPostSegnalato(infoUtente: IInfoUtente, idPost: number | string) {
+	async sendEmailPostReported(userInfo: IUserInfo, idPost: number | string) {
 		const subject = 'Post ' + idPost + ' reported'
 
 		const messageTxt =
 			'Hi, post ' +
 			idPost +
 			' has been reported by ' +
-			infoUtente.personalData.name +
+			userInfo.personalData.name +
 			' ' +
-			infoUtente.personalData.surname +
+			userInfo.personalData.surname +
 			' (id: ' +
-			infoUtente._id +
+			userInfo._id +
 			').'
 
 		const messageHtml =
@@ -360,15 +355,15 @@ SendResponse {
 			'Hi, post ' +
 			idPost +
 			' has been reported by ' +
-			infoUtente.personalData.name +
+			userInfo.personalData.name +
 			' ' +
-			infoUtente.personalData.surname +
+			userInfo.personalData.surname +
 			' (id: ' +
-			infoUtente._id +
+			userInfo._id +
 			').' +
 			this.getHtmlFooter()
 
-		return await this.sendTemplate('dummy@example.com', subject, messageTxt, messageHtml)
+		return await this.sendTemplate(`${process.env.DEV_TEAM_EMAIL}`, subject, messageTxt, messageHtml)
 	}
 
 	getHtmlHeader(title: string) {
@@ -437,7 +432,7 @@ SendResponse {
 	private htmlHeader1() {
 		return (
 			'<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">' +
-			'<html lang="it" xmlns="http://www.w3.org/1999/xhtml">' +
+			'<html lang="en" xmlns="http://www.w3.org/1999/xhtml">' +
 			' <head>' +
 			'  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />' +
 			'  <title>'
