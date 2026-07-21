@@ -86,6 +86,8 @@ Docs here hand-written reference, not generated (one exception: `<!-- gitnexus:s
 - Do not let `src/` change ship without mapped doc update in same commit, and do not open "docs to follow" TODO instead. Change genuinely affecting no documented claim → say so in summary, don't stay silent.
 - Do not hand-edit `AGENTS.md` or anything between `<!-- gitnexus:start -->` / `<!-- gitnexus:end -->` markers — `analyze` overwrite both.
 - Do not edit `dist/`, `node_modules/`, `yarn.lock`, `skills-lock.json`, `.npmrc`, or `.yarnrc` without explicit instruction. `.npmrc` contain publish token.
+- Do not commit a `yarn.lock` whose `resolved` URLs point anywhere but `https://registry.npmjs.org/`, and do not "fix" a proxy-flavoured working copy by hand — the clean filter handle it. Pre-commit hook block the commit and name the offending host.
+- Do not remove `.gitattributes`, `scripts/lockfile-registry-filter.sh`, or the filter's `git config` entries to silence that block. Filter missing → lockfile leak a LAN-only registry, every clone without VPN fail `yarn install`.
 - Do not import from `src/private/**` outside package, and do not add `private/*` to `package.json` `exports`. Those modules internal.
 - Do not introduce `.ts` files — extension is `.mts`. Do not write `import x from './y'` — write `'./y.mjs'`.
 - Do not add `dependencies` to `package.json`. Library declare zero runtime deps; everything `peerDependencies` so consumer control versions.
@@ -108,8 +110,29 @@ Docs here hand-written reference, not generated (one exception: `<!-- gitnexus:s
 - `yarn clean` — wipe `dist/`.
 - `yarn test` — `build` + `build:tests` + mocha. No coverage check; passing here not enough to call change done.
 - `yarn test:coverage` — same via c8, and **fails run below 100%** on any file. This command decide whether change finished. Also feed Qodana coverage gate.
-- `yarn hooks:install` — point git at `.githooks/` (`core.hooksPath`). Idempotent, no-op outside git repo, run automatically from `prepare` on `yarn install`.
+- `yarn hooks:install` — point git at `.githooks/` (`core.hooksPath`) **and** install the yarn.lock registry filter. Idempotent, no-op outside git repo, run automatically from `prepare` on `yarn install`.
 - `yarn qodana` / `yarn qodana:cli` — run `test:coverage` then Qodana scan. Gate on coverage 100/100 **and** severity thresholds (`critical:0`, `high:0`) in `qodana.yaml`.
+
+## Local npm proxy — yarn.lock stay public
+
+Maintainer install through a LAN Verdaccio (`http://yarnproxy.gio.lan:4873/`, set in gitignored `.yarnrc`). Yarn 1 write absolute tarball URLs into `yarn.lock`, so that host leak into git and break `yarn install` for every clone without LAN access. Published npm tarball unaffected — `files: ["dist"]` keep the lockfile out, and dependency lockfiles ignored by consumers anyway. Only clones break.
+
+Git clean/smudge filter keep both sides happy — no per-command flag, nothing to remember:
+
+|Direction|Filter|Rewrite|
+|---|---|---|
+|worktree → git (`add`, `diff`, `status`)|`clean`|proxy → `registry.npmjs.org`|
+|git → worktree (`checkout`, `clone`, `pull`)|`smudge`|`registry.npmjs.org` → proxy|
+
+- `.gitattributes` bind `yarn.lock` to filter `yarnlock-registry`. Filter *definition* live in `.git/config`, so other clones fall through untouched and get public URLs.
+- `scripts/lockfile-registry-filter.sh clean|smudge|install|uninstall`. `install` wire the git config and reconcile the current checkout (fresh clone land public URLs, git never re-smudge a file it think up to date). Run from `hooks:install`, so `yarn install` set it up.
+- Override host per machine: `YARN_PROXY_REGISTRY=http://other:4873/`.
+- `integrity` hashes untouched — Verdaccio serve byte-identical upstream tarballs, only URL differ.
+- Because `clean` also run for `git diff`/`git status`, host difference never show as modification. Lockfile look clean while worktree hold proxy URLs.
+- `.githooks/pre-commit` backstop: read `:yarn.lock` from index, block commit if any `resolved` host is not `registry.npmjs.org`. Catch clone where filter never configured.
+- Hook read index into variable, not `git show | grep -q` — `-q` exit early, `git show` take SIGPIPE, `pipefail` turn pipeline falsy, check silently never fire. Keep it pipe-free.
+
+Yarn Berry (4.x) solve this natively — its lockfile store `resolution: "pkg@npm:1.0.0"` with no host, registry come from `.yarnrc.yml`. Migration is the real fix if the repo ever move off Yarn 1.
 
 ## Adding a new export — checklist
 
@@ -158,7 +181,7 @@ Docs here hand-written reference, not generated (one exception: `<!-- gitnexus:s
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **koa-utils** (6820 symbols, 8901 relationships, 36 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **koa-utils** (6843 symbols, 8945 relationships, 36 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

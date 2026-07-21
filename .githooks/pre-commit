@@ -24,6 +24,52 @@ RELEVANT_PATHS='^(src/|test/|package\.json$|\.c8rc\.json$|\.mocharc\.json$|tscon
 # untested code, so D stays in the filter.
 STAGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 
+# Backstop for the yarn.lock clean filter (scripts/lockfile-registry-filter.sh).
+# The filter normally strips the local proxy host on its way into the index; if
+# it was never configured, the committed lockfile carries a LAN-only registry
+# that breaks `yarn install` for every other clone.
+#
+# Inspect the index (`:yarn.lock`), not the working tree — the working tree
+# keeps proxy URLs by design. Checked unconditionally rather than only when
+# yarn.lock is staged: a proxy-tainted blob that happens to match HEAD produces
+# no staged diff, so a $STAGED-gated check would wave through exactly the state
+# it exists to catch. Absent from the index, `git show` fails and LOCK_INDEX is
+# empty.
+#
+# Read into a variable instead of piping `git show` into `grep -q`: -q exits on
+# the first match, `git show` then dies of SIGPIPE, and `set -o pipefail` turns
+# that into a falsy pipeline — the check would silently never fire.
+LOCK_INDEX="$(git show :yarn.lock 2> /dev/null || true)"
+
+# Match on "not the public registry" rather than one hard-coded proxy host, so
+# any mirror, VPN-only cache or rewritten uplink is caught too.
+FOREIGN_HOSTS="$(
+	printf '%s\n' "$LOCK_INDEX" \
+		| grep -oE '^[[:space:]]*resolved "https?://[^/"]+' \
+		| grep -oE 'https?://[^/"]+' \
+		| grep -vxF 'https://registry.npmjs.org' \
+		| sort -u \
+		|| true
+)"
+
+if [ -n "$FOREIGN_HOSTS" ]; then
+	cat >&2 << EOF
+
+pre-commit: BLOCKED — yarn.lock in the index resolves against a non-public registry:
+
+$(printf '%s\n' "$FOREIGN_HOSTS" | sed 's/^/    /')
+
+Every \`resolved\` URL must use https://registry.npmjs.org/ in git, or clones
+without access to that host cannot install. The clean filter does this
+automatically — it is probably just not configured in this clone:
+
+    yarn hooks:install        # or: ./scripts/lockfile-registry-filter.sh install
+    touch yarn.lock && git add yarn.lock
+
+EOF
+	exit 1
+fi
+
 if [ -z "$STAGED" ]; then
 	exit 0
 fi

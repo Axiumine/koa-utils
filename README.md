@@ -174,6 +174,12 @@ Adding a new public symbol requires both:
 
 There is no barrel and no `main` / `module` field.
 
+### Registry
+
+`yarn.lock` always resolves against `https://registry.npmjs.org/`, so a plain clone installs with no extra setup.
+
+Maintainers who install through a private npm mirror should not commit its host: a git clean/smudge filter rewrites the `resolved` URLs in both directions, keeping the mirror in the working copy and the public registry in history. `yarn install` configures it (via `prepare` → `hooks:install`); point it at your own mirror with `YARN_PROXY_REGISTRY`. A pre-commit check rejects any lockfile that still names a non-public host.
+
 ## Repository
 
 <https://github.com/Axiumine/koa-utils>
