@@ -205,7 +205,7 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 
 - License: `GPL-3.0-or-later`.
 - Repo: <https://github.com/Axiumine/koa-utils>.
-- Current version: `5.0.0` (`package.json`). Bump version → `yarn upload` (= `npm publish`) → token in `.npmrc` is required.
+- Current version: `5.0.1` (`package.json`). Bump version → `yarn upload` (= `npm publish`) → token in `.npmrc` is required.
 - `CHANGELOG.md` (root) tracks every release back to `3.8.0`, Keep a Changelog format. Update it in the same commit as the version bump.
 - `peerDependencies` covers every runtime lib (`@node-rs/bcrypt`, `@sentry/node`, `@socketlabs/email`, `clamscan`, `dotenv`, `file-type`, `fs-extra`, `graphql`, `keygrip`, `koa-logger`, `mongoose`, `pg`, `redis`, `reflect-metadata`, `sequelize`, `sequelize-typescript`, `sharp`, `uuid`). Library declares zero `dependencies` — consumer must install peers.
 
