@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+Repository tooling only. No source change, so the published package is identical to 5.0.0 — `files: ["dist"]` keeps every
+file below out of the npm tarball.
+
+### Added
+
+- `yarn.lock` is pinned to `https://registry.npmjs.org/` by a git clean/smudge filter, so a plain clone installs with no
+  extra setup. Maintainers installing through a private npm mirror previously committed that host into every `resolved`
+  entry, because Yarn 1 records absolute tarball URLs — clones without access to the mirror could not `yarn install`.
+  `clean` rewrites the mirror to the public registry on the way into the index, `smudge` reverses it on checkout. The
+  filter *definition* lives in `.git/config`, so clones that never configure it simply get the public URLs. Because
+  `clean` also runs for `git diff` and `git status`, the host difference never surfaces as a modification. Override the
+  mirror per machine with `YARN_PROXY_REGISTRY`. Integrity hashes are unaffected — the mirror serves byte-identical
+  upstream tarballs, only the URL differs. Published tarballs were never affected either way.
+- `.githooks/pre-commit` gains a lockfile backstop for clones where the filter was never configured: it reads
+  `:yarn.lock` from the index and rejects any `resolved` host other than `registry.npmjs.org`. It inspects the index
+  unconditionally rather than gating on the staged diff, since a tainted blob matching `HEAD` produces no diff at all.
+- `.githooks/commit-msg` enforces conventional commits: types `feat|fix|chore|docs|refactor|ci` only, subject capped at
+  72 characters, body at 10 lines wrapped to 72. Merge and revert commits bypass the format check. The hook also rejects
+  AI-attribution words, so no such trailer is appended in this repo.
+- `mocha-skill` agent skill, vendored from `lambdatest/agent-skills` and pinned in `skills-lock.json`. Generates Mocha +
+  Chai + sinon tests, matching the runner this repo already uses.
+
+### Documentation
+
+- `README.md` gains a "Registry" section describing the lockfile filter for anyone installing through a private mirror.
+- `CLAUDE.md` records the enforced commit rules verbatim. The previous "subject ≤ ~50 chars" line was a soft convention
+  with nothing checking it; 50 is now stated as the target and 72 as the hard limit.
+
 ## 5.0.0 — 2026-07-21
 
 ### Changed
