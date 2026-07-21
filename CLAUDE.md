@@ -100,7 +100,7 @@ Docs here hand-written reference, not generated (one exception: `<!-- gitnexus:s
 - Do not lower or delete `.c8rc.json` thresholds (`check-coverage`, `per-file`, four `100`s) or `qodana.yaml` `testCoverageThresholds`. They contract, not default.
 - Do not add entries to `.c8rc.json` `exclude`, or `/* c8 ignore */` comments, to make red gate green. Write test instead.
 - Do not commit with `git commit --no-verify` to skip coverage hook, and do not suggest it to user as fix. Emergency escape for owner only — CI block anyway.
-- Do not disable, delete or edit `.githooks/pre-commit` without explicit instruction.
+- Do not disable, delete or edit `.githooks/pre-commit` or `.githooks/commit-msg` without explicit instruction. Widening the allowed commit types to make a message pass is exactly this — rewrite the message instead.
 
 ## Build / lint
 
@@ -175,7 +175,13 @@ Yarn Berry (4.x) solve this natively — its lockfile store `resolution: "pkg@np
 ## Owner / style
 
 - Maintainer: Giovanni Manzoni (`@giovannimanzoni`). Single CODEOWNER.
-- Commit style (recent): conventional commits (`feat:`, `docs:`, `fix:` ...). Subject ≤ ~50 chars.
+- Commit style: conventional commits, enforced by `.githooks/commit-msg`.
+- Subject length: aim ≤ 50 chars (convention, not checked); **hook hard-reject above 72** (`MAX_LEN=72`). 50 is the target, 72 is the wall.
+- **Allowed types are exactly `feat|fix|chore|docs|refactor|ci`.** Nothing else pass — `test:`, `build:`, `perf:`, `style:` all rejected, even though older commits used them. Scope optional: `feat(auth): ...`. Do not widen the list in the hook to fit a message; pick a type that fits.
+- **No `!` breaking marker.** `feat!: ...` fail the regex. Signal breaking change in the body instead.
+- **Banned words anywhere in commit message: `Co-Authored-By`, `Claude`, `anthropic`, `Sonnet`, `Opus`** (case-insensitive). Hook reject the commit. Never append an AI attribution trailer in this repo, whatever the default is elsewhere.
+- Body: max 10 lines (blanks, `#` comments and `Key: value` trailers not counted), each wrapped at 72 chars.
+- Merge and revert commits skip the format check, but still hit the banned-word check.
 - License: GPL-3.0-or-later. Any file added should be compatible.
 
 <!-- gitnexus:start -->
