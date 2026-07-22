@@ -1,6 +1,6 @@
 {
 	"name": "@axiumine/koa-utils",
-	"version": "5.0.1",
+	"version": "5.0.2",
 	"description": "Koa Utils",
 	"type": "module",
 	"repository": {
