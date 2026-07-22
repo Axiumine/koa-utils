@@ -23,7 +23,9 @@ Guidance for AI agents editing this package. Read `REPO.md` for full map.
 - **Every new or modified `.mts` in `src/` also ship doc update in same change.** See "Documentation — keep in sync with code" for which file. Docs not follow-up; change leaving doc describing old behaviour = incomplete.
 - Cover *every* branch you write, including unreachable-feeling ones: each `if`/`else`, every `??` / `?.` / `||` fallback, every `catch`, every early return. `per-file: true` mean one uncovered ternary arm in one file fail whole run.
 - Before declaring task done, run `yarn test:coverage`, confirm c8 summary read 100% on all four metrics. Don't report "tests pass" from `yarn test` alone — it skip coverage check.
-- **Reindex GitNexus after every commit and every merge**: `node .gitnexus/run.cjs analyze` from project root, last step before reporting done. Stale index make `impact`, `detect_changes`, `query` answer from pre-change graph, silently understating blast radius next task. `.gitnexus/` gitignored — reindex never dirty working tree.
+- **Reindex GitNexus after every commit and every merge**: `yarn reindex` from project root, last step before reporting done. Stale index make `impact`, `detect_changes`, `query` answer from pre-change graph, silently understating blast radius next task. `.gitnexus/` gitignored — reindex never dirty working tree.
+- **Always reindex with `--no-stats`.** `yarn reindex` carry the flag, and `.gitnexusrc` set `"noStats": true` so a bare `gitnexus analyze` (hook, MCP, hand-typed) behave the same. Counts are the only volatile part of the generated block: every analyze rewrite the symbol/relationship numbers, so a docs-only reindex dirty the tree and each release drag a `chore: refresh generated index counts` commit behind it. Everything else in the block still regenerate normally — rules, tool table, resource URIs, CLI map — so guidance stay current.
+- Block therefore carry **no counts at all**, by design. Need live numbers → `mcp__gitnexus__*` tools or `gitnexus status`. Do not paste a count back into the block by hand; next analyze drop it.
 - This rule live here, not in `<!-- gitnexus:start -->` block below (nor `AGENTS.md`, which is that block in full): `analyze` regenerate everything between markers, drop any hand-added line.
 
 ## Coverage — hard 100%
@@ -65,7 +67,7 @@ Docs here hand-written reference, not generated (one exception: `<!-- gitnexus:s
 | Public API surface, install steps, `engines`, usage examples | `README.md` |
 | New `docs/code/*.md` page, or `version` in `package.json` | `docs/code/README.md` (index table + "Current version" line) |
 | Scripts, `.c8rc.json` thresholds, path aliases, auth flow, pitfalls, coverage baseline | `CLAUDE.md` (this file) |
-| Nothing by hand — regenerate with `node .gitnexus/run.cjs analyze` | `AGENTS.md`, and `<!-- gitnexus:start -->` block here |
+| Nothing by hand — regenerate with `yarn reindex` (counts omitted, see `noStats`) | `AGENTS.md`, and `<!-- gitnexus:start -->` block here |
 
 **What count as doc change, not just code change:**
 
@@ -86,6 +88,7 @@ Docs here hand-written reference, not generated (one exception: `<!-- gitnexus:s
 
 - Do not let `src/` change ship without mapped doc update in same commit, and do not open "docs to follow" TODO instead. Change genuinely affecting no documented claim → say so in summary, don't stay silent.
 - Do not hand-edit `AGENTS.md` or anything between `<!-- gitnexus:start -->` / `<!-- gitnexus:end -->` markers — `analyze` overwrite both.
+- Do not drop `--no-stats` from `yarn reindex`, and do not remove `"noStats": true` from `.gitnexusrc`, to "show how big the graph is". Counts are the churn: without the flag every reindex rewrite two files with numbers nothing read, and the diff hide real block changes.
 - Do not edit `dist/`, `node_modules/`, `yarn.lock`, `skills-lock.json`, `.npmrc`, or `.yarnrc` without explicit instruction. `.npmrc` contain publish token.
 - Do not commit a `yarn.lock` whose `resolved` URLs point anywhere but `https://registry.npmjs.org/`, and do not "fix" a proxy-flavoured working copy by hand — the clean filter handle it. Pre-commit hook block the commit and name the offending host.
 - Do not remove `.gitattributes`, `scripts/lockfile-registry-filter.sh`, or the filter's `git config` entries to silence that block. Filter missing → lockfile leak a LAN-only registry, every clone without VPN fail `yarn install`.
@@ -112,6 +115,7 @@ Docs here hand-written reference, not generated (one exception: `<!-- gitnexus:s
 - `yarn test` — `build` + `build:tests` + mocha. No coverage check; passing here not enough to call change done.
 - `yarn test:coverage` — same via c8, and **fails run below 100%** on any file. This command decide whether change finished. Also feed Qodana coverage gate.
 - `yarn hooks:install` — point git at `.githooks/` (`core.hooksPath`) **and** install the yarn.lock registry filter. Idempotent, no-op outside git repo, run automatically from `prepare` on `yarn install`.
+- `yarn reindex` — `node .gitnexus/run.cjs analyze --no-stats`. Rebuild the GitNexus graph after every commit and merge. Block in `AGENTS.md` / this file still regenerate, minus the volatile symbol and relationship counts, so a reindex that change no guidance leave the tree clean. `.gitnexusrc` (`"noStats": true`, `"pdg": true`) apply the same omission plus the PDG layer to any invocation that miss the flag.
 - `yarn qodana` / `yarn qodana:cli` — run `test:coverage` then Qodana scan. Gate on coverage 100/100 **and** severity thresholds (`critical:0`, `high:0`) in `qodana.yaml`.
 - `yarn upload` — `npm publish --registry=https://registry.npmjs.org/`. Flag not decoration, see next section. Owner ask only.
 
@@ -203,7 +207,7 @@ Yarn Berry (4.x) solve this natively — its lockfile store `resolution: "pkg@np
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **koa-utils** (7544 symbols, 9981 relationships, 39 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **koa-utils**. Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

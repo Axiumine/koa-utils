@@ -29,6 +29,7 @@
 		"test:coverage": "yarn build && yarn build:tests && c8 mocha",
 		"qodana": "yarn test:coverage && mkdir -p .qodana/results && docker run --rm --env-file .env -v \"$PWD\":/data/project -v \"$PWD\"/.qodana/results:/data/results jetbrains/qodana-js:2026.1 --show-report",
 		"qodana:cli": "yarn test:coverage && set -a && . ./.env && set +a && qodana scan --show-report",
+		"reindex": "node .gitnexus/run.cjs analyze --no-stats",
 		"semgrep": "./scripts/semgrep.sh",
 		"semgrep:all": "./scripts/semgrep.sh --registry",
 		"semgrep:canary": "./scripts/semgrep-canary.sh",
