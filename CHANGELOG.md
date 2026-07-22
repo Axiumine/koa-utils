@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- `removeResetReq` now `$unset`s `account.email.hash` instead of `account.resetHash`. The latter exists in neither
+  `UserBaseSchema` nor `saveResetReq` — which writes the reset hash to `account.email.hash` — so the `$unset` silently
+  matched nothing and the hash outlived the reset it belonged to. The password-reset flow itself was unaffected, since
+  `getResetPwd` only returns `resetHash` when `account.resetDateReq` is set and that field *was* cleared. The leak
+  reached the email-verification chain instead: `userData4VerifyEmail` reads the same `account.email.hash`, so
+  `handleIfHashBad` compared incoming verification links against a stale but live reset hash. The spec now pins the
+  `$unset` paths against the `$set` paths of `saveResetReq`, so the two can no longer drift apart.
+
 ## 5.0.1 — 2026-07-21
 
 Repository tooling only. No source change, so the published package is identical to 5.0.0 — `files: ["dist"]` keeps every

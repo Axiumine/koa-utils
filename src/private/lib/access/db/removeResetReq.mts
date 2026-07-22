@@ -4,7 +4,7 @@ import { ClientSession } from 'mongoose'
 export default async function removeResetReq(session: ClientSession, email: string) {
 	return UserBase.updateOne(
 		{ 'login.email': email },
-		{ $unset: { 'account.resetDateReq': '', 'account.resetHash': '' } },
+		{ $unset: { 'account.resetDateReq': '', 'account.email.hash': '' } },
 		{ upsert: true }
 	)
 		.session(session)
