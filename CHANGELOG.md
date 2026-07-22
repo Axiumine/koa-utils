@@ -5,6 +5,91 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.4.0 — 2026-07-22
+
+Security release, plus a declaration-emit fix that unblocks re-exporting this package's mutations from a consumer's own
+entry point. No new export keys, no runtime signature changes and no migration. The password-reset pair changes its
+observable behaviour for deleted and disabled accounts — see the consumer note below.
+
+### Security
+
+- The password-reset flow now refuses deleted and disabled accounts. `IResetPwdPaths` gains `deleted` and `disabled`,
+  defaulting to `account.deleted` and `account.disabled` — the same two slots `IVerifyEmailPaths` has carried since the
+  flow was written, and the same ones `assertVerifyEmailAllowed` guards on the verification side. `getResetPwd` projects
+  both and returns `null` when either is set, so both mutations inherit the gate from the single reader they share.
+
+  Until now the interface had no slot for the flags, so `resetPwd` and `updatePassword` structurally could not branch on
+  account state and neither ever looked. `UserBase` has no pre-hook or query middleware filtering tombstoned documents
+  either, so the read returned them like any other. `resetPwd` mailed a live reset link to an address whose account was
+  deleted or locked out; `updatePassword` then accepted that link and overwrote the account's bcrypt hash. The second
+  half is the part that outlives the block: re-enabling the account later hands it back with a password the requester
+  chose while it was disabled. A consumer that gates disabled and deleted accounts at login — the common arrangement,
+  and the reason this is easy to miss — is protected from the session but not from the stale hash.
+
+  `null` is what the reader already returns for an address that is not registered, so the answer callers see is the one
+  an unknown address gets: `resetPwd` returns `true` and sends nothing, `updatePassword` throws `throwForbiddenError()`.
+  Both are byte-identical to the unknown-address answers 5.2.0 settled on, so the gate opens no new enumeration oracle.
+
+  Both flags are read raw, exactly as `assertVerifyEmailAllowed` reads them. This is a `.lean()` read, so Mongoose
+  casting never runs and the value is whatever the driver found: a boolean once
+  `scripts/migrate-account-disabled-to-boolean.mjs` has run. On un-migrated data a stored `'false'` is a truthy string
+  and blocks the reset — the fix is the migration, not a coercion at the call site, matching the decision taken for the
+  verification flow.
+
+  **Consumer note:** `createResetPwdFlow` takes `paths` as a `Partial`, so the two new keys are additive for every
+  consumer that passes overrides — no change is required. Only a full object literal annotated `: IResetPwdPaths`
+  needs the keys added. A layout with no equivalent of these flags can point them at a path that does not exist, which
+  reads `undefined` and opts out silently; do that deliberately, not by omission.
+
+### Fixed
+
+- Nine modules exported a type that their public API already referenced but that consumers could not name, so a
+  consumer re-exporting any of them failed declaration emit with `TS4023: Exported variable … has or is using name …
+  from external module … but cannot be named`. The trigger is any new binding whose type must be inferred — a bound
+  factory call, or the plain `export const fields = { signUp, loginAdmin, … }` object a root `Mutation` type is
+  assembled from — which is why this surfaced in ordinary schema assembly rather than in exotic code.
+
+  The seven access and login mutations each declared their own module-private `IArgs`. They are now exported **and**
+  renamed, one distinct name per module: `ISignUpArgs`, `ILoginAdminArgs`, `ILoginRemembermeArgs`, `ILogin4EverArgs`,
+  `IResetPwdArgs`, `IUpdatePasswordArgs`, `IEmailChangeHashVerifyArgs`. Exporting alone would not have been enough —
+  seven identical `IArgs` names collide the moment a consumer imports two of them into the same schema file, which is
+  exactly where they are needed.
+
+  Two more instances sat outside the mutation directory and behind their own export keys: `IGlobalError`
+  (`lib/db/log/logGlobalError`) and `IStatsGraphqlSchema` (`graphQL/models/MongoDB/log/LogStatsGraphql`), the latter the
+  generic argument of the exported model. Both are now exported; the docs describing them as module-private were wrong
+  and are corrected.
+
+  **Consumer note:** purely additive type surface. None of these names were reachable before, so no import can break,
+  and no runtime behaviour changes. A consumer that worked around this with an explicit annotation on the export — a
+  hand-written `TResetPwdMutation` or similar — can drop it. Export keys stay at 146.
+
+### Tests
+
+- Verified by declaration emit rather than by inspection: a throwaway consumer project (`NodeNext`, `declaration: true`,
+  `emitDeclarationOnly`) re-exporting all 146 `package.json` subpaths against `dist/` reproduced every one of the nine
+  failures and now compiles clean. The sweep is what found the two instances outside the mutation directory; a targeted
+  grep for `interface IArgs` does not reach them.
+- `getResetPwd` gains a projection-completeness test asserting the `.select()` string covers all six paths it reads,
+  and three account-state cases: deleted alone, disabled alone with `deleted: false` explicit so only the second arm of
+  the `||` can be the cause, and both flags explicitly `false` served normally.
+- `createResetPwdFlow` drives the gate end to end on the alien layout — no link for a deleted account, none for a
+  disabled one, and `updatePassword` refusing both states while holding a valid unexpired hash. `accessPaths` asserts
+  the two new defaults point at the same slots the verification flow guards.
+- 731 → 739 tests across the same 123 spec files. Coverage stays 100% on statements, branches, functions and lines, per
+  file.
+
+### Documentation
+
+- `docs/code/lib-access.md` gains an "account-state gate" section covering the pre-fix behaviour, why `null` opens no
+  oracle, the raw-read/migration rule and the opt-out; the `IResetPwdPaths` table and the example `paths` gain both
+  keys, as does the `README.md` access-flows snippet.
+- `docs/code/internal.md` records the widened `getResetPwd` projection and its `null` answer for a blocked account.
+- `docs/code/graphql-mutations.md` renames all seven argument interfaces in its snippets, names them in the intro with
+  the `TS4023` message they resolve, and links both reset mutations to the gate section.
+- `docs/code/graphql-models.md` and `docs/code/lib-db.md` drop the claims that `IStatsGraphqlSchema` and `IGlobalError`
+  are module-private and not part of the public surface.
+
 ## 5.3.0 — 2026-07-22
 
 Additive release. The password-reset and email-verification flows are no longer bound to the `UserBase` model, but every
