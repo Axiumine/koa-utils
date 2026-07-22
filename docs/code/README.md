@@ -1,6 +1,6 @@
 # @axiumine/koa-utils — Code Reference
 
-`@axiumine/koa-utils` is a TypeScript utility library for Koa + GraphQL backends: auth (signup/login/refresh/logout) mutations and middleware, Mongoose models, GraphQL error helpers, file-upload pipeline, transactional email, and low-level DB/Redis helpers. It ships ESM-only (`.mjs` / `.d.mts`) and targets Node `^24.14.0`. Current version: **5.0.3**.
+`@axiumine/koa-utils` is a TypeScript utility library for Koa + GraphQL backends: auth (signup/login/refresh/logout) mutations and middleware, Mongoose models, GraphQL error helpers, file-upload pipeline, transactional email, and low-level DB/Redis helpers. It ships ESM-only (`.mjs` / `.d.mts`) and targets Node `^24.14.0`. Current version: **5.1.0**.
 
 ## Install
 
