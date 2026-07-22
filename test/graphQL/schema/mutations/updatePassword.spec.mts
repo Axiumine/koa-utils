@@ -9,13 +9,19 @@
  *
  * Branches:
  *   - email not in DB → 403 Forbidden
- *   - resetHash is null (no prior resetDateReq in DB) → 500 Internal Server Error
- *   - resetHash is null (resetDateReq set but hash cleared) + caller sends 'undefined' → 500, no write
- *   - resetDateReq is null → 500 Internal Server Error
+ *   - resetHash is null (no prior resetDateReq in DB) → 403 Forbidden
+ *   - resetHash is null (resetDateReq set but hash cleared) + caller sends 'undefined' → 403, no write
+ *   - resetDateReq is null → 403 Forbidden
  *   - hash mismatch → 403 Forbidden
  *   - link expired (> 60 min) → 403 Forbidden
  *   - updatePasswordDb returns falsy → 500 Internal Server Error
  *   - happy path → true
+ *
+ * Every pre-write rejection answers the SAME 403 on purpose: the status code must not tell an
+ * unauthenticated caller whether the address is registered. See the enumeration-oracle test below.
+ *
+ * The confirmation email is sent after the transaction commits, so a retried commit cannot mail the
+ * user twice and a delivery failure cannot roll the new password back.
  */
 import { updatePassword } from '../../../../dist/graphQL/schema/mutations/updatePassword.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
@@ -31,6 +37,17 @@ import { expectGraphQLErrorAsync } from '../../../helpers/assertGraphQLError.mjs
 function makeSession() {
 	return {
 		withTransaction: async (fn: () => Promise<void>) => { await fn() },
+		endSession: sinon.stub().resolves()
+	}
+}
+
+/**
+ * mongoose's session.withTransaction re-runs its callback on a transient error. Anything with a
+ * side effect outside the database must therefore sit outside the callback.
+ */
+function makeRetryingSession() {
+	return {
+		withTransaction: async (fn: () => Promise<void>) => { await fn(); await fn() },
 		endSession: sinon.stub().resolves()
 	}
 }
@@ -101,7 +118,7 @@ describe('updatePassword — resolve', () => {
 		)
 	})
 
-	it('resetHash is null (no resetDateReq in DB) → throws 500 Internal Server Error', async () => {
+	it('resetHash is null (no resetDateReq in DB) → throws 403 Forbidden', async () => {
 		// When account.resetDateReq is undefined in the raw doc, getResetPwd sets resetHash = null.
 		// We cannot use rawDbDoc() here because `?? new Date()` fills in undefined.
 		// Build the raw doc manually with resetDateReq literally absent from the object.
@@ -117,12 +134,46 @@ describe('updatePassword — resolve', () => {
 
 		await expectGraphQLErrorAsync(
 			() => updatePassword.resolve(null, { email: 'u@test.com', hash: 'h', password: 'newpassword1' }),
-			500,
-			'Internal Server Error'
+			403,
+			'Forbidden'
 		)
 	})
 
-	it('SECURITY: reset pending but hash cleared, caller sends the literal "undefined" → 500, password untouched', async () => {
+	it('SECURITY: a registered address without a pending reset is indistinguishable from an unknown one', async () => {
+		// This is the whole point of the branch above answering 403 instead of 500. getResetPwd yields
+		// resetHash === null for every account whose account.resetDateReq is undefined — that is nearly
+		// the entire user base at any given moment. While that case answered 500 and an unknown address
+		// answered 403, an unauthenticated caller could enumerate registered addresses one request at a
+		// time, with no rate limit on this mutation and no timing difference to hide behind: send any
+		// hash, read the status code. Both cases must be byte-identical, title and description included.
+		const registeredWithoutReset = {
+			_id: new Types.ObjectId(),
+			personalData: { name: 'Test User' },
+			account: {
+				// no resetDateReq: this account never asked for a password reset
+				resetHash: 'correctHash'
+			}
+		}
+
+		findOneStub.returns(makeSelectSessionLeanQuery(registeredWithoutReset))
+		const registered = await expectGraphQLErrorAsync(
+			() => updatePassword.resolve(null, { email: 'registered@test.com', hash: 'h', password: 'newpassword1' }),
+			403,
+			'Forbidden'
+		)
+
+		findOneStub.returns(makeSelectSessionLeanQuery(null))
+		const unknown = await expectGraphQLErrorAsync(
+			() => updatePassword.resolve(null, { email: 'unknown@test.com', hash: 'h', password: 'newpassword1' }),
+			403,
+			'Forbidden'
+		)
+
+		expect(registered.message, 'title must not differ').to.equal(unknown.message)
+		expect(registered.extensions, 'status and description must not differ').to.deep.equal(unknown.extensions)
+	})
+
+	it('SECURITY: reset pending but hash cleared, caller sends the literal "undefined" → 403, password untouched', async () => {
 		// Orphan state: account.resetDateReq present, account.resetHash absent. getResetPwd used to
 		// render that missing hash as the string 'undefined' via `'' + hash`, which cleared the null
 		// check here and then compared equal to a caller sending that same literal — an account
@@ -139,15 +190,15 @@ describe('updatePassword — resolve', () => {
 
 		await expectGraphQLErrorAsync(
 			() => updatePassword.resolve(null, { email: 'victim@test.com', hash: 'undefined', password: 'attacker12345' }),
-			500,
-			'Internal Server Error'
+			403,
+			'Forbidden'
 		)
 
 		expect(updateOneStub.called, 'no write may reach the DB on this path').to.equal(false)
 		expect(sendResetConfirmationStub.called, 'no confirmation email may be sent').to.equal(false)
 	})
 
-	it('resetDateReq is null (no resetDateReq in result) → throws 500 Internal Server Error', async () => {
+	it('resetDateReq is null (no resetDateReq in result) → throws 403 Forbidden', async () => {
 		// getResetPwd returns resetDateReq = undefined when account.resetDateReq is undefined
 		// To get resetDateReq = null: override it explicitly after getResetPwd processes
 		// Actually we need to stub UserBase.findOne so that getResetPwd returns { resetDateReq: null, resetHash: 'x' }
@@ -162,8 +213,8 @@ describe('updatePassword — resolve', () => {
 		// Per getResetPwd logic: resetDateReq = queryRet.account.resetDateReq (could be undefined)
 		// resetHash is non-null only when resetDateReq !== undefined.
 		// So if resetDateReq is defined but then set to null explicitly in the returned object...
-		// This branch (line 50) is unreachable via normal flow. Skip dedicated test; covered by
-		// the 500 branch for resetHash=null above.
+		// This branch is unreachable via normal flow. Skip dedicated test; covered by
+		// the 403 branch for resetHash=null above.
 		// Mark this as a known unreachable branch.
 		expect(true).to.equal(true) // placeholder — branch is unreachable via getResetPwd
 	})
@@ -191,8 +242,8 @@ describe('updatePassword — resolve', () => {
 					hash: 'verification-hash',
 					password: 'attacker12345'
 				}),
-			500,
-			'Internal Server Error'
+			403,
+			'Forbidden'
 		)
 
 		expect(updateOneStub.called, 'no write may reach the DB on this path').to.equal(false)
@@ -269,6 +320,46 @@ describe('updatePassword — resolve', () => {
 		// endSession still runs even if it is moved out of `finally` into `catch`.
 		const session = (await startSessionStub.returnValues[0]) as { endSession: sinon.SinonStub }
 		expect(session.endSession.called, 'session must be ended on the success path').to.equal(true)
+	})
+
+	it('a retried transaction writes twice but mails one confirmation', async () => {
+		// withTransaction re-runs its callback on a transient error. While the send lived inside the
+		// callback, a retried commit told the user twice that their password had changed — the second
+		// notice indistinguishable from someone else resetting it again.
+		startSessionStub.resolves(makeRetryingSession() as never)
+		findOneStub.returns(makeSelectSessionLeanQuery(rawDbDoc()))
+		// one stub serves both updatePasswordDb (awaits the return) and removeResetReq (.session().exec())
+		updateOneStub = sinon.stub(UserBase, 'updateOne').returns(makeSessionExecChain() as never)
+
+		const result = await updatePassword.resolve(null, {
+			email: 'user@test.com',
+			hash: 'correctHash',
+			password: 'newpassword1'
+		})
+
+		expect(result).to.equal(true)
+		expect(updateOneStub.callCount, 'the callback itself ran twice, two writes each').to.equal(4)
+		expect(sendResetConfirmationStub.callCount, 'only one confirmation may reach the user').to.equal(1)
+	})
+
+	it('a failed confirmation email does not undo the reset: still returns true', async () => {
+		// The send used to sit inside the transaction, so a SocketLabs outage aborted it and rolled the
+		// new password back with a 500. Consistent, but it made the mail provider a hard dependency of
+		// the operation: while SocketLabs was down nobody could complete a reset at all. The password is
+		// committed before the send now; a delivery failure is a Sentry concern, not a reason to fail a
+		// reset that already happened.
+		findOneStub.returns(makeSelectSessionLeanQuery(rawDbDoc()))
+		updateOneStub = sinon.stub(UserBase, 'updateOne').returns(makeSessionExecChain() as never)
+		sendResetConfirmationStub.rejects(new Error('socketlabs down'))
+
+		const result = await updatePassword.resolve(null, {
+			email: 'user@test.com',
+			hash: 'correctHash',
+			password: 'newpassword1'
+		})
+
+		expect(result).to.equal(true)
+		expect(sendResetConfirmationStub.calledOnce, 'the send must have been attempted').to.equal(true)
 	})
 
 	it('endSession always called in finally', async () => {

@@ -5,6 +5,94 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.2.0 — 2026-07-22
+
+Security release. Closes two account-enumeration oracles in the password-reset pair. No signature changes and no
+migration, but the observable error behaviour of both mutations changes — see the consumer notes below.
+
+### Security
+
+- `updatePassword` no longer answers `500` when the stored record carries no usable `resetHash`. `getResetPwd` returns
+  `resetHash === null` for every account whose `account.resetDateReq` is undefined, which is nearly the entire user
+  base at any given moment. Paired with the `403` given to an address that is not registered at all, that made the
+  mutation a plain enumeration oracle: unauthenticated, unthrottled, one address per request, and with no timing
+  difference to hide behind because neither path reaches bcrypt. Send any hash, read the status code, learn whether the
+  address has an account. Both cases — and the `resetDateReq === null` guard next to them — now throw
+  `throwForbiddenError()`, identical in status, title and description to the unknown-address answer and to the existing
+  hash-mismatch and expired-link answers. The orphan-record signal that used to travel as a `500` now goes to Sentry as
+  a `captureMessage`, so a malformed record is still reported, just not to the caller.
+
+  **Consumer note:** do not branch on `500` vs `403` from this mutation. Every pre-write rejection is now `403`; `500`
+  means the password write itself failed.
+
+- `resetPwd` no longer throws `429 Too Many Requests` when a reset was already requested less than 10 minutes ago. That
+  answer could only ever reach a caller whose address was both registered and mid-reset, while an unknown address got
+  `true` — the same oracle in a smaller window. The 10-minute throttle is unchanged and still enforced: no new hash is
+  written and no email is sent. Only the disclosure is gone, so a throttled request is now byte-identical to a request
+  for an address that does not exist.
+
+  **Consumer note:** a "please wait N minutes" branch in the UI has nothing left to trigger it and should be removed.
+  `throwTooManyRequestsError` is still exported and unchanged; it simply has no caller left inside this package.
+
+- `resetPwd` now sends the reset-link email **after** the transaction commits and **without awaiting it**, where it
+  used to `await` the send inside the `withTransaction` callback. Removing the 429 alone would have left the same fact
+  readable off the clock: awaiting a network round-trip to SocketLabs made the response measurably slower in exactly
+  the "registered and not throttled" case. What is left in the awaited path is one extra `updateOne`, about a
+  millisecond against internet jitter an order of magnitude larger, and the 10-minute throttle caps an attacker at one
+  sample per address, so there is no noise to average away.
+
+  The move fixes two further defects that were not about timing at all:
+  - `session.withTransaction` re-runs its callback on a transient error. With the send inside, a retried commit mailed
+    the user a second link, and the second `saveResetReq` invalidated the first one they may already have clicked.
+  - A SocketLabs outage propagated out of the transaction as a `500` — once more, an answer only a registered address
+    could ever receive. The caller now always sees `true`.
+
+  Accepted costs: a delivery failure is reported to Sentry (`captureException`) and nowhere else, and mail in flight is
+  lost if the process is killed before the request settles. A synchronous throw on that path, including from the
+  `SocketLabsLib` constructor, is caught and reported the same way rather than escaping the resolver.
+
+  **Consumer note:** the hash is committed before the send is attempted, so a failed send still arms the 10-minute
+  throttle — the user gets no link and a retry inside the window does nothing. Undoing the write from the failure
+  handler was considered and rejected: a rejected promise does not prove non-delivery, and a timeout after SocketLabs
+  accepted the message would kill a link already sitting in the user's inbox.
+
+### Fixed
+
+- `updatePassword` sends its "your password was changed" confirmation **after** the transaction commits, not inside the
+  `withTransaction` callback. Same retry defect as `resetPwd`: mongoose re-runs the callback on a transient error, so a
+  retried commit mailed the user a second notice — indistinguishable, from the user's side, from someone else resetting
+  the account again. The send is still `await`ed, unlike `resetPwd`'s: reaching that line requires a valid reset hash,
+  so there is no timing oracle to close.
+
+  A delivery failure no longer fails the request either. It used to abort the transaction and answer `500`, rolling
+  back the new password and `removeResetReq` with it. Consistent, but it made the mail provider a hard dependency of
+  the operation: while SocketLabs was down, no user could complete a password reset at all, however healthy the
+  database was. The failure now goes to Sentry and the caller gets `true`, because by then the password really has
+  changed.
+
+  Restoring the abort is not available after the move, which is why the failure is swallowed rather than rethrown:
+  once the transaction has committed there is nothing to abort. Rethrowing would report `500` for a password that is
+  already live, and compensating would mean writing back the previous bcrypt hash, which this flow never reads. Putting
+  the send back inside the callback returns both the duplicate notice and the reverse inconsistency — mail delivered,
+  commit then fails, user told about a change that never happened. Unlike `resetPwd`'s link, this message carries
+  nothing the user needs in order to act.
+
+  **Consumer note:** a `200`/`true` from `updatePassword` no longer implies the confirmation email went out.
+
+### Tests
+
+- `test/graphQL/schema/mutations/updatePassword.spec.mts` and `resetPwd.spec.mts` each gained a test that runs the two
+  indistinguishable cases back to back and asserts the answers match, rather than only asserting each one separately.
+  A future change that reintroduces a distinct status for the "registered but nothing pending" case fails there.
+- `resetPwd`'s "endSession is called in finally" test used to drive the 429 path, which no longer throws. It now makes
+  the `saveResetReq` write reject, so the session-leak guard still runs against a real throwing path.
+- `resetPwd.spec.mts` pins the detached send from four directions: a send that never settles must not hold up the
+  resolver (re-adding the `await` times the test out rather than passing it), a rejected send and a synchronous throw
+  must both still answer `true`, and a `withTransaction` stub that runs its callback twice must produce two writes but
+  exactly one email.
+- `updatePassword.spec.mts` pins the same retry invariant on the confirmation email — callback twice, four writes, one
+  email — and that a rejected send still answers `true`.
+
 ## 5.1.1 — 2026-07-22
 
 Security release. No API change and no migration: upgrading from 5.1.0 is a drop-in. Two defects the 100% coverage

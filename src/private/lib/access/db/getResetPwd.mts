@@ -22,7 +22,7 @@ export const getResetPwd = async function (session: ClientSession, email: string
 			// caller sending that same literal as the hash argument — a reset with no secret at all.
 			// The two fields must also stay disjoint: reading the verification slot here is what let a
 			// hash issued by one flow authenticate the other. Anything but a stored string => null,
-			// which updatePassword rejects with a 500.
+			// which updatePassword rejects with the same 403 it gives an unknown address.
 			if (typeof storedHash === 'string') {
 				resetHash = storedHash
 			}
