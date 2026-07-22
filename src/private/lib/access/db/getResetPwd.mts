@@ -5,7 +5,7 @@ export const getResetPwd = async function (session: ClientSession, email: string
 	let ret = null
 
 	const queryRet = await UserBase.findOne({ 'login.email': email })
-		.select('_id personalData.name account.resetDateReq account.email.hash')
+		.select('_id personalData.name account.resetDateReq account.resetHash')
 		.session(session)
 		.lean()
 
@@ -15,13 +15,13 @@ export const getResetPwd = async function (session: ClientSession, email: string
 		let resetHash = null
 
 		if (typeof resetDateReq !== 'undefined') {
-			const storedHash = queryRet.account.email.hash
+			const storedHash = queryRet.account.resetHash
 
-			// Never stringify: account.email.hash is a slot shared with the email-verification and
-			// email-change flows, so enableEmailAccess / confirmNewEmail can clear it while
-			// account.resetDateReq survives. '' + undefined yields the literal string "undefined",
-			// which passed updatePassword's null check and then matched a caller sending that same
-			// literal as the hash argument — a reset with no secret at all. Absent hash => null,
+			// Never stringify, and never fall back to account.email.hash. '' + undefined yields the
+			// literal string "undefined", which passed updatePassword's null check and then matched a
+			// caller sending that same literal as the hash argument — a reset with no secret at all.
+			// The two fields must also stay disjoint: reading the verification slot here is what let a
+			// hash issued by one flow authenticate the other. Anything but a stored string => null,
 			// which updatePassword rejects with a 500.
 			if (typeof storedHash === 'string') {
 				resetHash = storedHash

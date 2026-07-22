@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Security
+
+- The password-reset token now lives in its own schema field, `account.resetHash`. It previously shared
+  `account.email.hash` with signup activation and email-change, two flows with a different lifetime (3 days vs 60
+  minutes), a different throttle (`account.email.requestTimes` vs a 10-minute window) and a different trust domain —
+  proving control of an inbox versus authorising a password change. Two consequences, both closed by the split:
+  - A hash minted by either flow was accepted by the other. An activation link already sitting in the user's inbox
+    could set a new password, and a reset link could validate an email address.
+  - `resetPwd` is unauthenticated, so one call for any known address overwrote a pending activation or email-change
+    hash and silently broke the link already sent. Every click on the dead link incremented
+    `account.email.requestTimes`, and at 5 `handleIfTooMuchRequestsTimes` deletes the account.
+
+  `saveResetReq` writes `account.resetHash`, `removeResetReq` unsets it, and `getResetPwd` projects and reads it. There
+  is deliberately no fallback to `account.email.hash` — reading the verification slot is the defect itself.
+
+### Changed
+
+- **Breaking for in-flight resets.** Reset links issued before the upgrade point at a hash stored in
+  `account.email.hash`, which the new `getResetPwd` does not read; they fail with a 500 and the user must request a new
+  one. The window is bounded by the 60-minute reset expiry, so it closes an hour after deploy. Rows carrying a stale
+  `account.email.hash` from a reset need no migration: the verification flows overwrite that field on their next
+  request.
+- `IUserBaseSchema.account` gains `resetHash?: string`. Additive — consumers constructing the object literally are
+  unaffected.
+
 ## 5.0.3 — 2026-07-22
 
 Security release. Upgrade from 5.0.2 or earlier: every version up to and including 5.0.2 allows a password reset to be

@@ -57,7 +57,7 @@ function makeSessionExecChain() {
 
 /**
  * Raw DB document shape as returned by UserBase.findOne in getResetPwd.
- * getResetPwd selects: '_id personalData.name account.resetDateReq account.email.hash'
+ * getResetPwd selects: '_id personalData.name account.resetDateReq account.resetHash'
  */
 function rawDbDoc(overrides: Partial<{
 	resetDateReq: Date | undefined
@@ -68,7 +68,7 @@ function rawDbDoc(overrides: Partial<{
 		personalData: { name: 'Test User' },
 		account: {
 			resetDateReq: overrides.resetDateReq ?? new Date(),
-			email: { hash: overrides.hash ?? 'correctHash' }
+			resetHash: overrides.hash ?? 'correctHash'
 		}
 	}
 }
@@ -110,7 +110,7 @@ describe('updatePassword — resolve', () => {
 			personalData: { name: 'Test User' },
 			account: {
 				// resetDateReq deliberately omitted → undefined → getResetPwd sets resetHash = null
-				email: { hash: 'correctHash' }
+				resetHash: 'correctHash'
 			}
 		}
 		findOneStub.returns(makeSelectSessionLeanQuery(docWithNoResetDate))
@@ -123,18 +123,15 @@ describe('updatePassword — resolve', () => {
 	})
 
 	it('SECURITY: reset pending but hash cleared, caller sends the literal "undefined" → 500, password untouched', async () => {
-		// Reachable state, not a contrived one: account.email.hash is shared with the
-		// email-verification and email-change flows, and enableEmailAccess / confirmNewEmail unset
-		// it while leaving account.resetDateReq in place. getResetPwd used to render that missing
-		// hash as the string 'undefined' via `'' + hash`, which cleared the null check here and then
-		// compared equal to a caller sending that same literal — an account takeover requiring only
-		// the victim's email address and a 60-minute window.
+		// Orphan state: account.resetDateReq present, account.resetHash absent. getResetPwd used to
+		// render that missing hash as the string 'undefined' via `'' + hash`, which cleared the null
+		// check here and then compared equal to a caller sending that same literal — an account
+		// takeover requiring only the victim's email address and a 60-minute window.
 		const docWithClearedHash = {
 			_id: new Types.ObjectId(),
 			personalData: { name: 'Victim' },
 			account: {
-				resetDateReq: new Date(), // reset still pending
-				email: {} // hash unset by enableEmailAccess / confirmNewEmail
+				resetDateReq: new Date() // reset still pending, resetHash gone
 			}
 		}
 		findOneStub.returns(makeSelectSessionLeanQuery(docWithClearedHash))
@@ -157,7 +154,7 @@ describe('updatePassword — resolve', () => {
 		// getResetPwd only sets resetHash non-null when resetDateReq is defined, so
 		// we need resetHash !== null AND resetDateReq === null: impossible via normal DB doc.
 		// Use a spy approach: stub findOne to return a doc where resetDateReq IS defined
-		// but account.email.hash is set — then getResetPwd sets resetHash = hash, resetDateReq = date.
+		// but account.resetHash is set — then getResetPwd sets resetHash = hash, resetDateReq = date.
 		// The only way to trigger the `resetDateReq === null` branch in updatePassword.mts line 50
 		// is if getResetPwd returns an object with resetHash !== null but resetDateReq === null.
 		// That can't happen naturally — but we can make findOne return a doc with a defined but
@@ -169,6 +166,37 @@ describe('updatePassword — resolve', () => {
 		// the 500 branch for resetHash=null above.
 		// Mark this as a known unreachable branch.
 		expect(true).to.equal(true) // placeholder — branch is unreachable via getResetPwd
+	})
+
+	it('SECURITY: an email-verification hash cannot reset a password even with a reset pending', async () => {
+		// While both flows shared account.email.hash, the hash a user received in their activation or
+		// email-change link was byte-identical to the one updatePassword compared against. Anyone
+		// holding one could set a new password, and the reset link could conversely validate an email
+		// address. Separate fields make the verification hash simply invisible here.
+		const docWithVerificationHashOnly = {
+			_id: new Types.ObjectId(),
+			personalData: { name: 'Victim' },
+			account: {
+				resetDateReq: new Date(),
+				email: { hash: 'verification-hash' } // issued by signUp / emailChange, not by resetPwd
+			}
+		}
+		findOneStub.returns(makeSelectSessionLeanQuery(docWithVerificationHashOnly))
+		updateOneStub = sinon.stub(UserBase, 'updateOne')
+
+		await expectGraphQLErrorAsync(
+			() =>
+				updatePassword.resolve(null, {
+					email: 'victim@test.com',
+					hash: 'verification-hash',
+					password: 'attacker12345'
+				}),
+			500,
+			'Internal Server Error'
+		)
+
+		expect(updateOneStub.called, 'no write may reach the DB on this path').to.equal(false)
+		expect(sendResetConfirmationStub.called, 'no confirmation email may be sent').to.equal(false)
 	})
 
 	it('hash mismatch → throws 403 Forbidden', async () => {
