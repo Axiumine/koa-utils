@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 5.1.1 — 2026-07-22
+
+Security release. No API change and no migration: upgrading from 5.1.0 is a drop-in. Two defects the 100% coverage
+gate could not see, for the same underlying reason — the specs stubbed the database call, so the test decided the
+answer the driver would have given. One projected too few fields, one wrote where it should have no-oped.
 
 ### Security
 
