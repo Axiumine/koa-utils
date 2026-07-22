@@ -17,12 +17,27 @@ export const createGetResetPwd = (model: TAccessModel, paths: IResetPwdPaths) =>
 
 		const queryRet = await model
 			.findOne({ [paths.email]: email })
-			.select(buildProjection([paths.name, paths.resetDateReq, paths.resetHash]))
+			.select(buildProjection([paths.name, paths.resetDateReq, paths.resetHash, paths.deleted, paths.disabled]))
 			.session(session)
 			.lean()
 
 		// if a reset request is found
 		if (queryRet !== null) {
+			// A tombstoned or locked-out account is not a reset target: without this, resetPwd mailed a
+			// live link to a deleted address and updatePassword overwrote the bcrypt hash of a disabled
+			// one, so re-enabling the account handed it back with an attacker-chosen password. `null` is
+			// the same answer an unknown address gets — resetPwd returns true and sends nothing,
+			// updatePassword answers the same 403 — so no new enumeration oracle is opened.
+			//
+			// The flags are read raw, exactly as assertVerifyEmailAllowed reads them. This is a .lean()
+			// read, so Mongoose casting never runs and these are what the driver found: a boolean once
+			// scripts/migrate-account-disabled-to-boolean.mjs has run. On un-migrated data a stored
+			// 'false' is a truthy string and blocks the reset; the fix is the migration, not a coercion
+			// here.
+			if (readPath(queryRet, paths.deleted) || readPath(queryRet, paths.disabled)) {
+				return null
+			}
+
 			const resetDateReq = readPath(queryRet, paths.resetDateReq) as Date | undefined
 			let resetHash: string | null = null
 

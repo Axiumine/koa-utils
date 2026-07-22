@@ -1,6 +1,7 @@
 import { LogGlobalError } from '@models/MongoDB/log/LogGlobalError.mjs'
 
-interface IGlobalError {
+/** Payload accepted by `logGlobalError`. Exported so a consumer re-exporting the helper can name its type. */
+export interface IGlobalError {
 	message: string
 	stackArr: Array<string>
 }

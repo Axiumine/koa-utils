@@ -29,7 +29,7 @@ Marks a named GraphQL call as "hit" on the most recent developer-stats document.
 
 **Signature:**
 ```ts
-interface IGlobalError {
+export interface IGlobalError {
 	message: string
 	stackArr: Array<string>
 }
@@ -47,7 +47,7 @@ Builds (but does **not** persist) a `LogGlobalError` document from a message/sta
 
 **Returns:** `void` — the function body has no `return` statement (the `newGlobalError.save()` call is commented out), so the constructed document is **never written to MongoDB**. Collection touched (when eventually enabled): `logGlobalError` (fields `m` = message, `s` = stack array, `i` = inserted date, backing model `LogGlobalError`).
 
-**Notes:** This is currently a no-op with respect to persistence — treat it as a stub. `IGlobalError` is a local (non-exported) interface, not part of the public API.
+**Notes:** This is currently a no-op with respect to persistence — treat it as a stub. `IGlobalError` is exported alongside the function: it was module-private until a consumer re-exporting `logGlobalError` failed declaration emit with `TS4023: … has or is using name 'IGlobalError' … but cannot be named`.
 
 ## `logGraphql`
 

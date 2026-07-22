@@ -5,6 +5,8 @@
  *
  * Branches:
  *   - queryRet === null (no reset request found) → returns null
+ *   - queryRet !== null + account.deleted truthy → returns null
+ *   - queryRet !== null + account.deleted falsy + account.disabled truthy → returns null
  *   - queryRet !== null + resetDateReq !== undefined + resetHash is a string → resetHash = that hash
  *   - queryRet !== null + resetDateReq !== undefined + resetHash absent → resetHash stays null
  *   - queryRet !== null + resetDateReq === undefined → resetHash stays null
@@ -72,6 +74,71 @@ describe('getResetPwd', () => {
 
 		expect(selectedFields.split(/\s+/)).to.include('account.resetHash')
 		expect(selectedFields).to.not.include('account.email.hash')
+	})
+
+	it('projects every field it reads, account state flags included', async () => {
+		// This is a .lean() read: a field left out of the projection is simply absent on the returned
+		// object, with no error. A missing account.disabled would therefore read as "not disabled" and
+		// the gate below would never fire, silently, under a green coverage gate.
+		findOneStub.returns(makeFindOneChain(null))
+
+		await getResetPwd(fakeSession, 'user@test.com')
+
+		expect(selectedFields.split(/\s+/)).to.have.members([
+			'_id',
+			'personalData.name',
+			'account.resetDateReq',
+			'account.resetHash',
+			'account.deleted',
+			'account.disabled'
+		])
+	})
+
+	it('SECURITY: a deleted account is not a reset target → null, exactly like an unknown address', async () => {
+		// Without this the flow mailed a live reset link to a tombstoned address, and updatePassword
+		// went on to overwrite its bcrypt hash.
+		findOneStub.returns(
+			makeFindOneChain({
+				_id: new Types.ObjectId(),
+				personalData: { name: 'Erin' },
+				account: { resetDateReq: new Date(), resetHash: 'abc12345', deleted: true }
+			})
+		)
+
+		const result = await getResetPwd(fakeSession, 'gone@test.com')
+
+		expect(result).to.equal(null)
+	})
+
+	it('SECURITY: a disabled account is not a reset target either → null', async () => {
+		// deleted explicitly falsy, so only the disabled flag can be the reason
+		findOneStub.returns(
+			makeFindOneChain({
+				_id: new Types.ObjectId(),
+				personalData: { name: 'Frank' },
+				account: { resetDateReq: new Date(), resetHash: 'abc12345', deleted: false, disabled: true }
+			})
+		)
+
+		const result = await getResetPwd(fakeSession, 'locked@test.com')
+
+		expect(result).to.equal(null)
+	})
+
+	it('an account with both flags explicitly false is served normally', async () => {
+		const id = new Types.ObjectId()
+		const resetDateReq = new Date()
+		findOneStub.returns(
+			makeFindOneChain({
+				_id: id,
+				personalData: { name: 'Grace' },
+				account: { resetDateReq, resetHash: 'abc12345', deleted: false, disabled: false }
+			})
+		)
+
+		const result = await getResetPwd(fakeSession, 'live@test.com')
+
+		expect(result).to.deep.equal({ _id: id, resetDateReq, resetHash: 'abc12345', name: 'Grace' })
 	})
 
 	it('reset request found + resetDateReq defined + personalData.name defined → full object with string resetHash', async () => {

@@ -21,8 +21,17 @@ describe('DEFAULT_RESET_PWD_PATHS', () => {
 			name: 'personalData.name',
 			resetDateReq: 'account.resetDateReq',
 			resetHash: 'account.resetHash',
+			deleted: 'account.deleted',
+			disabled: 'account.disabled',
 			resetClear: ['account.resetDateReq', 'account.resetHash']
 		})
+	})
+
+	it('points the account-state flags at the same slots the verification flow guards', () => {
+		// The two flows must agree on what "this account is gone / locked out" means. Pointing them at
+		// different fields would let a reset succeed on an account the verify-email chain refuses.
+		expect(DEFAULT_RESET_PWD_PATHS.deleted).to.equal(DEFAULT_VERIFY_EMAIL_PATHS.deleted)
+		expect(DEFAULT_RESET_PWD_PATHS.disabled).to.equal(DEFAULT_VERIFY_EMAIL_PATHS.disabled)
 	})
 
 	it('is frozen, so a consumer cannot mutate the defaults of every other consumer', () => {

@@ -43,6 +43,8 @@ const { resetPwd, updatePassword } = createResetPwdFlow({
 		name: 'profile.fullName',
 		resetDateReq: 'resetPwd.resetDateReq',
 		resetHash: 'resetPwd.resetHash',
+		deleted: 'state.gone',
+		disabled: 'state.locked',
 		resetClear: ['resetPwd']
 	}
 })
@@ -59,9 +61,21 @@ Every value is a dotted Mongo path into the account document. Every key is optio
 | `name` | `personalData.name` | Display name passed to the reset / confirmation emails; missing ⇒ `''` |
 | `resetDateReq` | `account.resetDateReq` | Drives the 10-minute throttle and the 60-minute link expiry |
 | `resetHash` | `account.resetHash` | Password-reset token |
+| `deleted` | `account.deleted` | Account tombstone flag — a set value makes `getResetPwd` answer `null` |
+| `disabled` | `account.disabled` | Account lockout flag — a set value makes `getResetPwd` answer `null` |
 | `resetClear` | `['account.resetDateReq', 'account.resetHash']` | Paths `removeResetReq` `$unset`s once a reset is consumed |
 
 `resetHash` must stay disjoint from `IVerifyEmailPaths.hash`. While the two shared one slot (through 5.0.3), a hash issued by either flow authenticated the other, and one unauthenticated `resetPwd` call killed a pending activation link.
+
+### The account-state gate
+
+`deleted` and `disabled` are newer than the rest of the map. Before them the reset flow read no account state at all: `resetPwd` mailed a live reset link to a tombstoned address, and `updatePassword` went on to overwrite the bcrypt slot of a deleted or disabled account — so re-enabling that account later handed it back with a password the requester had chosen. The verify-email flow had carried the same two keys since 5.3.0 and refused both cases; only the reset flow was open.
+
+The gate lives in `getResetPwd`, so both mutations inherit it. A blocked account produces exactly the value an unknown address produces — `null` — which means `resetPwd` still returns `true` and sends nothing, and `updatePassword` still answers the same `403`. No new enumeration oracle is opened, and the two flows now agree on what "this account is gone" means: the defaults point at the same `account.deleted` / `account.disabled` slots the verify-email chain guards.
+
+The flags are read **raw**, exactly as `assertVerifyEmailAllowed` reads them. This is a `.lean()` read, so Mongoose casting never runs and the values are whatever the driver found. On data that has not been through `scripts/migrate-account-disabled-to-boolean.mjs`, a stored `'false'` is a truthy string and blocks the reset; the fix is the migration, not a coercion in the reader.
+
+Pointing these two keys at a field the model does not carry (or at one holding a non-boolean) disables the gate silently — an absent path reads as `undefined`, which is falsy. If your layout has no such flags, that is the intended way to opt out; if it has them under other names, map them.
 
 ### Why `resetClear` is a separate key
 

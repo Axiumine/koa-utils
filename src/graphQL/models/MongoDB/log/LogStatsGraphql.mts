@@ -1,6 +1,7 @@
 import { model, Schema, Types } from 'mongoose'
 
-interface IStatsGraphqlSchema {
+/** Document shape of the `LogStatsGraphql` model. Exported so a consumer re-exporting the model can name its type. */
+export interface IStatsGraphqlSchema {
 	_id: Types.ObjectId
 	u: number // user
 	n: string // query name

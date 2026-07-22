@@ -31,6 +31,10 @@ export interface IResetPwdPaths {
 	resetDateReq: string
 	/** Password-reset token. Must stay disjoint from the email-verification hash slot. */
 	resetHash: string
+	/** Account tombstone flag. A set value makes `getResetPwd` answer `null`, as for an unknown address. */
+	deleted: string
+	/** Account lockout flag. A set value makes `getResetPwd` answer `null`, as for an unknown address. */
+	disabled: string
 	/**
 	 * Paths `removeResetReq` `$unset`s once a reset has been consumed.
 	 *
@@ -52,6 +56,8 @@ export const DEFAULT_RESET_PWD_PATHS: IResetPwdPaths = Object.freeze({
 	name: 'personalData.name',
 	resetDateReq: 'account.resetDateReq',
 	resetHash: 'account.resetHash',
+	deleted: 'account.deleted',
+	disabled: 'account.disabled',
 	resetClear: Object.freeze(['account.resetDateReq', 'account.resetHash'])
 })
 

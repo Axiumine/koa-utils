@@ -12,7 +12,8 @@ import { throwInternalError } from '@throw/throwInternalError.mjs'
 import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'graphql'
 import mongoose from 'mongoose'
 
-interface IArgs {
+/** Arguments accepted by the `updatePassword` mutation. Exported so a consumer re-exporting the bound mutation can name its type. */
+export interface IUpdatePasswordArgs {
 	email: string
 	hash: string
 	password: string
@@ -40,7 +41,7 @@ export const createUpdatePasswordMutation = (deps: IUpdatePasswordDeps) => ({
 		hash: { type: new GraphQLNonNull(GraphQLString) },
 		password: { type: new GraphQLNonNull(GraphQLString) }
 	},
-	async resolve(_: unknown, args: IArgs) {
+	async resolve(_: unknown, args: IUpdatePasswordArgs) {
 		const { email, hash, password } = args
 
 		const uEmail = email.trim().toLowerCase()

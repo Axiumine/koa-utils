@@ -10,7 +10,8 @@ import * as Sentry from '@sentry/node'
 import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'graphql'
 import mongoose from 'mongoose'
 
-interface IArgs {
+/** Arguments accepted by the `resetPwd` mutation. Exported so a consumer re-exporting the bound mutation can name its type. */
+export interface IResetPwdArgs {
 	email: string
 }
 
@@ -42,7 +43,7 @@ export const createResetPwdMutation = (deps: IResetPwdDeps) => ({
 	args: {
 		email: { type: new GraphQLNonNull(GraphQLString) }
 	},
-	async resolve(_: unknown, args: IArgs) {
+	async resolve(_: unknown, args: IResetPwdArgs) {
 		const { email } = args
 
 		const uEmail = email.toLowerCase().trim()

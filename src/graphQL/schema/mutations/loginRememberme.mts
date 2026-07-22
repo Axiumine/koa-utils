@@ -12,7 +12,8 @@ import { LoginType } from '@stypes/LoginType.mjs'
 import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'graphql'
 import mongoose from 'mongoose'
 
-interface IArgs {
+/** Arguments accepted by the `loginRememberme` mutation. Exported so a consumer re-exporting the bound mutation can name its type. */
+export interface ILoginRemembermeArgs {
 	email: string
 	password: string
 	rememberMe: boolean
@@ -26,7 +27,7 @@ export const loginRememberme = {
 		password: { type: new GraphQLNonNull(GraphQLString) },
 		rememberMe: { type: new GraphQLNonNull(GraphQLBoolean) }
 	},
-	async resolve(_: unknown, args: IArgs, ctx: IContextLogin) {
+	async resolve(_: unknown, args: ILoginRemembermeArgs, ctx: IContextLogin) {
 		const { email, password, rememberMe } = args
 
 		const uEmail = email.toLowerCase().trim()

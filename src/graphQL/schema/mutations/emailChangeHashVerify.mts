@@ -9,7 +9,8 @@ import { throwInternalError } from '@throw/throwInternalError.mjs'
 import { GraphQLBoolean, GraphQLNonNull, GraphQLString } from 'graphql'
 import { Types } from 'mongoose'
 
-interface IArgs {
+/** Arguments accepted by the `emailChangeHashVerify` mutation. Exported so a consumer re-exporting the bound mutation can name its type. */
+export interface IEmailChangeHashVerifyArgs {
 	email: string
 	hash: string
 }
@@ -60,7 +61,7 @@ export const createEmailChangeHashVerifyMutation = (deps: IEmailChangeHashVerify
 		email: { type: new GraphQLNonNull(GraphQLString) },
 		hash: { type: new GraphQLNonNull(GraphQLString) }
 	},
-	async resolve(_: unknown, args: IArgs) {
+	async resolve(_: unknown, args: IEmailChangeHashVerifyArgs) {
 		const { paths } = deps
 		const { email, hash } = args
 		const uEmail = email.toLowerCase()

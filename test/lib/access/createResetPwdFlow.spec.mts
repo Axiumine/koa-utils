@@ -26,6 +26,8 @@ const PATHS = {
 	name: 'profile.fullName',
 	resetDateReq: 'resetPwd.resetDateReq',
 	resetHash: 'resetPwd.resetHash',
+	deleted: 'state.gone',
+	disabled: 'state.locked',
 	resetClear: ['resetPwd']
 }
 
@@ -98,7 +100,9 @@ describe('createResetPwdFlow', () => {
 
 		return flow.resetPwd.resolve(null, { email: EMAIL }).then(() => {
 			expect(model.findOne.firstCall.args[0]).to.deep.equal({ 'login.email': EMAIL })
-			expect(model.query.selected).to.equal('_id personalData.name account.resetDateReq account.resetHash')
+			expect(model.query.selected).to.equal(
+				'_id personalData.name account.resetDateReq account.resetHash account.deleted account.disabled'
+			)
 		})
 	})
 
@@ -112,7 +116,9 @@ describe('createResetPwdFlow', () => {
 			expect(ret).to.equal(true)
 			// lookup and projection follow the map, not UserBase
 			expect(model.findOne.calledOnceWithExactly({ mail: EMAIL })).to.equal(true)
-			expect(model.query.selected).to.equal('_id profile.fullName resetPwd.resetDateReq resetPwd.resetHash')
+			expect(model.query.selected).to.equal(
+				'_id profile.fullName resetPwd.resetDateReq resetPwd.resetHash state.gone state.locked'
+			)
 
 			// the write sets the two leaf paths
 			const [, update] = model.updateOne.firstCall.args
@@ -136,6 +142,25 @@ describe('createResetPwdFlow', () => {
 
 		it('honours the 10-minute throttle read from the custom date path', async () => {
 			const model = makeModel(makeDoc(new Date()))
+			const flow = createResetPwdFlow({ model, paths: PATHS })
+
+			expect(await flow.resetPwd.resolve(null, { email: EMAIL })).to.equal(true)
+			expect(model.updateOne.called).to.equal(false)
+			expect(sendEmailReset.called).to.equal(false)
+		})
+
+		it('mints no link for a deleted account, and is indistinguishable from an unknown address', async () => {
+			// no pending request, so the only thing stopping the link is the flag read from state.gone
+			const model = makeModel({ ...makeDoc(), state: { gone: true } })
+			const flow = createResetPwdFlow({ model, paths: PATHS })
+
+			expect(await flow.resetPwd.resolve(null, { email: EMAIL })).to.equal(true)
+			expect(model.updateOne.called).to.equal(false)
+			expect(sendEmailReset.called).to.equal(false)
+		})
+
+		it('mints no link for a disabled account either', async () => {
+			const model = makeModel({ ...makeDoc(), state: { locked: true } })
 			const flow = createResetPwdFlow({ model, paths: PATHS })
 
 			expect(await flow.resetPwd.resolve(null, { email: EMAIL })).to.equal(true)
@@ -180,6 +205,26 @@ describe('createResetPwdFlow', () => {
 			expect(thrown).to.not.equal(null)
 			expect(model.updateOne.called).to.equal(false)
 			expect(sendResetPwdConfirmation.called).to.equal(false)
+		})
+
+		it('refuses a deleted or disabled account holding a valid, unexpired hash', async () => {
+			// The hash is genuine and in date — only the account state stops the write. Without the gate
+			// the bcrypt slot of a tombstoned account was overwritten, so re-enabling it later handed the
+			// account back with a password the requester chose.
+			for (const state of [{ gone: true }, { locked: true }]) {
+				const model = makeModel({ ...makeDoc(new Date()), state })
+				const flow = createResetPwdFlow({ model, paths: PATHS })
+
+				let thrown: unknown = null
+				try {
+					await flow.updatePassword.resolve(null, { email: EMAIL, hash: HASH, password: PASSWORD })
+				} catch (e: unknown) {
+					thrown = e
+				}
+				expect(thrown).to.not.equal(null)
+				expect(model.updateOne.called).to.equal(false)
+				expect(sendResetPwdConfirmation.called).to.equal(false)
+			}
 		})
 
 		it('rejects an unknown address the same way, so the two are indistinguishable', async () => {

@@ -2,13 +2,15 @@
 
 This section documents the auth-flow GraphQL mutation objects shipped by `@axiumine/koa-utils`: sign-up, the three login variants, logout, refresh, password reset/change, and email-change hash verification. Every export here is a plain object of shape `{ description, type, args?, resolve }` meant to be dropped straight into a `graphql`/`graphql-http` schema's `Mutation` fields. Most of them open a `mongoose.startSession()` + `session.withTransaction(...)` block and funnel every caught error through `tryCatchRethrow`, which maps MongoDB duplicate-key errors to `409 Conflict`, `[Validator]`-prefixed messages to `400 Bad Request`, re-throws any other `GraphQLError` with its own `extensions.http.status`, and reports anything else to Sentry before throwing a generic `500 Internal Server Error`. `logout`, `refresh` and `emailChangeHashVerify` are the exceptions — they do not use a mongoose transaction at all. Session tokens (access/refresh) are opaque `uuid` strings stored in Redis under `${process.env.REDIS_KEY}access:<uuid>` / `${process.env.REDIS_KEY}refresh:<uuid>`, and the refresh token is always carried in an `httpOnly`, `sameSite:Strict`, `secure:false` cookie (`secure` is intentionally left off here — TLS termination and the `secure` flag are applied at the Nginx layer).
 
+Each module also exports the interface describing its `resolve` arguments — `ISignUpArgs`, `ILoginRemembermeArgs`, `ILogin4EverArgs`, `ILoginAdminArgs`, `IResetPwdArgs`, `IUpdatePasswordArgs`, `IEmailChangeHashVerifyArgs`. They were module-private until they had to be named: a consumer that re-exports a mutation — `export const fields = { signUp, resetPwd }`, or `export const resetPwd = createResetPwdFlow({ model }).resetPwd` — makes TypeScript write the resolver's inferred type into its own `.d.ts`, and an argument type it cannot name fails declaration emit with `TS4023: … has or is using name 'IArgs' from external module … but cannot be named`. Annotating the consumer-side export with `TResetPwdMutation` also works and stays valid; exporting the argument types removes the need. They were named `IArgs` in every module before this change, so an import of the old name has to be updated — nothing could have imported it, since it was not exported.
+
 ## `signUp`
 
 **Import:** `import { signUp } from '@axiumine/koa-utils/graphQL/schema/mutations/signUp'`
 
 **Signature:**
 ```ts
-interface IArgs {
+export interface ISignUpArgs {
 	email: string
 	password: string
 }
@@ -20,7 +22,7 @@ export const signUp = {
 		email: { type: new GraphQLNonNull(GraphQLString) },
 		password: { type: new GraphQLNonNull(GraphQLString) }
 	},
-	async resolve(_: unknown, args: IArgs): Promise<boolean>
+	async resolve(_: unknown, args: ISignUpArgs): Promise<boolean>
 }
 ```
 
@@ -48,7 +50,7 @@ Registers a new user account. Normalizes the email (`toLowerCase().trim()`), val
 
 **Signature:**
 ```ts
-interface IArgs {
+export interface ILoginRemembermeArgs {
 	email: string
 	password: string
 	rememberMe: boolean
@@ -62,7 +64,7 @@ export const loginRememberme = {
 		password: { type: new GraphQLNonNull(GraphQLString) },
 		rememberMe: { type: new GraphQLNonNull(GraphQLBoolean) }
 	},
-	async resolve(_: unknown, args: IArgs, ctx: IContextLogin): Promise<{ accessToken: string }>
+	async resolve(_: unknown, args: ILoginRemembermeArgs, ctx: IContextLogin): Promise<{ accessToken: string }>
 }
 ```
 
@@ -92,7 +94,7 @@ Logs a normal (non-admin) user in, honoring a `rememberMe` flag. Normalizes/vali
 
 **Signature:**
 ```ts
-interface IArgs {
+export interface ILogin4EverArgs {
 	email: string
 	password: string
 }
@@ -104,7 +106,7 @@ export const login4Ever = {
 		email: { type: new GraphQLNonNull(GraphQLString) },
 		password: { type: new GraphQLNonNull(GraphQLString) }
 	},
-	async resolve(_: unknown, args: IArgs, ctx: IContextLogin): Promise<{ accessToken: string }>
+	async resolve(_: unknown, args: ILogin4EverArgs, ctx: IContextLogin): Promise<{ accessToken: string }>
 }
 ```
 
@@ -133,7 +135,7 @@ Identical flow to `loginRememberme` but with no `rememberMe` argument: validates
 
 **Signature:**
 ```ts
-interface IArgs {
+export interface ILoginAdminArgs {
 	email: string
 	password: string
 	rememberMe: boolean
@@ -147,7 +149,7 @@ export const loginAdmin = {
 		password: { type: new GraphQLNonNull(GraphQLString) },
 		rememberMe: { type: new GraphQLNonNull(GraphQLBoolean) }
 	},
-	async resolve(_: unknown, args: IArgs, ctx: IContextLogin): Promise<{ accessToken: string }>
+	async resolve(_: unknown, args: ILoginAdminArgs, ctx: IContextLogin): Promise<{ accessToken: string }>
 }
 ```
 
@@ -217,7 +219,7 @@ Rotates both tokens for an already-authenticated session (called against the ref
 
 **Signature:**
 ```ts
-interface IArgs {
+export interface IResetPwdArgs {
 	email: string
 }
 
@@ -232,7 +234,7 @@ export const resetPwd = {
 	args: {
 		email: { type: new GraphQLNonNull(GraphQLString) }
 	},
-	async resolve(_: unknown, args: IArgs): Promise<boolean>
+	async resolve(_: unknown, args: IResetPwdArgs): Promise<boolean>
 }
 ```
 
@@ -256,6 +258,8 @@ Up to and including 5.1.1 the throttled case threw `throwTooManyRequestsError((1
 
 Since 5.3.0 the resolver takes its reader and writer as arguments: the module also exports `createResetPwdMutation({ getResetPwd, saveResetReq })`, and `resetPwd` is that factory applied to the `UserBase`-bound pair. Nothing changes for a consumer importing `resetPwd`. A consumer whose accounts live in another collection or under another field layout builds its own pair through [`createResetPwdFlow`](./lib-access.md) instead of being locked out of the flow.
 
+A deleted or disabled account is treated exactly as an unknown address: `getResetPwd` answers `null` for it, so no hash is written and no link is mailed, and the mutation still returns `true`. Before the gate existed a tombstoned address received a live reset link. The flags read are `account.deleted` / `account.disabled` by default, both remappable through `IResetPwdPaths` — see [the account-state gate](./lib-access.md#the-account-state-gate) for how the raw, uncast flag values behave on un-migrated data.
+
 ### Why the email is sent after the commit, and not awaited
 
 The same version moved `sendEmailReset` out of the `withTransaction` callback and stopped awaiting it. Three separate reasons, only the first of which is about timing:
@@ -276,7 +280,7 @@ Compensating for that — deleting `account.resetHash` / `account.resetDateReq` 
 
 **Signature:**
 ```ts
-interface IArgs {
+export interface IUpdatePasswordArgs {
 	email: string
 	hash: string
 	password: string
@@ -290,7 +294,7 @@ export const updatePassword = {
 		hash: { type: new GraphQLNonNull(GraphQLString) },
 		password: { type: new GraphQLNonNull(GraphQLString) }
 	},
-	async resolve(_: unknown, args: IArgs): Promise<boolean>
+	async resolve(_: unknown, args: IUpdatePasswordArgs): Promise<boolean>
 }
 ```
 
@@ -317,6 +321,8 @@ Up to and including 5.1.1 the missing-`resetHash` case answered `500` instead of
 
 Since 5.3.0 the resolver takes `getResetPwd`, `updatePasswordDb` and `removeResetReq` as arguments via `createUpdatePasswordMutation(deps)`, and `updatePassword` is that factory applied to the `UserBase`-bound trio — see [`createResetPwdFlow`](./lib-access.md). Worth knowing when reading the cleanup step: `removeResetReq` unsets whatever the flow's `resetClear` list names, which is not necessarily the two leaf paths this resolver read.
 
+A deleted or disabled account also lands on the `null` branch above, so it gets the same `403` as an unknown address and its password is left alone. Without that gate the bcrypt slot of a tombstoned account was overwritten by whoever held the link, which mattered the moment the account was re-enabled. The gate sits in `getResetPwd`, which is why both mutations have it — see [the account-state gate](./lib-access.md#the-account-state-gate).
+
 ### Why the confirmation email is sent after the commit
 
 The same version moved `sendResetPwdConfirmation` out of the `withTransaction` callback. `session.withTransaction` re-runs its callback on a transient error, and with the send inside, a retried commit told the user twice that their password had changed — a second notice indistinguishable from someone else resetting the account again. It stays `await`ed: unlike `resetPwd` there is no timing oracle to close, because reaching that line at all requires a valid reset hash.
@@ -331,7 +337,7 @@ Aborting on a failed send is not an option that survives the move, and that is t
 
 **Signature:**
 ```ts
-interface IArgs {
+export interface IEmailChangeHashVerifyArgs {
 	email: string
 	hash: string
 }
@@ -346,7 +352,7 @@ export const emailChangeHashVerify = {
 		email: { type: new GraphQLNonNull(GraphQLString) },
 		hash: { type: new GraphQLNonNull(GraphQLString) }
 	},
-	async resolve(_: unknown, args: IArgs): Promise<boolean>
+	async resolve(_: unknown, args: IEmailChangeHashVerifyArgs): Promise<boolean>
 }
 ```
 

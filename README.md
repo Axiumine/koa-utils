@@ -92,6 +92,8 @@ const { resetPwd, updatePassword } = createResetPwdFlow({
 		name: 'profile.fullName',
 		resetDateReq: 'resetPwd.resetDateReq',
 		resetHash: 'resetPwd.resetHash',
+		deleted: 'state.gone', // a set flag makes the reset answer exactly as it does for an unknown address
+		disabled: 'state.locked',
 		resetClear: ['resetPwd'] // paths to $unset — a container, not its members, on a strict subdocument
 	}
 })

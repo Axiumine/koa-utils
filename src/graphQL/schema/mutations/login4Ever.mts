@@ -12,7 +12,8 @@ import { LoginType } from '@stypes/LoginType.mjs'
 import { GraphQLError, GraphQLNonNull, GraphQLString } from 'graphql'
 import mongoose from 'mongoose'
 
-interface IArgs {
+/** Arguments accepted by the `login4Ever` mutation. Exported so a consumer re-exporting the bound mutation can name its type. */
+export interface ILogin4EverArgs {
 	email: string
 	password: string
 }
@@ -24,7 +25,7 @@ export const login4Ever = {
 		email: { type: new GraphQLNonNull(GraphQLString) },
 		password: { type: new GraphQLNonNull(GraphQLString) }
 	},
-	async resolve(_: unknown, args: IArgs, ctx: IContextLogin) {
+	async resolve(_: unknown, args: ILogin4EverArgs, ctx: IContextLogin) {
 		const { email, password } = args
 
 		//console.debug('[login4Ever]')

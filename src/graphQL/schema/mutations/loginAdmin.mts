@@ -12,7 +12,8 @@ import { LoginType } from '@stypes/LoginType.mjs'
 import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'graphql'
 import mongoose from 'mongoose'
 
-interface IArgs {
+/** Arguments accepted by the `loginAdmin` mutation. Exported so a consumer re-exporting the bound mutation can name its type. */
+export interface ILoginAdminArgs {
 	email: string
 	password: string
 	rememberMe: boolean
@@ -29,7 +30,7 @@ export const loginAdmin = {
 		password: { type: new GraphQLNonNull(GraphQLString) },
 		rememberMe: { type: new GraphQLNonNull(GraphQLBoolean) }
 	},
-	async resolve(_: unknown, args: IArgs, ctx: IContextLogin) {
+	async resolve(_: unknown, args: ILoginAdminArgs, ctx: IContextLogin) {
 		const { email, password, rememberMe } = args
 
 		const uEmail = email.toLowerCase().trim()

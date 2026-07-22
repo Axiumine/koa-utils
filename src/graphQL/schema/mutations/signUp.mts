@@ -8,7 +8,8 @@ import { throwConflictError } from '@throw/throwConflictError.mjs'
 import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'graphql'
 import mongoose from 'mongoose'
 
-interface IArgs {
+/** Arguments accepted by the `signUp` mutation. Exported so a consumer re-exporting the bound mutation can name its type. */
+export interface ISignUpArgs {
 	email: string
 	password: string
 }
@@ -20,7 +21,7 @@ export const signUp = {
 		email: { type: new GraphQLNonNull(GraphQLString) },
 		password: { type: new GraphQLNonNull(GraphQLString) }
 	},
-	async resolve(_: unknown, args: IArgs) {
+	async resolve(_: unknown, args: ISignUpArgs) {
 		const { email, password } = args
 
 		const uEmail = email.toLowerCase().trim()

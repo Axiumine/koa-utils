@@ -345,7 +345,7 @@ A per-call GraphQL stats logging model — one document per resolved operation, 
 
 **Returns:** `Model<IStatsGraphqlSchema>` — the compiled Mongoose model.
 
-**Notes:** The backing interface `IStatsGraphqlSchema` (shown implicitly in the Fields table above) is declared in `LogStatsGraphql.mts` **without** an `export` keyword — it is module-private and not part of this package's public surface; only the `LogStatsGraphql` model itself is exported and importable.
+**Notes:** The backing interface `IStatsGraphqlSchema` (shown implicitly in the Fields table above) is exported alongside the model. It was module-private until a consumer re-exporting `LogStatsGraphql` — `export const models = { LogStatsGraphql }` — failed declaration emit with `TS4023: … has or is using name 'IStatsGraphqlSchema' … but cannot be named`, because the model's type mentions an interface the consumer's `.d.ts` had no way to reference.
 
 ## `ILogThrowGraphqlSchema`
 
