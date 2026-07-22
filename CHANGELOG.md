@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 5.0.3 — 2026-07-22
+
+Security release. Upgrade from 5.0.2 or earlier: every version up to and including 5.0.2 allows a password reset to be
+completed without the reset hash, under a state an unauthenticated caller can help bring about. No API change.
 
 ### Security
 
