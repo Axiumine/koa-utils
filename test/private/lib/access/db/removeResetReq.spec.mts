@@ -11,6 +11,7 @@
  * upsertedCount even when matchedCount is 0, proving a document was created rather than skipped.
  */
 import removeResetReq from '@private/lib/access/db/removeResetReq.mjs'
+import { saveResetReq } from '@private/lib/access/db/saveResetReq.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { expect } from 'chai'
 import sinon from 'sinon'
@@ -49,9 +50,27 @@ describe('removeResetReq', () => {
 		expect(updateOneStub.calledOnce).to.equal(true)
 		expect(updateOneStub.firstCall.args[0]).to.deep.equal({ 'login.email': 'user@test.com' })
 		expect(updateOneStub.firstCall.args[1]).to.deep.equal({
-			$unset: { 'account.resetDateReq': '', 'account.resetHash': '' }
+			$unset: { 'account.resetDateReq': '', 'account.email.hash': '' }
 		})
 		expect(updateOneStub.firstCall.args[2]).to.deep.equal({ upsert: true })
+	})
+
+	it('unsets exactly the paths saveResetReq sets — no orphaned reset hash left behind', async () => {
+		// Regression guard: removeResetReq used to unset 'account.resetHash', a path that exists in
+		// neither UserBaseSchema nor saveResetReq, so the reset hash survived in account.email.hash.
+		updateOneStub = sinon
+			.stub(UserBase, 'updateOne')
+			.returns(makeSessionExecChain({ acknowledged: true, matchedCount: 1, modifiedCount: 1 }) as never)
+
+		await saveResetReq(fakeSession, new Types.ObjectId(), new Date(0), 'the-reset-hash')
+		const setPaths = Object.keys(updateOneStub.firstCall.args[1].$set).sort()
+
+		updateOneStub.resetHistory()
+		await removeResetReq(fakeSession, 'user@test.com')
+		const unsetPaths = Object.keys(updateOneStub.firstCall.args[1].$unset).sort()
+
+		expect(unsetPaths).to.deep.equal(setPaths)
+		expect(unsetPaths).to.deep.equal(['account.email.hash', 'account.resetDateReq'])
 	})
 
 	it('runs the update within the given session and resolves with the exec() result', async () => {
