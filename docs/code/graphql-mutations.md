@@ -276,7 +276,7 @@ export const updatePassword = {
 }
 ```
 
-Completes the password-reset flow started by `resetPwd`. Normalizes/validates email and new password, then inside a transaction: `getResetPwd(session, uEmail)`; if `null` throws `throwForbiddenError()` (403, does not reveal that the email is unknown); if `resetHash` or `resetDateReq` is `null` throws `throwInternalError()` (500, defensive — should not happen if a hash was ever set); if the supplied `hash` does not match `resetPwd.resetHash` throws `throwForbiddenError()` (403); if more than 60 minutes have elapsed since `resetDateReq` (`DateLib.minElapsed`) throws `throwForbiddenError()` (403, link expired). If all checks pass, `updatePasswordDb(session, resetPwd._id, password)` re-hashes and persists the new password (throws `throwInternalError()` / 500 if the update reports failure), `removeResetReq(session, uEmail)` clears the pending reset request, and `SocketLabsLib.sendResetPwdConfirmation(uEmail, resetPwd.name)` sends a confirmation email.
+Completes the password-reset flow started by `resetPwd`. Normalizes/validates email and new password, then inside a transaction: `getResetPwd(session, uEmail)`; if `null` throws `throwForbiddenError()` (403, does not reveal that the email is unknown); if `resetHash` or `resetDateReq` is `null` throws `throwInternalError()` (500 — reachable, not merely defensive: `account.email.hash` is shared with the email-verification and email-change flows, so `enableEmailAccess` / `confirmNewEmail` can clear it while `account.resetDateReq` survives); if the supplied `hash` does not match `resetPwd.resetHash` throws `throwForbiddenError()` (403); if more than 60 minutes have elapsed since `resetDateReq` (`DateLib.minElapsed`) throws `throwForbiddenError()` (403, link expired). If all checks pass, `updatePasswordDb(session, resetPwd._id, password)` re-hashes and persists the new password (throws `throwInternalError()` / 500 if the update reports failure), `removeResetReq(session, uEmail)` clears the pending reset request, and `SocketLabsLib.sendResetPwdConfirmation(uEmail, resetPwd.name)` sends a confirmation email.
 
 **Parameters:**
 
@@ -291,7 +291,7 @@ Completes the password-reset flow started by `resetPwd`. Normalizes/validates em
 **Throws:**
 - `400 Bad Request` — `checkEmailLen` / `checkPwdLen` validation failure, or a Mongo `[Validator]` error via `tryCatchRethrow`.
 - `403 Forbidden` — email not found, hash mismatch, or reset link older than 60 minutes (all three collapsed to the same status for privacy).
-- `500 Internal Server Error` — missing `resetHash`/`resetDateReq` on the stored record, a failed DB update, or any other uncaught error.
+- `500 Internal Server Error` — missing `resetHash`/`resetDateReq` on the stored record (including a reset left pending after another flow cleared `account.email.hash`), a failed DB update, or any other uncaught error.
 
 **Notes:** Runs in a `mongoose.startSession()` transaction. Description string is intentionally in Italian (`"cambia la password all'utente"`) — preserve as-is.
 

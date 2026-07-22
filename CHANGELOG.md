@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Security
+
+- `getResetPwd` no longer coerces a missing reset hash into a string. It built its return value with
+  `'' + account.email.hash`, so an absent hash became the literal nine-character string `"undefined"`. That value is not
+  `null`, so it cleared `updatePassword`'s guard, and it then compared equal to a caller sending that same literal as
+  the `hash` argument — completing a password reset with no secret at all, only the victim's email address and the
+  60-minute window. The state is reachable rather than theoretical: `account.email.hash` is a slot shared with the
+  email-verification and email-change flows, and `enableEmailAccess` / `confirmNewEmail` both clear it without touching
+  `account.resetDateReq`. Since `resetPwd` is unauthenticated and plants `resetDateReq` for any known address, an
+  attacker could open the window themselves and wait for the victim to complete a verification. `resetHash` is now
+  populated only when the stored value is a string, and fails closed to `null` (a 500) otherwise.
+
 ### Fixed
 
 - `yarn upload` now runs `npm publish --registry=https://registry.npmjs.org/`. Yarn 1 exports the registry from `.yarnrc`

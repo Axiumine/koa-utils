@@ -10,6 +10,7 @@
  * Branches:
  *   - email not in DB → 403 Forbidden
  *   - resetHash is null (no prior resetDateReq in DB) → 500 Internal Server Error
+ *   - resetHash is null (resetDateReq set but hash cleared) + caller sends 'undefined' → 500, no write
  *   - resetDateReq is null → 500 Internal Server Error
  *   - hash mismatch → 403 Forbidden
  *   - link expired (> 60 min) → 403 Forbidden
@@ -119,6 +120,34 @@ describe('updatePassword — resolve', () => {
 			500,
 			'Internal Server Error'
 		)
+	})
+
+	it('SECURITY: reset pending but hash cleared, caller sends the literal "undefined" → 500, password untouched', async () => {
+		// Reachable state, not a contrived one: account.email.hash is shared with the
+		// email-verification and email-change flows, and enableEmailAccess / confirmNewEmail unset
+		// it while leaving account.resetDateReq in place. getResetPwd used to render that missing
+		// hash as the string 'undefined' via `'' + hash`, which cleared the null check here and then
+		// compared equal to a caller sending that same literal — an account takeover requiring only
+		// the victim's email address and a 60-minute window.
+		const docWithClearedHash = {
+			_id: new Types.ObjectId(),
+			personalData: { name: 'Victim' },
+			account: {
+				resetDateReq: new Date(), // reset still pending
+				email: {} // hash unset by enableEmailAccess / confirmNewEmail
+			}
+		}
+		findOneStub.returns(makeSelectSessionLeanQuery(docWithClearedHash))
+		updateOneStub = sinon.stub(UserBase, 'updateOne')
+
+		await expectGraphQLErrorAsync(
+			() => updatePassword.resolve(null, { email: 'victim@test.com', hash: 'undefined', password: 'attacker12345' }),
+			500,
+			'Internal Server Error'
+		)
+
+		expect(updateOneStub.called, 'no write may reach the DB on this path').to.equal(false)
+		expect(sendResetConfirmationStub.called, 'no confirmation email may be sent').to.equal(false)
 	})
 
 	it('resetDateReq is null (no resetDateReq in result) → throws 500 Internal Server Error', async () => {
