@@ -44,7 +44,7 @@ function fakeResetPwdVal(resetDateReq?: Date) {
 		personalData: { name: 'Test User' },
 		account: {
 			resetDateReq,
-			email: { hash: 'existingHash' }
+			resetHash: 'existingHash'
 		}
 	}
 }
@@ -88,6 +88,21 @@ describe('resetPwd — resolve', () => {
 		expect(updateOneStub.calledOnce).to.equal(true)
 		expect(sendEmailResetStub.calledOnce).to.equal(true)
 		expect(sendEmailResetStub.firstCall.args[0]).to.equal('user@test.com')
+	})
+
+	it('SECURITY: a reset request leaves a pending email verification intact', async () => {
+		// resetPwd is unauthenticated — anyone knowing an address can call it. While the reset token
+		// lived in account.email.hash, that single call overwrote a pending activation or
+		// email-change hash, silently breaking the link already in the victim's inbox. Each click on
+		// the dead link then incremented account.email.requestTimes, and at 5
+		// handleIfTooMuchRequestsTimes deleted the account outright.
+		findOneStub.returns(makeQuery(fakeResetPwdVal(undefined)))
+
+		await resetPwd.resolve(null, { email: 'user@test.com' })
+
+		const written = Object.keys(updateOneStub.firstCall.args[1].$set)
+		expect(written).to.include('account.resetHash')
+		expect(written.filter((p) => p.startsWith('account.email.'))).to.deep.equal([])
 	})
 
 	it('prior request >= 10 min ago → recalculates hash and resends email', async () => {

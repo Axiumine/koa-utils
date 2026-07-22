@@ -77,6 +77,7 @@ export interface IUserBaseSchema {
 		accountValidDate?: Date
 		newsletter?: boolean
 		resetDateReq?: Date
+		resetHash?: string
 		disabled?: boolean
 		deleted?: boolean
 	}
@@ -102,7 +103,7 @@ The full document shape stored in the `user` collection: credentials/login times
 | account.email.valid | `boolean` | Whether the email has been verified (required in the schema). |
 | account.email.dateLastReq | `Date` (optional) | Date of the last verification/change request. |
 | account.email.requestTimes | `number` (optional) | Count of verification/change requests made. |
-| account.email.hash | `string` (optional) | Verification hash sent to the user's email. |
+| account.email.hash | `string` (optional) | Verification hash sent to the user's email — signup activation and email-change **only**, never password reset. |
 | account.email.newEmailTmp | `string` (optional) | Pending new email address awaiting confirmation. |
 | account.onboardingStep | `string` (optional) | Current onboarding step key. |
 | account.onboardingDone | `boolean` (optional) | Whether onboarding has completed. |
@@ -111,12 +112,15 @@ The full document shape stored in the `user` collection: credentials/login times
 | account.accountValidDate | `Date` (optional) | Date the account/email became valid. |
 | account.newsletter | `boolean` (optional) | Newsletter opt-in flag. |
 | account.resetDateReq | `Date` (optional) | Date of the last password-reset request. |
+| account.resetHash | `string` (optional) | Password-reset token, written by `saveResetReq` and cleared by `removeResetReq`. Separate from `account.email.hash` — see Notes. |
 | account.disabled | `boolean` (TS) / `String` (schema) (optional) | Administrative disable flag — see Notes for the type mismatch. |
 | account.deleted | `boolean` (optional) | Soft-delete flag. |
 | personalData.name | `string` (optional subdocument) | User's display/personal name, if `personalData` is present. |
 | __v | `number` (optional) | Mongoose version key. |
 
-**Notes:** The TypeScript interface types `account.disabled` as `boolean`, but the actual `UserBaseSchema` definition declares it as `type: String` (while `account.deleted` right next to it is `type: Boolean`). This is a pre-existing mismatch between the interface and the runtime schema — do not assume `account.disabled` is a real boolean at the driver level; treat it defensively (e.g. the way Redis-stored `'true'`/`'false'` strings are handled elsewhere in this codebase) rather than "fixing" the schema type silently.
+**Notes:** `account.resetHash` and `account.email.hash` are two distinct tokens and must never be read or written interchangeably. They differ in lifetime (60 minutes vs 3 days), throttle (10 minutes vs `account.email.requestTimes`) and trust domain: `account.email.hash` proves control of an inbox, `account.resetHash` authorises a password change. They shared one field through 5.0.3, which meant an unauthenticated `resetPwd` call silently invalidated a pending activation link (each click on the now-dead link bumping `requestTimes` towards the 5-strike account deletion in `handleIfTooMuchRequestsTimes`), and a hash minted by either flow was accepted by the other.
+
+The TypeScript interface types `account.disabled` as `boolean`, but the actual `UserBaseSchema` definition declares it as `type: String` (while `account.deleted` right next to it is `type: Boolean`). This is a pre-existing mismatch between the interface and the runtime schema — do not assume `account.disabled` is a real boolean at the driver level; treat it defensively (e.g. the way Redis-stored `'true'`/`'false'` strings are handled elsewhere in this codebase) rather than "fixing" the schema type silently.
 
 ## `UserBase`
 
@@ -127,7 +131,7 @@ The full document shape stored in the `user` collection: credentials/login times
 const UserBaseSchema: Schema<IUserBaseSchema> = new Schema(
 	{
 		login: { type: { _id: false, email: {...}, password: {...}, firstLogin: {...}, lastLogin: {...} }, required: true },
-		account: { type: { _id: false, email: {...}, onboardingStep: {...}, onboardingDone: {...}, rememberMe: {...}, registrationDate: {...}, accountValidDate: {...}, newsletter: {...}, resetDateReq: {...}, disabled: {...}, deleted: {...} }, required: true },
+		account: { type: { _id: false, email: {...}, onboardingStep: {...}, onboardingDone: {...}, rememberMe: {...}, registrationDate: {...}, accountValidDate: {...}, newsletter: {...}, resetDateReq: {...}, resetHash: {...}, disabled: {...}, deleted: {...} }, required: true },
 		personalData: { type: { _id: false, name: {...} }, required: false },
 		__v: { type: Number, required: false }
 	},

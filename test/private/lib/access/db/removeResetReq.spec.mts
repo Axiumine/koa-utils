@@ -50,14 +50,15 @@ describe('removeResetReq', () => {
 		expect(updateOneStub.calledOnce).to.equal(true)
 		expect(updateOneStub.firstCall.args[0]).to.deep.equal({ 'login.email': 'user@test.com' })
 		expect(updateOneStub.firstCall.args[1]).to.deep.equal({
-			$unset: { 'account.resetDateReq': '', 'account.email.hash': '' }
+			$unset: { 'account.resetDateReq': '', 'account.resetHash': '' }
 		})
 		expect(updateOneStub.firstCall.args[2]).to.deep.equal({ upsert: true })
 	})
 
 	it('unsets exactly the paths saveResetReq sets — no orphaned reset hash left behind', async () => {
-		// Regression guard: removeResetReq used to unset 'account.resetHash', a path that exists in
-		// neither UserBaseSchema nor saveResetReq, so the reset hash survived in account.email.hash.
+		// Regression guard, twice over: the two paths must stay in lockstep (an unset that misses one
+		// leaves either a live token or an orphan resetDateReq), and neither may be account.email.hash
+		// — clearing the verification slot here killed a concurrent activation or email-change link.
 		updateOneStub = sinon
 			.stub(UserBase, 'updateOne')
 			.returns(makeSessionExecChain({ acknowledged: true, matchedCount: 1, modifiedCount: 1 }) as never)
@@ -70,7 +71,8 @@ describe('removeResetReq', () => {
 		const unsetPaths = Object.keys(updateOneStub.firstCall.args[1].$unset).sort()
 
 		expect(unsetPaths).to.deep.equal(setPaths)
-		expect(unsetPaths).to.deep.equal(['account.email.hash', 'account.resetDateReq'])
+		expect(unsetPaths).to.deep.equal(['account.resetDateReq', 'account.resetHash'])
+		expect(unsetPaths.filter((p) => p.startsWith('account.email.'))).to.deep.equal([])
 	})
 
 	it('runs the update within the given session and resolves with the exec() result', async () => {

@@ -44,6 +44,14 @@ export interface IUserBaseSchema {
 		accountValidDate?: Date
 		newsletter?: boolean
 		resetDateReq?: Date
+		/**
+		 * Password-reset token. Deliberately NOT `account.email.hash`: that slot belongs to the
+		 * email-verification and email-change flows, which have a different lifetime (3 days vs 60
+		 * minutes), a different throttle, and a different trust domain. While the two shared one
+		 * field, requesting a reset silently invalidated a pending activation link, and a hash
+		 * issued by either flow was accepted by the other.
+		 */
+		resetHash?: string
 		disabled?: boolean
 		deleted?: boolean
 	}
@@ -133,6 +141,10 @@ const UserBaseSchema: Schema<IUserBaseSchema> = new Schema(
 				},
 				resetDateReq: {
 					type: Date,
+					required: false
+				},
+				resetHash: {
+					type: String,
 					required: false
 				},
 				disabled: {

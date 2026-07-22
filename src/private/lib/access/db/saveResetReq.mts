@@ -11,7 +11,10 @@ export const saveResetReq = async function (session: ClientSession, _id: Types.O
 			{
 				$set: {
 					'account.resetDateReq': now,
-					'account.email.hash': hash
+					// account.resetHash, never account.email.hash: writing the verification slot here
+					// invalidated any pending activation or email-change link, and left a live reset
+					// token in the field those flows compare against.
+					'account.resetHash': hash
 				}
 			},
 			{ session, runValidators: true }
