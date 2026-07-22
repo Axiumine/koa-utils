@@ -24,24 +24,6 @@ yarn add @node-rs/bcrypt @sentry/node @socketlabs/email clamscan dotenv \
   reflect-metadata sequelize sequelize-typescript sharp uuid
 ```
 
-## Upgrading to 5.1.0 — data migration required
-
-5.1.0 changes `account.disabled` from `type: String` to `type: Boolean` in both user schemas (it always was `boolean` in the TypeScript interfaces). Every version up to and including 5.0.3 could store the *strings* `'true'`/`'false'` in that field, and `'false'` is truthy — so a user explicitly marked **not** disabled was refused login with a 403. The schema fix repairs hydrated reads, but `.lean()` reads bypass Mongoose casting and still see the raw string, so the stored values have to be rewritten.
-
-The script is not part of the published tarball (`files: ["dist"]`). Take it from the [repository](https://github.com/Axiumine/koa-utils/blob/main/scripts/migrate-account-disabled-to-boolean.mjs) and run it once per database, before deploying 5.1.0:
-
-```bash
-# dry run — reports what it would change, writes nothing
-MONGO_URI='mongodb://user:pass@host:27017/dbname' node scripts/migrate-account-disabled-to-boolean.mjs
-
-# apply
-MONGO_URI='mongodb://user:pass@host:27017/dbname' node scripts/migrate-account-disabled-to-boolean.mjs --apply
-```
-
-It maps `'true'` → `true` and `'false'` → `false`, removes empty strings, and leaves any other value untouched while reporting it and exiting with code `2`. Re-runs are idempotent. A database only ever written by 5.1.0 or later needs nothing. Full details in [`CHANGELOG.md`](CHANGELOG.md).
-
-5.1.0 also moves the password-reset token to its own field, `account.resetHash`. Reset links issued before the upgrade stop working — the window is bounded by the 60-minute reset expiry, so it closes an hour after deploy. No migration needed for that one.
-
 ## Usage
 
 No barrel — import each helper from its explicit subpath.
