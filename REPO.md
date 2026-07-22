@@ -239,5 +239,5 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - `.claude/skills/`, `.agents/skills/` — Claude Code / Agent SDK scaffolding.
 - `skills-lock.json` — pinned skill manifest.
 - `z-ram.sh` — local helper script (RAM tweak, not part of library).
-- `scripts/migrate-account-disabled-to-boolean.mjs` — one-shot data migration for consumers. Rewrites `account.disabled`/`account.deleted` from string to boolean in the `user` and `userAdmin` collections. Dry run unless `--apply`; needs `MONGO_URI`. Required after the schema fix — see `CHANGELOG.md`.
+- `scripts/migrate-account-disabled-to-boolean.mjs` — one-shot data migration for consumers. Rewrites `account.disabled`/`account.deleted` from string to boolean in the `user` and `userAdmin` collections. Dry run unless `--apply`; needs `MONGO_URI`. Required once when upgrading from **5.0.3 or earlier** — see the "Migration required" section in `CHANGELOG.md`.
 - `CODEOWNERS` — single owner `@giovannimanzoni`.
