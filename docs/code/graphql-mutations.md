@@ -223,7 +223,8 @@ interface IArgs {
 
 /**
  * Take the user email and send an email with a link for change the password.
- * for privacy, true is returned if given email do not exist
+ * for privacy, true is returned whatever happens: unknown address, first request, or a request
+ * throttled because the previous one is less than 10 minutes old. The caller can never tell them apart.
  */
 export const resetPwd = {
 	description: 'send reset password link',
@@ -235,7 +236,7 @@ export const resetPwd = {
 }
 ```
 
-Sends a "reset your password" email, rate-limited to one every 10 minutes. Normalizes/validates the email, then inside a transaction calls `getResetPwd(session, uEmail)`; if the email does **not** exist it silently does nothing and still returns `true` (deliberate privacy behavior — the caller cannot distinguish "sent" from "no such account"). If it does exist: if a previous reset request (`resetDateReq`) was made less than 10 minutes ago, it throws `throwTooManyRequestsError((10 - elapsedMin).toString())` (429) with the remaining wait time; otherwise it generates a fresh random hash (`StringLib.randomString(EMAIL_HASH_LEN)`), persists it via `saveResetReq(session, resetPwdVal._id, nowDt, hash)`, and sends the reset-link email via `SocketLabsLib.sendEmailReset(uEmail, hash, resetPwdVal.name)`. The hash is stored in `account.resetHash`, which is disjoint from the `account.email.hash` slot used by signup activation and email-change — a reset request therefore never invalidates a verification link the user is already holding, and a verification hash is never accepted by `updatePassword`.
+Sends a "reset your password" email, rate-limited to one every 10 minutes. Normalizes/validates the email, then inside a transaction calls `getResetPwd(session, uEmail)`; if the email does **not** exist it silently does nothing and still returns `true` (deliberate privacy behavior — the caller cannot distinguish "sent" from "no such account"). If it does exist: if a previous reset request (`resetDateReq`) was made less than 10 minutes ago, it also silently does nothing and returns `true` — the throttle is enforced (no new hash written, no email sent) but never disclosed; otherwise it generates a fresh random hash (`StringLib.randomString(EMAIL_HASH_LEN)`), persists it via `saveResetReq(session, resetPwdVal._id, nowDt, hash)`, and hands the hash to the post-commit block, which queues the reset-link email via `SocketLabsLib.sendEmailReset(uEmail, hash, resetPwdVal.name)` **after** the transaction has committed and **without awaiting it**. The hash is stored in `account.resetHash`, which is disjoint from the `account.email.hash` slot used by signup activation and email-change — a reset request therefore never invalidates a verification link the user is already holding, and a verification hash is never accepted by `updatePassword`.
 
 **Parameters:**
 
@@ -243,14 +244,29 @@ Sends a "reset your password" email, rate-limited to one every 10 minutes. Norma
 |---|---|---|
 | email | `String!` | Account email to send the reset link to; normalized to lower-case/trimmed |
 
-**Returns:** `Boolean!` — always `true` on success, regardless of whether the email actually existed.
+**Returns:** `Boolean!` — always `true`, regardless of whether the email existed or the request was throttled.
 
 **Throws:**
 - `400 Bad Request` — `checkEmailLen` validation failure, or a Mongo `[Validator]` error via `tryCatchRethrow`.
-- `429 Too Many Requests` — a reset was already requested less than 10 minutes ago (message carries the remaining wait, in whole minutes, floored to a minimum of `1`).
 - `500 Internal Server Error` — any other uncaught error via `tryCatchRethrow`.
 
 **Notes:** Runs in a `mongoose.startSession()` transaction. Never reveals whether the given email is registered — this is intentional and should not be "fixed".
+
+Up to and including 5.1.1 the throttled case threw `throwTooManyRequestsError((10 - elapsedMin).toString())` (429) carrying the remaining wait in whole minutes. That answer could only ever reach a caller whose address was both registered and mid-reset, while an unknown address got `true` — an account-enumeration oracle on an unauthenticated mutation. The 429 is gone; the 10-minute throttle itself is unchanged. **Consumers that surfaced "please wait N minutes" in their UI must drop that branch** — a repeated request within the window is now indistinguishable from the first one. `throwTooManyRequestsError` itself is still exported and unchanged, it simply has no caller left in this package.
+
+### Why the email is sent after the commit, and not awaited
+
+The same version moved `sendEmailReset` out of the `withTransaction` callback and stopped awaiting it. Three separate reasons, only the first of which is about timing:
+
+- **Timing.** Awaiting a network round-trip to SocketLabs made the response measurably slower in exactly one case: address registered *and* not throttled. That is the same fact the removed 429 used to state outright, so removing the status code while keeping the `await` would have left the oracle in place, just quieter. What remains in the awaited path is one extra `updateOne` — roughly a millisecond, against internet jitter an order of magnitude larger, and the 10-minute throttle caps an attacker at one sample per address, so there is no way to average the noise away.
+- **Retries.** `session.withTransaction` re-runs its callback on a transient error. With the send inside, a retried commit mailed the user a second link, and the second `saveResetReq` invalidated the first one they may already have clicked.
+- **Failure disclosure.** A SocketLabs outage used to propagate out of the transaction and surface as `500` — again, an answer only an address that actually exists could ever receive.
+
+The costs, accepted deliberately: a delivery failure is now reported to Sentry (`captureException`) and nowhere else, the caller always sees `true`; and mail still in flight is lost if the process is killed before the request settles. Anything thrown synchronously on that path — including from the `SocketLabsLib` constructor — is caught and sent to Sentry rather than escaping the resolver, so the response is uniform whatever happens.
+
+There is a third cost worth stating on its own, because it is the one a user notices: the hash and `resetDateReq` are already committed when the send is attempted, so **a failed send still arms the 10-minute throttle**. The user gets no link, and a retry inside the window is silently ignored — they wait out the window before a second request can produce anything.
+
+Compensating for that — deleting `account.resetHash` / `account.resetDateReq` from the detached `.catch()` so the next request is not throttled — was considered and rejected. A rejected promise does not mean the message was not delivered: a timeout after SocketLabs accepted it would clear the hash while the link sits in the user's inbox, turning a slow send into a dead link. Waiting out the window is the safer of the two failures. Do not add the compensation without revisiting that trade.
 
 ## `updatePassword`
 
@@ -276,7 +292,7 @@ export const updatePassword = {
 }
 ```
 
-Completes the password-reset flow started by `resetPwd`. Normalizes/validates email and new password, then inside a transaction: `getResetPwd(session, uEmail)`; if `null` throws `throwForbiddenError()` (403, does not reveal that the email is unknown); if `resetHash` or `resetDateReq` is `null` throws `throwInternalError()` (500 — reachable, not merely defensive: any write that drops `account.resetHash` while leaving `account.resetDateReq` in place lands here, and `getResetPwd` deliberately does not fall back to `account.email.hash`); if the supplied `hash` does not match `resetPwd.resetHash` throws `throwForbiddenError()` (403); if more than 60 minutes have elapsed since `resetDateReq` (`DateLib.minElapsed`) throws `throwForbiddenError()` (403, link expired). If all checks pass, `updatePasswordDb(session, resetPwd._id, password)` re-hashes and persists the new password (throws `throwInternalError()` / 500 if the update reports failure), `removeResetReq(session, uEmail)` clears the pending reset request, and `SocketLabsLib.sendResetPwdConfirmation(uEmail, resetPwd.name)` sends a confirmation email.
+Completes the password-reset flow started by `resetPwd`. Normalizes/validates email and new password, then inside a transaction: `getResetPwd(session, uEmail)`; if `null` throws `throwForbiddenError()` (403, does not reveal that the email is unknown); if `resetHash` or `resetDateReq` is `null` it reports the record to Sentry via `captureMessage` and throws the same `throwForbiddenError()` (403 — reachable, not merely defensive: `getResetPwd` yields `resetHash === null` for every account with no `account.resetDateReq` at all, and also for any write that drops `account.resetHash` while leaving `account.resetDateReq` in place, since it deliberately does not fall back to `account.email.hash`); if the supplied `hash` does not match `resetPwd.resetHash` throws `throwForbiddenError()` (403); if more than 60 minutes have elapsed since `resetDateReq` (`DateLib.minElapsed`) throws `throwForbiddenError()` (403, link expired). If all checks pass, `updatePasswordDb(session, resetPwd._id, password)` re-hashes and persists the new password (throws `throwInternalError()` / 500 if the update reports failure), and `removeResetReq(session, uEmail)` clears the pending reset request. `SocketLabsLib.sendResetPwdConfirmation(uEmail, resetPwd.name)` then sends the confirmation email **after** the transaction has committed — awaited, unlike `resetPwd`'s send, but with any failure routed to Sentry rather than to the caller.
 
 **Parameters:**
 
@@ -290,10 +306,20 @@ Completes the password-reset flow started by `resetPwd`. Normalizes/validates em
 
 **Throws:**
 - `400 Bad Request` — `checkEmailLen` / `checkPwdLen` validation failure, or a Mongo `[Validator]` error via `tryCatchRethrow`.
-- `403 Forbidden` — email not found, hash mismatch, or reset link older than 60 minutes (all three collapsed to the same status for privacy).
-- `500 Internal Server Error` — missing `resetHash`/`resetDateReq` on the stored record (including a reset pending with `account.resetHash` gone, and any attempt to pass an `account.email.hash` verification hash here), a failed DB update, or any other uncaught error.
+- `403 Forbidden` — every pre-write rejection: email not found, no usable `resetHash`/`resetDateReq` on the stored record (including an account that never requested a reset, a reset pending with `account.resetHash` gone, and any attempt to pass an `account.email.hash` verification hash here), hash mismatch, or reset link older than 60 minutes. All collapsed to one status, one title and one description, deliberately.
+- `500 Internal Server Error` — a failed DB update (`updatePasswordDb` returning falsy), or any other uncaught error inside the transaction. Never reachable before the write, and no longer reachable from the confirmation email either.
 
 **Notes:** Runs in a `mongoose.startSession()` transaction. Description string is intentionally in Italian (`"cambia la password all'utente"`) — preserve as-is.
+
+Up to and including 5.1.1 the missing-`resetHash` case answered `500` instead of `403`. Because `getResetPwd` returns `resetHash === null` for every account whose `account.resetDateReq` is undefined — nearly the whole user base at any moment — the pair `403` (unknown address) / `500` (registered, no reset pending) was a plain account-enumeration oracle: unauthenticated, unthrottled, one address per request, with no timing difference to hide behind since neither path reaches bcrypt. The orphan-record signal that used to travel as a 500 now goes to Sentry as a `captureMessage`; the caller learns nothing either way. **Consumers must not branch on 500 vs 403 here** — a status-code check that used to mean "malformed reset state" now needs the Sentry alert instead.
+
+### Why the confirmation email is sent after the commit
+
+The same version moved `sendResetPwdConfirmation` out of the `withTransaction` callback. `session.withTransaction` re-runs its callback on a transient error, and with the send inside, a retried commit told the user twice that their password had changed — a second notice indistinguishable from someone else resetting the account again. It stays `await`ed: unlike `resetPwd` there is no timing oracle to close, because reaching that line at all requires a valid reset hash.
+
+A delivery failure no longer fails the request. It used to abort the transaction and answer `500`, rolling back both the new password and `removeResetReq` — consistent, but it made the mail provider a hard dependency of the operation: while SocketLabs was down, no user could complete a password reset at all, however healthy the database was. The password is committed before the send now, so the failure goes to Sentry (`captureException`) and the caller still gets `true`. The confirmation is a notice, not part of the operation.
+
+Aborting on a failed send is not an option that survives the move, and that is the whole reason the failure is swallowed: once the transaction has committed there is nothing left to abort. The only two alternatives are to rethrow (`500` describing a password change that did happen — the caller retries with a password that is already live) or to compensate by writing the previous bcrypt hash back, which this flow never reads and which would silently revoke a password the user may already have logged in with. Restoring the send to the inside of the callback would bring back both the duplicate notice on retry and the reverse inconsistency — mail delivered, commit then fails, user told about a change that never happened, and an email that cannot be recalled. Unlike `resetPwd`'s link, this message carries nothing the user needs in order to act, so losing it costs the operation nothing.
 
 ## `emailChangeHashVerify`
 
