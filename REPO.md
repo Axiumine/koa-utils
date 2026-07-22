@@ -235,7 +235,6 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 
 ## 9. Tooling around the repo
 
-- `.idea/` — JetBrains config in tree.
 - `.claude/skills/`, `.agents/skills/` — Claude Code / Agent SDK scaffolding.
 - `skills-lock.json` — pinned skill manifest.
 - `z-ram.sh` — local helper script (RAM tweak, not part of library).
