@@ -15,7 +15,17 @@ export const getResetPwd = async function (session: ClientSession, email: string
 		let resetHash = null
 
 		if (typeof resetDateReq !== 'undefined') {
-			resetHash = '' + queryRet.account.email.hash
+			const storedHash = queryRet.account.email.hash
+
+			// Never stringify: account.email.hash is a slot shared with the email-verification and
+			// email-change flows, so enableEmailAccess / confirmNewEmail can clear it while
+			// account.resetDateReq survives. '' + undefined yields the literal string "undefined",
+			// which passed updatePassword's null check and then matched a caller sending that same
+			// literal as the hash argument — a reset with no secret at all. Absent hash => null,
+			// which updatePassword rejects with a 500.
+			if (typeof storedHash === 'string') {
+				resetHash = storedHash
+			}
 		}
 
 		ret = {

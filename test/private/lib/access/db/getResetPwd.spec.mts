@@ -5,7 +5,8 @@
  *
  * Branches:
  *   - queryRet === null (no reset request found) → returns null
- *   - queryRet !== null + resetDateReq !== undefined → resetHash = '' + hash (string)
+ *   - queryRet !== null + resetDateReq !== undefined + hash is a string → resetHash = that hash
+ *   - queryRet !== null + resetDateReq !== undefined + hash absent → resetHash stays null
  *   - queryRet !== null + resetDateReq === undefined → resetHash stays null
  *   - queryRet.personalData?.name defined (truthy) → name used as-is
  *   - queryRet.personalData is undefined → name falls back to ''
@@ -60,7 +61,7 @@ describe('getResetPwd', () => {
 			makeFindOneChain({
 				_id: id,
 				personalData: { name: 'Alice' },
-				account: { resetDateReq, email: { hash: 12345 } }
+				account: { resetDateReq, email: { hash: 'abc12345' } }
 			})
 		)
 
@@ -69,9 +70,54 @@ describe('getResetPwd', () => {
 		expect(result).to.deep.equal({
 			_id: id,
 			resetDateReq,
-			resetHash: '12345',
+			resetHash: 'abc12345',
 			name: 'Alice'
 		})
+	})
+
+	it('SECURITY: resetDateReq defined but hash cleared → resetHash null, never the string "undefined"', async () => {
+		// account.email.hash is shared with the email-verification and email-change flows:
+		// enableEmailAccess / confirmNewEmail unset it without touching account.resetDateReq, so
+		// this state is reachable whenever one of those completes while a reset is pending.
+		// The previous '' + hash produced the literal "undefined", which updatePassword accepted
+		// as a match against a caller sending that same literal — a takeover needing no secret.
+		const id = new Types.ObjectId()
+		const resetDateReq = new Date()
+		findOneStub.returns(
+			makeFindOneChain({
+				_id: id,
+				personalData: { name: 'Bob' },
+				account: { resetDateReq, email: {} }
+			})
+		)
+
+		const result = await getResetPwd(fakeSession, 'victim@test.com')
+
+		expect(result).to.deep.equal({
+			_id: id,
+			resetDateReq,
+			resetHash: null,
+			name: 'Bob'
+		})
+		expect(result?.resetHash).to.not.equal('undefined')
+	})
+
+	it('resetDateReq defined but hash is a non-string value → resetHash null (fails closed)', async () => {
+		// The schema types hash as String, so a non-string can only come from a write that
+		// bypassed Mongoose. Coercing it would mint a reset token from whatever landed there.
+		const id = new Types.ObjectId()
+		const resetDateReq = new Date()
+		findOneStub.returns(
+			makeFindOneChain({
+				_id: id,
+				personalData: { name: 'Carol' },
+				account: { resetDateReq, email: { hash: 12345 } }
+			})
+		)
+
+		const result = await getResetPwd(fakeSession, 'user3@test.com')
+
+		expect(result?.resetHash).to.equal(null)
 	})
 
 	it('reset request found + resetDateReq undefined + personalData undefined → resetHash null, name defaults to empty string', async () => {
