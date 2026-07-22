@@ -2,13 +2,12 @@
  * Tests for private/lib/access/db/removeResetReq.mts
  *
  * Chain: removeResetReq(session, email)
- *   → UserBase.updateOne({ 'login.email': email }, { $unset: ... }, { upsert: true }).session(session).exec()
+ *   → UserBase.updateOne({ 'login.email': email }, { $unset: ... }).session(session).exec()
  *
- * FOOTGUN: the call passes { upsert: true }. When `email` matches no document, MongoDB does not
- * no-op — it CREATES a new document containing only the $unset target paths implicitly initialised
- * (i.e. an otherwise-empty user row keyed by login.email). This is pinned explicitly below: the
- * options object always carries upsert:true, and the resolved write result surfaces upsertedId/
- * upsertedCount even when matchedCount is 0, proving a document was created rather than skipped.
+ * The call used to pass { upsert: true }, which meant a `email` matching no document did not no-op —
+ * MongoDB inserted a row keyed by login.email, and because updateOne skips validators that row
+ * carried none of the schema's required fields. The option is gone; the tests below pin its absence
+ * and the no-op result, so it cannot come back unnoticed.
  */
 import removeResetReq from '@private/lib/access/db/removeResetReq.mjs'
 import { saveResetReq } from '@private/lib/access/db/saveResetReq.mjs'
@@ -40,7 +39,7 @@ describe('removeResetReq', () => {
 		sinon.restore()
 	})
 
-	it('calls UserBase.updateOne with a login.email filter, $unset update, and upsert:true option', async () => {
+	it('calls UserBase.updateOne with a login.email filter and $unset update, and passes no options', async () => {
 		updateOneStub = sinon
 			.stub(UserBase, 'updateOne')
 			.returns(makeSessionExecChain({ acknowledged: true, matchedCount: 1, modifiedCount: 1 }) as never)
@@ -52,7 +51,9 @@ describe('removeResetReq', () => {
 		expect(updateOneStub.firstCall.args[1]).to.deep.equal({
 			$unset: { 'account.resetDateReq': '', 'account.resetHash': '' }
 		})
-		expect(updateOneStub.firstCall.args[2]).to.deep.equal({ upsert: true })
+		// No third argument at all. Asserting the whole args list, not just args[2], so that
+		// reintroducing any option object — upsert or otherwise — fails here.
+		expect(updateOneStub.firstCall.args).to.have.lengthOf(2)
 	})
 
 	it('unsets exactly the paths saveResetReq sets — no orphaned reset hash left behind', async () => {
@@ -84,27 +85,27 @@ describe('removeResetReq', () => {
 		expect(result).to.deep.equal(execResult)
 	})
 
-	it('FOOTGUN: a non-matching email creates a new document instead of no-oping (upsert:true)', async () => {
-		const upsertedId = new Types.ObjectId()
-		// Real MongoDB behaviour being pinned: matchedCount 0 + upsertedCount 1 means a brand-new
-		// document was inserted for 'login.email': 'ghost@test.com', not that nothing happened.
+	it('REGRESSION: a non-matching email no-ops instead of creating a document', async () => {
+		// With { upsert: true } this same call answered matchedCount 0 + upsertedCount 1 + upsertedId,
+		// i.e. MongoDB inserted a row for 'ghost@test.com' carrying nothing but login.email —
+		// updateOne runs no validators, so none of the schema's required fields applied. Without the
+		// option the write matches nothing and nothing is created.
 		const execResult = {
 			acknowledged: true,
 			matchedCount: 0,
 			modifiedCount: 0,
-			upsertedCount: 1,
-			upsertedId
+			upsertedCount: 0,
+			upsertedId: null
 		}
 		updateOneStub = sinon.stub(UserBase, 'updateOne').returns(makeSessionExecChain(execResult) as never)
 
 		const result = await removeResetReq(fakeSession, 'ghost@test.com')
 
-		// The options object is what makes this possible — assert it is still upsert:true even
-		// for an email that does not exist in the collection.
-		expect(updateOneStub.firstCall.args[2]).to.deep.equal({ upsert: true })
+		// The option is what made an insert possible, so its absence is the assertion that matters.
+		expect(updateOneStub.firstCall.args).to.have.lengthOf(2)
 		expect(result).to.deep.equal(execResult)
 		expect((result as typeof execResult).matchedCount).to.equal(0)
-		expect((result as typeof execResult).upsertedCount).to.equal(1)
-		expect((result as typeof execResult).upsertedId).to.equal(upsertedId)
+		expect((result as typeof execResult).upsertedCount).to.equal(0)
+		expect((result as typeof execResult).upsertedId).to.equal(null)
 	})
 })

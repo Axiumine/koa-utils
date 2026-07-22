@@ -24,6 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `removeResetReq` no longer passes `{ upsert: true }`. Clearing the reset state of an email that matches no document
+  did not no-op — MongoDB inserted a row keyed by `login.email`, and because `updateOne` runs no validators that row
+  satisfied none of the schema's required fields (`login.password`, `account.email.valid`, `account.registrationDate`),
+  leaving a junk user document behind. No caller could reach it today (`updatePassword` only calls it once the reset
+  record has been read back), so nothing observable changes; the option was a trap waiting for the next caller. The
+  spec now asserts `updateOne` is called with exactly two arguments, so any option object reintroduced later fails
+  there.
 - `test/graphQL/schema/mutations/emailChangeHashVerify.spec.mts` records the projection handed to `.select(...)` and
   asserts it covers every field the resolver reads. The bug above survived a green 100% gate because the `findOne` stub
   discarded the projection argument and returned a hand-built document that always carried `requestTimes` — the stub
