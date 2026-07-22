@@ -5,6 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.3.0 — 2026-07-22
+
+Additive release. The password-reset and email-verification flows are no longer bound to the `UserBase` model, but every
+existing export keeps its name, its signature and its behaviour: upgrading from 5.2.0 is a drop-in, with no migration.
+
+### Added
+
+- `createResetPwdFlow({ model, paths })` and `createVerifyEmailFlow({ model, paths })` build the two access flows against
+  any Mongoose model. `UserBase` pins `collection: 'user'` and a fixed field layout (`login.email`, `login.password`,
+  `account.resetHash`, `account.email.*`), and every helper underneath the two flows hard-coded those paths — so a
+  consumer whose accounts live in another collection, or under another field tree, could not use `resetPwd`,
+  `updatePassword` or the verify-email chain at all. Nothing threw: the queries simply matched no document and the whole
+  flow silently no-oped.
+
+  `createResetPwdFlow` returns `{ resetPwd, updatePassword }`, ready to drop into a schema's `Mutation` fields.
+  `createVerifyEmailFlow` returns the whole chain — `userData4VerifyEmail`, `setEmailHash`, `enableEmailAccess`,
+  `confirmNewEmail`, `deleteUserByEmail`, `incReqTimes`, `assertVerifyEmailAllowed`, `emailChangeHashVerify` and
+  `routerVerifyEmail` — bound to the same model and path map, so the five-strike account delete and the 3-day link expiry
+  act on the caller's collection rather than on `user`.
+
+- `accessPaths` exports the two path maps, their defaults and their resolvers: `IResetPwdPaths`,
+  `DEFAULT_RESET_PWD_PATHS`, `resolveResetPwdPaths`, `IVerifyEmailPaths`, `DEFAULT_VERIFY_EMAIL_PATHS`,
+  `resolveVerifyEmailPaths` and `TAccessModel`. Both default maps are `Object.freeze`d, lists included, so one consumer
+  cannot mutate the defaults of another. `paths` is a `Partial` merged over the defaults — pass only the keys that
+  differ, since a key present with an explicit `undefined` overrides the default *with* `undefined`.
+
+- `resetClear`, `verifyClear` and `emailChangeClear` are caller-supplied lists of paths to `$unset`, deliberately **not**
+  derived from the leaf paths the flow reads. A layout that stores the request as one all-or-nothing subdocument —
+  `resetPwd: { resetDateReq: Date, resetHash: String }`, both members required whenever the container exists — under
+  `validationLevel: 'strict'` / `validationAction: 'error'` rejects a write that unsets a single member, because the
+  leftover document fails validation. The only legal cleanup there is `$unset: { resetPwd: '' }`, one container path
+  rather than two leaf paths. A flat layout never hits this, so a derived list would look correct and would make the
+  strict layout impossible to express.
+
+- Three export keys: `./lib/access/createResetPwdFlow`, `./lib/access/createVerifyEmailFlow` and
+  `./lib/access/accessPaths`. 143 → 146.
+
+### Changed
+
+- Every helper under `src/private/lib/access/**` is now `createXxx(model, paths)`, and the three access mutations and the
+  Koa router take their collaborators as injected dependencies. Each module still exports a `UserBase`-bound default
+  under its original name, built by applying its own factory at module load — there is no second code path, so a
+  behaviour change made in one is made in both. Under the default maps, the projection strings the flows build are
+  byte-identical to the hand-written ones they replace.
+- `assertVerifyEmailAllowed` is built by `createAssertVerifyEmailAllowed({ paths, handleIfHashBad,
+  handleIfMoreThan3DaysPassed, handleIfTooMuchRequestsTimes })` and reads the account document through dotted paths
+  rather than through the `IVerifyEmailUser` shape. The exported guard keeps its `(user, email, hash) =>
+  Promise<ObjectId>` signature and its order of checks.
+
+### Tests
+
+- `src/koa/router/verifyEmail.mts` no longer carries `/* c8 ignore start/stop */`. The block existed because the
+  handler's first statement was an ESM live binding sinon cannot replace, so the entire `try` body was dead code in the
+  suite while the file still reported 100%. With the collaborators injected, all three paths — activation, rejecting
+  guard, failing write — are exercised directly, and the ignore is deleted rather than moved.
+- New specs drive both factories end to end against a fake model with a deliberately alien layout (`mail`, `pwd`,
+  `profile.fullName`, `resetPwd.*`, `verification.*`, `verified`), asserting the filter, the projection string and the
+  exact update document — including that `resetClear: ['resetPwd']` produces `$unset: { resetPwd: '' }` and not two leaf
+  unsets.
+- 119 → 123 spec files, 682 → 731 tests. Coverage stays 100% on statements, branches, functions and lines, per file.
+
+### Documentation
+
+- New `docs/code/lib-access.md` documents both factories, both path maps key by key, and the `resetClear` rationale. It
+  is indexed from `docs/code/README.md`, and `CLAUDE.md` gains the matching `src/lib/access/**` row in its doc map.
+- `docs/code/internal.md`, `graphql-mutations.md` and `koa-middleware.md` describe the factory signatures and the
+  injected dependencies; `README.md` gains an "Access flows on your own model" section; `REPO.md` lists the new files.
+
 ## 5.2.0 — 2026-07-22
 
 Security release. Closes two account-enumeration oracles in the password-reset pair. No signature changes and no

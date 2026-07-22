@@ -56,6 +56,7 @@ Docs here hand-written reference, not generated (one exception: `<!-- gitnexus:s
 | `src/koa/*.mts`, `src/koa/router/**` | `docs/code/koa-core.md` |
 | `src/koa/middleware/**` | `docs/code/koa-middleware.md` |
 | `src/lib/*.mts` (core helpers) | `docs/code/lib-core.md` |
+| `src/lib/access/**` | `docs/code/lib-access.md` |
 | `src/lib/db/**` | `docs/code/lib-db.md` |
 | `src/lib/MariaDB/**`, `lib/MongoDB/**`, `lib/PostgreSQL/**` | `docs/code/lib-datasource-errors.md` |
 | `src/lib/Redis/**` and remaining `src/lib/` utilities | `docs/code/lib-utilities.md` |
@@ -182,6 +183,9 @@ Yarn Berry (4.x) solve this natively — its lockfile store `resolution: "pkg@np
 - Two hash fields, never interchangeable. `account.email.hash` = inbox proof (signUp activation, email-change; 3 day life, `requestTimes` throttle). `account.resetHash` = password-reset authorisation (60 min life, 10 min throttle, `saveResetReq` / `getResetPwd` / `removeResetReq` only). They shared one slot through 5.0.3: hash from either flow authenticated the other, and one unauthenticated `resetPwd` call killed a pending activation link, driving `requestTimes` to the 5-strike account delete. Never read `account.email.hash` as a reset-hash fallback, never write it from a reset path.
 - `account.disabled` and `account.deleted` are `type: Boolean` in both user schemas, and must stay that way. `disabled` was `type: String` through 5.0.3, which inverted the flag: Mongoose cast a stored boolean `false` to the string `'false'` on write **and** on hydrated reads, `'false'` is truthy, and every consumer test with a bare `if (account.disabled)` — so `_finalizeLoginCheck` answered 403 plus an "account disabled" email to user explicitly marked NOT disabled, and the flag could not be cleared through the model at all. Schema fix repair hydrated reads only. `.lean()` reader (`userData4VerifyEmail`, `emailChangeHashVerify`) bypass casting and still see raw string, so stored data must go through `scripts/migrate-account-disabled-to-boolean.mjs`. Do not add runtime coercion at those call site — owner decision: migration is the fix, code read flags raw.
 - Stub of `findOne` that discard `.select()` argument hide projection bug, and `.lean()` make them silent: field left out of projection is simply absent on returned object, no error. `emailChangeHashVerify` omitted `account.email.requestTimes` through 5.1.0, so hash-mismatch path threw 500 every time — strike counter never advanced, owner never warned, and 500-vs-false told caller an email change was pending. Green 100% gate whole time, because stub decide document shape so document never disagree with projection. Whenever spec stub a projected read, capture projection string and assert it cover every field resolver read. See `selectedFields` in `test/graphQL/schema/mutations/emailChangeHashVerify.spec.mts` and `test/private/lib/access/db/getResetPwd.spec.mts`.
+- Access flows (reset-password + verify-email) model-agnostic since 5.3.0. Every db helper and guard under `src/private/lib/access/**` is `createXxx(model, paths)` plus a `UserBase`-bound default of same name; the three mutations and `routerVerifyEmail` take their collaborators as deps. Never re-hardcode `UserBase` or a literal field path inside one — bind through `src/lib/access/create*Flow.mts`. Public entry: `createResetPwdFlow` / `createVerifyEmailFlow` / `accessPaths`.
+- `resetClear`, `verifyClear`, `emailChangeClear` are caller-supplied `$unset` lists, **not** derived from the leaf paths the flow reads. Layout storing the request as one required-members subdocument under `validationLevel: 'strict'` reject a write unsetting single member — only legal cleanup there is container path. Deriving the list look correct on flat layout and make strict layout impossible.
+- `src/koa/router/verifyEmail.mts` no longer carry `/* c8 ignore start/stop */`. Block existed because first statement was ESM live binding sinon cannot stub, so try-body was dead code in suite. Deps injected now, all three paths covered. Do not reintroduce the ignore, and do not go back to importing the collaborators directly.
 - `SocketLabsLib` spec asserting only returned boolean pin nothing about email itself. Four bugs shipped that way — dead activation URL, stray `}` in subject, leaked `" +` concat syntax in body, hard-coded recipient — all under green 100% gate. Read message back with `sentMessage()` helper in `test/email/SocketLabsLib.spec.mts` and assert subject/textBody/htmlBody whenever you touch copy.
 
 ## Owner / style
@@ -199,7 +203,7 @@ Yarn Berry (4.x) solve this natively — its lockfile store `resolution: "pkg@np
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **koa-utils** (7008 symbols, 9305 relationships, 38 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **koa-utils** (7063 symbols, 9371 relationships, 38 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 

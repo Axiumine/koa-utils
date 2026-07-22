@@ -1,6 +1,6 @@
 # @axiumine/koa-utils — Code Reference
 
-`@axiumine/koa-utils` is a TypeScript utility library for Koa + GraphQL backends: auth (signup/login/refresh/logout) mutations and middleware, Mongoose models, GraphQL error helpers, file-upload pipeline, transactional email, and low-level DB/Redis helpers. It ships ESM-only (`.mjs` / `.d.mts`) and targets Node `^24.14.0`. Current version: **5.2.0**.
+`@axiumine/koa-utils` is a TypeScript utility library for Koa + GraphQL backends: auth (signup/login/refresh/logout) mutations and middleware, Mongoose models, GraphQL error helpers, file-upload pipeline, transactional email, and low-level DB/Redis helpers. It ships ESM-only (`.mjs` / `.d.mts`) and targets Node `^24.14.0`. Current version: **5.3.0**.
 
 ## Install
 
@@ -33,6 +33,7 @@ import { authenticatedResourceHandler } from '@axiumine/koa-utils/koa/middleware
 | [GraphQL — Errors & Status](./graphql-errors.md) | `throwGraphQLError` and the `throwXxxError` helper hierarchy mapping to HTTP status codes. |
 | [Koa — Core Helpers](./koa-core.md) | `customFormatErrorFn`, `logRequestToDb`, `tdwKoaErrorHandler`, and related interfaces. |
 | [Koa — Auth Middleware & Router](./koa-middleware.md) | Redis-backed session guards, logout handler, and the email-verification router. |
+| [Lib — Model-Agnostic Access Flows](./lib-access.md) | `createResetPwdFlow` / `createVerifyEmailFlow` — bind the password-reset and email-verification flows to any Mongoose model and field layout. |
 | [Lib — Auth, Tokens, Crypto, Validation](./lib-core.md) | Token generation, cookie options, bcrypt helpers, validators, `tryCatchRethrow`. |
 | [Lib — Utility Classes](./lib-utilities.md) | `ArrayLib`, `DateLib`, `NumLib`, `StringLib`. |
 | [Lib — DB Error Mapping & Redis Booleans](./lib-datasource-errors.md) | Per-engine error shapes/mappers for MariaDB, MongoDB, PostgreSQL, plus the Redis boolean codec. |

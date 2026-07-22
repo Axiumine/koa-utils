@@ -76,6 +76,32 @@ const Mutation = new GraphQLObjectType({
 })
 ```
 
+### Access flows on your own model
+
+The mutations above are bound to this package's `UserBase` model (collection `user`, fields under `login.*` / `account.*`). If your accounts live elsewhere, build the same flows against your own model and field layout instead:
+
+```ts
+import { createResetPwdFlow } from '@axiumine/koa-utils/lib/access/createResetPwdFlow'
+import { createVerifyEmailFlow } from '@axiumine/koa-utils/lib/access/createVerifyEmailFlow'
+
+const { resetPwd, updatePassword } = createResetPwdFlow({
+	model: Account,
+	paths: {
+		email: 'mail',
+		password: 'pwd',
+		name: 'profile.fullName',
+		resetDateReq: 'resetPwd.resetDateReq',
+		resetHash: 'resetPwd.resetHash',
+		resetClear: ['resetPwd'] // paths to $unset — a container, not its members, on a strict subdocument
+	}
+})
+
+const verify = createVerifyEmailFlow({ model: Account, paths: { email: 'mail', valid: 'verified' } })
+router.get('/check/verify-email/:email/:hash', verify.routerVerifyEmail())
+```
+
+Every `paths` key is optional and falls back to the `UserBase` layout, so the package-level exports are exactly these factories with no overrides. See [docs/code/lib-access.md](./docs/code/lib-access.md).
+
 ### GraphQL error helpers
 
 ```ts

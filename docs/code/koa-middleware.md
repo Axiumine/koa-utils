@@ -139,6 +139,14 @@ Pure diagnostic pass-through — performs no validation and populates nothing. L
 
 **Signature:**
 ```ts
+export interface IVerifyEmailRouterDeps {
+	userData4VerifyEmail: TUserData4VerifyEmail
+	assertVerifyEmailAllowed: TAssertVerifyEmailAllowed
+	enableEmailAccess: TEnableEmailAccess
+}
+
+export const createVerifyEmailRouter: (deps: IVerifyEmailRouterDeps) => () => (ctx: IContextVerifyEmail) => Promise<void>
+
 export const routerVerifyEmail: () => (ctx: IContextVerifyEmail) => Promise<void>
 ```
 
@@ -146,4 +154,6 @@ Koa **router** handler (terminal — no `next`) for the email-verification link,
 
 **Returns:** `Promise<void>` — always resolves by calling `ctx.redirect(...)`; never throws outward (errors are caught internally and converted to a redirect).
 
-**Notes:** all of `userData4VerifyEmail`, `enableEmailAccess`, `assertVerifyEmailAllowed`, `handleBadDB`, and the `handleIf*` chain live under `@private/lib/access/**`, and `IContextVerifyEmail` under `@private/graphQL/schema/context/**` — these are internal-only and are **not** exported from the package (`**Import:** _internal — not exported_` for all of them); only `routerVerifyEmail` itself is a public export. The whole handler body is wrapped in `/* c8 ignore start ... stop */` because of an ESM live-binding limitation — the inner private handlers are non-configurable under the `tsx` test loader, so coverage of this function is asserted at the consumer/integration level rather than in this package's own suite.
+**Notes:** all of `userData4VerifyEmail`, `enableEmailAccess`, `assertVerifyEmailAllowed`, `handleBadDB`, and the `handleIf*` chain live under `@private/lib/access/**`, and `IContextVerifyEmail` under `@private/graphQL/schema/context/**` — these are internal-only and are **not** exported from the package (`**Import:** _internal — not exported_` for all of them); only `routerVerifyEmail` itself is a public export.
+
+Since 5.3.0 the handler takes its reader, guard chain and writer as arguments, and `routerVerifyEmail` is `createVerifyEmailRouter` applied to the `UserBase`-bound trio — same behaviour, same signature for consumers. Two consequences: a consumer whose accounts live in another collection builds its own router via [`createVerifyEmailFlow`](./lib-access.md), and the `/* c8 ignore start ... stop */` block that used to wrap the whole handler body is **gone**. It was there because the first statement was an ESM live binding sinon cannot stub under the `tsx` loader, so every call rejected on the DB read and only the catch branch was ever reached; with the collaborators injected, the happy path and both catch branches are covered in this package's own suite. Do not reintroduce the ignore block.

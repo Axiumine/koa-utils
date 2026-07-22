@@ -1,39 +1,57 @@
+import { DEFAULT_RESET_PWD_PATHS, IResetPwdPaths, TAccessModel } from '@lib/access/accessPaths.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
-import { ClientSession } from 'mongoose'
+import { buildProjection, readPath } from '@private/lib/access/pathTools.mjs'
+import { ClientSession, Types } from 'mongoose'
 
-export const getResetPwd = async function (session: ClientSession, email: string) {
-	let ret = null
+/** What the reset flow needs about an account, flattened out of whatever layout `paths` describes. */
+export interface IResetPwdRecord {
+	_id: Types.ObjectId
+	resetDateReq: Date | undefined
+	resetHash: string | null
+	name: string
+}
 
-	const queryRet = await UserBase.findOne({ 'login.email': email })
-		.select('_id personalData.name account.resetDateReq account.resetHash')
-		.session(session)
-		.lean()
+export const createGetResetPwd = (model: TAccessModel, paths: IResetPwdPaths) =>
+	async function getResetPwd(session: ClientSession, email: string): Promise<IResetPwdRecord | null> {
+		let ret: IResetPwdRecord | null = null
 
-	// if a reset request is found
-	if (queryRet !== null) {
-		const resetDateReq = queryRet.account.resetDateReq
-		let resetHash = null
+		const queryRet = await model
+			.findOne({ [paths.email]: email })
+			.select(buildProjection([paths.name, paths.resetDateReq, paths.resetHash]))
+			.session(session)
+			.lean()
 
-		if (typeof resetDateReq !== 'undefined') {
-			const storedHash = queryRet.account.resetHash
+		// if a reset request is found
+		if (queryRet !== null) {
+			const resetDateReq = readPath(queryRet, paths.resetDateReq) as Date | undefined
+			let resetHash: string | null = null
 
-			// Never stringify, and never fall back to account.email.hash. '' + undefined yields the
-			// literal string "undefined", which passed updatePassword's null check and then matched a
-			// caller sending that same literal as the hash argument — a reset with no secret at all.
-			// The two fields must also stay disjoint: reading the verification slot here is what let a
-			// hash issued by one flow authenticate the other. Anything but a stored string => null,
-			// which updatePassword rejects with the same 403 it gives an unknown address.
-			if (typeof storedHash === 'string') {
-				resetHash = storedHash
+			if (typeof resetDateReq !== 'undefined') {
+				const storedHash = readPath(queryRet, paths.resetHash)
+
+				// Never stringify, and never fall back to the email-verification hash slot. '' + undefined
+				// yields the literal string "undefined", which passed updatePassword's null check and then
+				// matched a caller sending that same literal as the hash argument — a reset with no secret
+				// at all. The two fields must also stay disjoint: reading the verification slot here is
+				// what let a hash issued by one flow authenticate the other. Anything but a stored string
+				// => null, which updatePassword rejects with the same 403 it gives an unknown address.
+				if (typeof storedHash === 'string') {
+					resetHash = storedHash
+				}
+			}
+
+			ret = {
+				_id: queryRet._id as Types.ObjectId,
+				resetDateReq,
+				resetHash,
+				name: (readPath(queryRet, paths.name) as string | undefined) || ''
 			}
 		}
-
-		ret = {
-			_id: queryRet._id,
-			resetDateReq,
-			resetHash,
-			name: queryRet.personalData?.name || ''
-		}
+		return ret
 	}
-	return ret
-}
+
+/** Signature of the bound reader, for the modules that take it as a dependency. */
+export type TGetResetPwd = ReturnType<typeof createGetResetPwd>
+
+/** `UserBase`-bound default — the behaviour every existing consumer already imports. */
+export const getResetPwd: TGetResetPwd = createGetResetPwd(UserBase, DEFAULT_RESET_PWD_PATHS)

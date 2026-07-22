@@ -51,6 +51,10 @@ src/
 │   ├── ArrayLib / DateLib / NumLib / StringLib  # static utility classes
 │   ├── IAuthorizationDisDel.mts
 │   ├── makeOnboardingData.mts
+│   ├── access/                 # model-agnostic access flows (5.3.0+)
+│   │   ├── accessPaths.mts     # TAccessModel, IResetPwdPaths/IVerifyEmailPaths + frozen defaults + resolve*
+│   │   ├── createResetPwdFlow.mts     # { resetPwd, updatePassword } bound to any model/layout
+│   │   └── createVerifyEmailFlow.mts  # whole verify-email chain bound to any model/layout
 │   ├── MariaDB/                # IMariaDBErr, MariaDBErrType, throwSqlErrors
 │   ├── MongoDB/                # IMongoDBError, MongoDBErrType, throwIfMongoErr, throwMongoErrors, IOnboarding
 │   ├── PostgreSQL/             # IPostgresError, IPostgresErrorCodes, makePostgreSqlLogError
@@ -63,7 +67,7 @@ src/
 └── private/          # Internal helpers — NOT exported via package.json
     ├── files/_validateMimeType.mts, reEncode.mts
     ├── graphQL/Consts.mts, schema/{context,mutations}/
-    └── lib/access/{db/*, handleIf*}
+    └── lib/access/{db/*, handleIf*, assertVerifyEmailAllowed.mts, pathTools.mts}
 ```
 
 `types/` directory exists but is empty / placeholder.

@@ -1,24 +1,32 @@
+import { DEFAULT_VERIFY_EMAIL_PATHS, IVerifyEmailPaths, TAccessModel } from '@lib/access/accessPaths.mjs'
 import { emailHash } from '@lib/emailHash.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { ClientSession, Types } from 'mongoose'
 
-export async function setEmailHash(session: ClientSession, userId: Types.ObjectId) {
-	const hash = emailHash()
+export const createSetEmailHash = (model: TAccessModel, paths: IVerifyEmailPaths) =>
+	async function setEmailHash(session: ClientSession, userId: Types.ObjectId) {
+		const hash = emailHash()
 
-	//calculate password hash
-	const dtNow = new Date()
+		//calculate password hash
+		const dtNow = new Date()
 
-	await UserBase.updateOne(
-		{ _id: userId },
-		{
-			$set: {
-				'account.email.hash': hash,
-				'account.email.requestTimes': 1, // ok
-				'account.email.dateLastReq': dtNow
-			}
-		},
-		{ session, runValidators: true }
-	)
+		await model.updateOne(
+			{ _id: userId },
+			{
+				$set: {
+					[paths.hash]: hash,
+					[paths.requestTimes]: 1, // ok
+					[paths.dateLastReq]: dtNow
+				}
+			},
+			{ session, runValidators: true }
+		)
 
-	return hash // else it goes into exception @fixme check
-}
+		return hash // else it goes into exception @fixme check
+	}
+
+/** Signature of the bound writer, for the modules that take it as a dependency. */
+export type TSetEmailHash = ReturnType<typeof createSetEmailHash>
+
+/** `UserBase`-bound default — the behaviour every existing consumer already imports. */
+export const setEmailHash: TSetEmailHash = createSetEmailHash(UserBase, DEFAULT_VERIFY_EMAIL_PATHS)
