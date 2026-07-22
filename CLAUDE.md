@@ -4,7 +4,7 @@ Guidance for AI agents editing this package. Read `REPO.md` for full map.
 
 ## What this is
 
-`@axiumine/koa-utils` — npm-published TypeScript utility library for Koa + GraphQL backends. ESM-only output (`.mjs` / `.d.mts`). Node ^24.14.0. Mocha + c8 + sinon + chai tests (`test/`), **hard 100% coverage** at three layers: `.c8rc.json` thresholds, `.githooks/pre-commit` gate, Qodana in CI. Every change ships to consumers via `yarn upload` (= `npm publish`) — backwards compat matter.
+`@axiumine/koa-utils` — npm-published TypeScript utility library for Koa + GraphQL backends. ESM-only output (`.mjs` / `.d.mts`). Node ^24.14.0. Mocha + c8 + sinon + chai tests (`test/`), **hard 100% coverage** at three layers: `.c8rc.json` thresholds, `.githooks/pre-commit` gate, Qodana in CI. Every change ships to consumers via `yarn upload` (= `npm publish`, registry-pinned) — backwards compat matter.
 
 ## Always
 
@@ -112,6 +112,7 @@ Docs here hand-written reference, not generated (one exception: `<!-- gitnexus:s
 - `yarn test:coverage` — same via c8, and **fails run below 100%** on any file. This command decide whether change finished. Also feed Qodana coverage gate.
 - `yarn hooks:install` — point git at `.githooks/` (`core.hooksPath`) **and** install the yarn.lock registry filter. Idempotent, no-op outside git repo, run automatically from `prepare` on `yarn install`.
 - `yarn qodana` / `yarn qodana:cli` — run `test:coverage` then Qodana scan. Gate on coverage 100/100 **and** severity thresholds (`critical:0`, `high:0`) in `qodana.yaml`.
+- `yarn upload` — `npm publish --registry=https://registry.npmjs.org/`. Flag not decoration, see next section. Owner ask only.
 
 ## Local npm proxy — yarn.lock stay public
 
@@ -131,6 +132,14 @@ Git clean/smudge filter keep both sides happy — no per-command flag, nothing t
 - Because `clean` also run for `git diff`/`git status`, host difference never show as modification. Lockfile look clean while worktree hold proxy URLs.
 - `.githooks/pre-commit` backstop: read `:yarn.lock` from index, block commit if any `resolved` host is not `registry.npmjs.org`. Catch clone where filter never configured.
 - Hook read index into variable, not `git show | grep -q` — `-q` exit early, `git show` take SIGPIPE, `pipefail` turn pipeline falsy, check silently never fire. Keep it pipe-free.
+
+Same proxy bite publish too — separate hole, separate fix:
+
+- Yarn 1 export `.yarnrc` registry to child process as `npm_config_registry`. So `npm publish` run *through* yarn read proxy, not npmjs. Bare `"upload": "npm publish"` shipped 5.0.0 → 5.0.2 broken this way.
+- Symptom on maintainer box: `npm error code ENEEDAUTH ... requires you to be logged in to http://yarnproxy.gio.lan:4873/`. Nothing publish — tarball never leave. On box already authenticated to mirror, worse: publish land on LAN silently, npmjs never see release.
+- Fix live in script: `"upload": "npm publish --registry=https://registry.npmjs.org/"`. npm precedence put CLI flag above env var, so flag win over yarn injection.
+- Do not "simplify" flag away. Do not swap to bare `npm publish` because it work when typed straight in shell — typing straight in shell skip yarn, that why it work.
+- Verify fix by `yarn upload --dry-run`. Right output name `https://registry.npmjs.org/`. Any `yarnproxy` host in output mean flag lost.
 
 Yarn Berry (4.x) solve this natively — its lockfile store `resolution: "pkg@npm:1.0.0"` with no host, registry come from `.yarnrc.yml`. Migration is the real fix if the repo ever move off Yarn 1.
 
