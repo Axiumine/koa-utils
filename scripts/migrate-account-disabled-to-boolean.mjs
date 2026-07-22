@@ -8,13 +8,11 @@
  *   Affected:  every version up to and including 5.0.3 (tag `v5.0.3`) — the schema declared
  *              `account.disabled` as `{ type: String }`, so databases written by any of them can
  *              hold the strings 'true'/'false' in that field.
- *   Fixed in:  the first release above 5.0.3, which ships the `{ type: Boolean }` schema. Run this
- *              script once per database as part of that upgrade, before deploying the new version.
- *              Look for the "Migration required" section in `CHANGELOG.md` — it sits under the
- *              release that carries the fix. (The fix was still unreleased on `main` when this
- *              script was written; the CHANGELOG entry names the version once it is cut.)
+ *   Fixed in:  5.1.0 (tag `v5.1.0`), which ships the `{ type: Boolean }` schema. Run this script
+ *              once per database as part of that upgrade, before deploying 5.1.0. See the
+ *              "Migration required" section under 5.1.0 in `CHANGELOG.md`.
  *
- * A database only ever written by a fixed version never needs this. Running it anyway is safe and
+ * A database only ever written by 5.1.0 or later never needs this. Running it anyway is safe and
  * idempotent: it only touches fields whose stored `$type` is `string`.
  *
  * WHY
@@ -120,7 +118,7 @@ async function main() {
 	}
 
 	console.log('@axiumine/koa-utils — account.disabled/account.deleted: string -> boolean')
-	console.log('required once when upgrading from 5.0.3 or earlier; see CHANGELOG.md "Migration required"\n')
+	console.log('required once when upgrading to 5.1.0 from 5.0.3 or earlier; see CHANGELOG.md "Migration required"\n')
 	console.log(apply ? '=== APPLY: documents will be modified ===' : '=== DRY RUN: nothing will be written ===')
 	console.log(`collections: ${collections.join(', ')}`)
 

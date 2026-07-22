@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 5.1.0 — 2026-07-22
+
+Security release, and the first one that needs a data migration. Two defects, both in how account state is stored:
+the password-reset token shared a field with the email-verification hash, and `account.disabled` was declared as a
+string while every consumer treated it as a boolean. Neither is an API change — `IUserBaseSchema.account` only gains
+an optional `resetHash` — but **run `scripts/migrate-account-disabled-to-boolean.mjs` before deploying** if the
+database was ever written by 5.0.3 or earlier. See "Migration required" below.
 
 ### Security
 
