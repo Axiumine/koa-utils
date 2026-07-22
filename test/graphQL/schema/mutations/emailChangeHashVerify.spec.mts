@@ -11,6 +11,7 @@
  *   - hash matches + link fresh + valid + qty = 0 → confirmNewEmail → returns true
  *   - hash mismatch + requestTimes undefined → throws 500
  *   - hash mismatch + requestTimes defined → incReqTimes + sends wrongHash → returns false
+ *   - projection covers every field resolve() reads (regression: requestTimes was missing)
  *
  * emailChangeHashVerify does NOT use mongoose.startSession — it uses direct model calls.
  */
@@ -38,20 +39,28 @@ function makeExecChain() {
 	return q
 }
 
+/** Projection string handed to .select() by the last resolve() call, captured by makeFindOneChain. */
+let selectedFields = ''
+
 /**
  * Build a fake user document as returned by:
  *   UserBase.findOne({ 'account.email.newEmailTmp': uEmail })
- *     .select('_id account.email.hash account.email.dateLastReq account.deleted account.disabled')
+ *     .select('_id account.email.hash account.email.dateLastReq account.email.requestTimes account.deleted account.disabled')
  *     .lean()
  *
  * Note: The chain is findOne().select().lean(), so we need:
  *   findOneStub.returns({ select() { return { lean() { return Promise.resolve(doc) } } } })
+ *
+ * The projection argument is recorded rather than discarded. A stub that hands back a hand-built doc
+ * regardless of what was selected cannot see a field missing from the projection — which is exactly
+ * how the requestTimes omission survived a green 100% gate.
  */
 function makeFindOneChain(value: unknown) {
 	return {
-		select: () => ({
-			lean: () => Promise.resolve(value)
-		})
+		select: (fields: string) => {
+			selectedFields = fields
+			return { lean: () => Promise.resolve(value) }
+		}
 	}
 }
 
@@ -87,6 +96,7 @@ describe('emailChangeHashVerify — resolve', () => {
 	let wrongHashStub: sinon.SinonStub
 
 	beforeEach(() => {
+		selectedFields = ''
 		findOneStub = sinon.stub(UserBase, 'findOne')
 		countDocumentsStub = sinon.stub(UserBase, 'countDocuments')
 		updateOneStub = sinon.stub(UserBase, 'updateOne').returns(makeExecChain() as never)
@@ -202,5 +212,35 @@ describe('emailChangeHashVerify — resolve', () => {
 		expect(updateOneStub.calledOnce).to.equal(true) // incReqTimes
 		expect(wrongHashStub.calledOnce).to.equal(true)
 		expect(wrongHashStub.firstCall.args[1]).to.equal(2)
+	})
+
+	// -------------------------------------------------------------------------
+	// projection
+	// -------------------------------------------------------------------------
+
+	it('REGRESSION: projects every field resolve() reads, requestTimes included', async () => {
+		// The projection omitted account.email.requestTimes. On a .lean() read the key is then simply
+		// absent, so handleHashMismatch hit `typeof requestTimes === 'undefined'` and threw 500 on
+		// EVERY wrong hash — the 5-strike counter never advanced and the account owner was never
+		// warned. It also made a wrong hash (500) distinguishable from an unknown address (false),
+		// an oracle for "this address has an email change pending".
+		//
+		// Asserting the projection, not just the stubbed document, is the only thing that catches
+		// this: the stub decides what the document contains, so the document can never disagree.
+		findOneStub.returns(makeFindOneChain(fakeUser({ hash: 'correctHash' })))
+		countDocumentsStub.returns(makeCountQuery(0))
+
+		await emailChangeHashVerify.resolve(null, { email: 'free@test.com', hash: 'correctHash' })
+
+		for (const field of [
+			'_id',
+			'account.email.hash',
+			'account.email.dateLastReq',
+			'account.email.requestTimes',
+			'account.deleted',
+			'account.disabled'
+		]) {
+			expect(selectedFields.split(/\s+/)).to.include(field)
+		}
 	})
 })

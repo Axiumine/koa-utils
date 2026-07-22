@@ -50,8 +50,11 @@ export const emailChangeHashVerify = {
 		const uEmail = email.toLowerCase()
 
 		// search if the email exists
+		// Every field this resolver reads must be listed. account.email.requestTimes was missing, and
+		// because this is a .lean() read the absent key made handleHashMismatch throw 500 on *every*
+		// wrong hash: the strike counter never advanced and the owner never got the wrongHash warning.
 		const user = await UserBase.findOne({ 'account.email.newEmailTmp': uEmail })
-			.select('_id account.email.hash account.email.dateLastReq account.deleted account.disabled')
+			.select('_id account.email.hash account.email.dateLastReq account.email.requestTimes account.deleted account.disabled')
 			.lean()
 
 		// if email not found, return

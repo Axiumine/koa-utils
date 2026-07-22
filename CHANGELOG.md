@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Security
+
+- `emailChangeHashVerify` now projects `account.email.requestTimes`. It was missing from the `.select(...)`, and since
+  the query is `.lean()`, a field left out of the projection is simply absent on the returned object — so the
+  hash-mismatch path always hit `typeof requestTimes === 'undefined'` and threw `500`. Three consequences, all fixed by
+  adding the field:
+  - `incReqTimes` was never reached, so the strike counter that `handleIfTooMuchRequestsTimes` uses never advanced. An
+    attacker could guess the change-email hash without ever accumulating a strike.
+  - `SocketLabsLib.wrongHash` was never sent, so the account owner was never warned that someone was guessing.
+  - A wrong hash answered `500` while an unknown address answered `false`, which told an unauthenticated caller that a
+    given address had an email change pending.
+
+  The `typeof requestTimes === 'undefined'` guard stays, and is now what it was always meant to be: a defensive branch
+  for a stored record that has a hash but no counter.
+
+### Fixed
+
+- `test/graphQL/schema/mutations/emailChangeHashVerify.spec.mts` records the projection handed to `.select(...)` and
+  asserts it covers every field the resolver reads. The bug above survived a green 100% gate because the `findOne` stub
+  discarded the projection argument and returned a hand-built document that always carried `requestTimes` — the stub
+  decided the document's shape, so the document could never disagree with the projection.
+
 ## 5.1.0 — 2026-07-22
 
 Security release, and the first one that needs a data migration. Two defects, both in how account state is stored:
