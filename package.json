@@ -1,6 +1,6 @@
 {
 	"name": "@axiumine/koa-utils",
-	"version": "5.2.0",
+	"version": "5.3.0",
 	"description": "Koa Utils",
 	"type": "module",
 	"repository": {
@@ -51,6 +51,18 @@
 		"@dataSources": "dist/dataSources"
 	},
 	"exports": {
+		"./lib/access/accessPaths": {
+			"import": "./dist/lib/access/accessPaths.mjs",
+			"types": "./dist/lib/access/accessPaths.d.mts"
+		},
+		"./lib/access/createResetPwdFlow": {
+			"import": "./dist/lib/access/createResetPwdFlow.mjs",
+			"types": "./dist/lib/access/createResetPwdFlow.d.mts"
+		},
+		"./lib/access/createVerifyEmailFlow": {
+			"import": "./dist/lib/access/createVerifyEmailFlow.mjs",
+			"types": "./dist/lib/access/createVerifyEmailFlow.d.mts"
+		},
 		"./lib/MongoDB/IOnboarding": {
 			"import": "./dist/lib/MongoDB/IOnboarding.mjs",
 			"types": "./dist/lib/MongoDB/IOnboarding.d.mts"

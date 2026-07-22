@@ -440,20 +440,31 @@ Applies `_buildLoginStatsUpdate(lastLogin, rememberMe)`'s `$set`/`$unset` to `Us
 
 ## `lib/access/db/` — email-verification & reset-password DB writes
 
-All internal, all operate on the `UserBase` Mongoose model. Four are **default exports** — `confirmNewEmail`, `deleteUserByEmail`, `removeResetReq`, and `updatePassword` (defined in `updatePasswordDb.mts`, where file name and export name differ); the rest are named exports.
+All internal. Since 5.3.0 every one of them is a **factory** — `createXxx(model, paths)` returns the bound helper — plus a `UserBase`-bound default built with `DEFAULT_RESET_PWD_PATHS` / `DEFAULT_VERIFY_EMAIL_PATHS` from `@lib/access/accessPaths.mjs`. The signatures below are those of the *bound* helpers, which is what every existing caller imports; the paths quoted are the defaults. Four bound helpers are **default exports** — `confirmNewEmail`, `deleteUserByEmail`, `removeResetReq`, and `updatePassword` (defined in `updatePasswordDb.mts`, where file name and export name differ); the rest are named exports. Each module also exports a `T*` alias (`TGetResetPwd`, `TSaveResetReq`, …) so the resolvers can take the helper as a typed dependency.
+
+The public entry point for binding them to another model is [`createResetPwdFlow` / `createVerifyEmailFlow`](./lib-access.md); do not build a second set of bindings by hand.
+
+Reads walk the configured dotted paths out of the `.lean()` documents with `readPath`, writes build their `$unset` payloads with `buildUnset`, and projections are assembled with `buildProjection` — all three in `lib/access/pathTools.mts`:
 
 | Symbol | Signature | Description |
 |---|---|---|
-| `confirmNewEmail` (default) | `(_id: ObjectId, email: string) => Promise<...>` | Finalizes an email-change: `$set`s `login.email` to the new address and `$unset`s `account.email.hash`/`dateLastReq`/`requestTimes`/`newEmailTmp`. |
+| `readPath` | `(source: unknown, path: string) => unknown` | Walks a dotted path. Any missing or non-object link yields `undefined` rather than throwing, so the callers' `typeof x === 'undefined'` guards read a wrong path exactly like a projection that left the field out. Falsy stored values (`false`, `0`) are preserved. |
+| `buildUnset` | `(paths: readonly string[]) => Record<string, ''>` | Maps each path to `''`, the value Mongo's `$unset` expects. The list is always the caller's `*Clear` list, never derived from the fields that were written. |
+| `buildProjection` | `(paths: readonly string[]) => string` | Joins the paths into a `.select()` string, always prefixed with `_id`. |
+
+
+| Symbol | Signature | Description |
+|---|---|---|
+| `confirmNewEmail` (default) | `(_id: ObjectId, email: string) => Promise<...>` | Finalizes an email-change: `$set`s `login.email` to the new address and `$unset`s every path in `emailChangeClear` — by default `account.email.hash`/`dateLastReq`/`requestTimes`/`newEmailTmp`. |
 | `deleteUserByEmail` (default) | `(email: string) => Promise<void>` | Deletes the user document matching `login.email`. Carries a `// @todo report on Sentry` comment and a commented-out `deletedCount === 0` check — deletion result is currently unchecked. |
-| `enableEmailAccess` | `(_id: ObjectId, email: string) => Promise<void>` | Sets `account.email.valid = true`, clears `hash`/`dateLastReq`/`requestTimes` (`runValidators: true`), then sends the welcome email via `new SocketLabsLib().sendWelcome(email)`. This is the `enableEmailAccess` step in the `routerVerifyEmail` auth-flow cheat sheet. |
+| `enableEmailAccess` | `(_id: ObjectId, email: string) => Promise<void>` | Sets `account.email.valid = true`, `$unset`s every path in `verifyClear` — by default `hash`/`dateLastReq`/`requestTimes` — with `runValidators: true`, then sends the welcome email via `new SocketLabsLib().sendWelcome(email)`. This is the `enableEmailAccess` step in the `routerVerifyEmail` auth-flow cheat sheet. |
 | `getResetPwd` | `(session: ClientSession, email: string) => Promise<{ _id, resetDateReq, resetHash, name } \| null>` | Looks up password-reset state (`account.resetDateReq`, `account.resetHash`, `personalData.name`) via a `.lean()` read. `resetHash` is populated only when `resetDateReq` is defined **and** the stored hash is a string; any other case yields `null`, never a coerced value and never a fallback to `account.email.hash`. The "reset pending, hash gone" orphan state must fail closed. Returns `null` if no user matches. Note that `resetHash === null` is the ordinary state for any account that has simply never requested a reset, not an error condition — `updatePassword` therefore answers it with the same `403` it gives an unknown address (a `500` there was an enumeration oracle, fixed after 5.1.1) and reports the genuinely malformed records to Sentry instead. |
 | `incReqTimes` | `(_id: ObjectId) => Promise<UpdateWriteOpResult>` | `$inc`s `account.email.requestTimes` by 1 (`runValidators: true`). |
-| `removeResetReq` (default) | `(session: ClientSession, email: string) => Promise<UpdateWriteOpResult>` | `$unset`s `account.resetDateReq`/`account.resetHash` by `login.email` — the exact pair `saveResetReq` writes, and nothing under `account.email.`. Passes **no** options object: an email matching no document is a no-op. It used to pass `{ upsert: true }`, which inserted a row keyed by `login.email` instead, and since `updateOne` runs no validators that row satisfied none of the schema's required fields. |
+| `removeResetReq` (default) | `(session: ClientSession, email: string) => Promise<UpdateWriteOpResult>` | `$unset`s every path in the flow's `resetClear` list, by `email` — by default `account.resetDateReq`/`account.resetHash`, and nothing under `account.email.`. The list is **caller-supplied, not derived** from the pair `saveResetReq` writes: a layout holding the request in one required-members subdocument can only be cleared by unsetting the container, since unsetting a member leaves a document that fails validation and the write is rejected. Passes **no** options object: an email matching no document is a no-op. It used to pass `{ upsert: true }`, which inserted a row keyed by `login.email` instead, and since `updateOne` runs no validators that row satisfied none of the schema's required fields. |
 | `saveResetReq` | `(session: ClientSession, _id: Types.ObjectId, now: Date, hash: string) => Promise<void>` | `$set`s `account.resetDateReq = now` and `account.resetHash = hash` (`runValidators: true`). Never writes `account.email.hash`: that slot belongs to the verification flows, and clobbering it here broke pending activation links. Catches errors and rethrows via `throwMongoDBErrors(e as IMongoDBError)`. |
 | `setEmailHash` | `(session: ClientSession, userId: Types.ObjectId) => Promise<string>` | Generates a hash via `emailHash()`, `$set`s `account.email.hash`, resets `account.email.requestTimes = 1`, sets `account.email.dateLastReq = now` (`runValidators: true`); returns the generated hash. Carries an `@fixme` comment ("else it goes into exception @fixme check" — verify the failure path throws as expected). |
 | `updatePassword` (default, file `updatePasswordDb.mts`) | `(session: ClientSession, _id: mongoose.Types.ObjectId, password: string) => Promise<UpdateWriteOpResult>` | Hashes `password` via `hash(password, SALT_ROUNDS)` and `$set`s `login.password` (`runValidators: true`). Note the default export is named `updatePassword`, not `updatePasswordDb` — the file name and the export name differ. Imported by the public mutation `updatePassword` (`src/graphQL/schema/mutations/updatePassword.mts`). |
-| `userData4VerifyEmail` | `(uEmail: string) => Promise<user projection>` | `.lean()` read of `_id`, `account.email.hash/valid/dateLastReq/requestTimes`, `account.deleted/disabled` by `login.email`. If no user matches, calls `Sentry.captureMessage` then throws a plain `Error(EMAIL_CHECK_LINK)` (not a GraphQL error). |
+| `userData4VerifyEmail` | `(uEmail: string) => Promise<user projection>` | `.lean()` read of `_id`, `account.email.hash/valid/dateLastReq/requestTimes`, `account.deleted/disabled` by `login.email` — the projection is built from the same path map the guard chain reads through, so a field cannot go missing from one and not the other. If no user matches, calls `Sentry.captureMessage` then throws a plain `Error(EMAIL_CHECK_LINK)` (not a GraphQL error). |
 
 ## `lib/access/` — verification guard chain (`handleIf*`, `handleBadDB`)
 
@@ -474,16 +485,28 @@ export interface IVerifyEmailUser {
 	}
 }
 
-export async function assertVerifyEmailAllowed(user: IVerifyEmailUser, email: string, hash: string): Promise<Types.ObjectId>
+export interface IAssertVerifyEmailAllowedDeps {
+	paths: IVerifyEmailPaths
+	handleIfHashBad: THandleIfHashBad
+	handleIfMoreThan3DaysPassed: THandleIfMoreThan3DaysPassed
+	handleIfTooMuchRequestsTimes: THandleIfTooMuchRequestsTimes
+}
+
+export const createAssertVerifyEmailAllowed:
+	(deps: IAssertVerifyEmailAllowedDeps) => (user: unknown, email: string, hash: string) => Promise<Types.ObjectId>
+
+export const assertVerifyEmailAllowed: TAssertVerifyEmailAllowed   // UserBase-bound default
 ```
 
-Runs every guard that must pass before an email-verification link is honored, in order, against the projection `userData4VerifyEmail` returns. `dbHash` passed to `handleIfHashBad` is always the value stored on the account (`user.account.email.hash`), never the one supplied in the URL. Enabling the account is deliberately not done here — the caller (`routerVerifyEmail`) does it on the returned id, so that irreversible side effect can't be reordered ahead of a guard.
+Runs every guard that must pass before an email-verification link is honored, in order, against the projection `userData4VerifyEmail` returns. `dbHash` passed to `handleIfHashBad` is always the value stored on the account (`paths.hash`, by default `account.email.hash`), never the one supplied in the URL. Enabling the account is deliberately not done here — the caller (`routerVerifyEmail`) does it on the returned id, so that irreversible side effect can't be reordered ahead of a guard.
+
+Since 5.3.0 the document is read through `paths` with `readPath` rather than by fixed property access, and the three guards that write to the database are injected — that is what lets the same chain serve any account layout. The guard *order* and the values passed to each are unchanged. `IVerifyEmailUser` is still exported, now purely as documentation of the shape the default paths project; the parameter itself is typed `unknown`.
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
-| user | IVerifyEmailUser | The projection returned by `userData4VerifyEmail` |
+| user | unknown | The projection returned by `userData4VerifyEmail`, read through `paths`. `IVerifyEmailUser` documents its shape under the default paths |
 | email | string | The email from the verification URL |
 | hash | string | The hash from the verification URL |
 
@@ -505,7 +528,9 @@ Runs every guard that must pass before an email-verification link is honored, in
 
 **Import (all rows above):** _internal — not exported_.
 
-**Notes:** `handleIfMoreThan3DaysPassed` and `handleIfTooMuchRequestsTimes` both permanently delete the user account as a side effect of the guard failing — there is no recovery path once either fires. `handleBadDB`'s hardcoded `/x/error` (vs. every sibling's `EMAIL_CHECK_LINK`) is a real inconsistency in this file, not a typo introduced here — preserve it unless the owner asks for a fix.
+**Notes:** the three guards that touch the database — `handleIfHashBad`, `handleIfMoreThan3DaysPassed`, `handleIfTooMuchRequestsTimes` — are factories since 5.3.0 (`createHandleIfHashBad(incReqTimes)`, `createHandleIfMoreThan3DaysPassed(deleteUserByEmail)`, `createHandleIfTooMuchRequestsTimes(deleteUserByEmail)`), each with a `UserBase`-bound default of the same name. The writer they are built with carries the collection *and* the field paths, so a delete fired by a guard hits the caller's collection rather than `user`. The four pure guards (`handleBadDB`, `handleIfEmailAlreadyValid`, `handleIfAccountDeleted`, `handleIfAccountDisabled`) read nothing and are unchanged.
+
+`handleIfMoreThan3DaysPassed` and `handleIfTooMuchRequestsTimes` both permanently delete the user account as a side effect of the guard failing — there is no recovery path once either fires. `handleBadDB`'s hardcoded `/x/error` (vs. every sibling's `EMAIL_CHECK_LINK`) is a real inconsistency in this file, not a typo introduced here — preserve it unless the owner asks for a fix.
 
 ## `lib/makeBodyJson`
 

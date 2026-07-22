@@ -3,9 +3,9 @@ import { checkEmailLen } from '@lib/checkEmailLen.mjs'
 import { checkPwdLen } from '@lib/checkPwdLen.mjs'
 import { DateLib } from '@lib/DateLib.mjs'
 import { tryCatchRethrow } from '@lib/tryCatchRethrow.mjs'
-import { getResetPwd } from '@private/lib/access/db/getResetPwd.mjs'
-import removeResetReq from '@private/lib/access/db/removeResetReq.mjs'
-import updatePasswordDb from '@private/lib/access/db/updatePasswordDb.mjs'
+import { getResetPwd, TGetResetPwd } from '@private/lib/access/db/getResetPwd.mjs'
+import removeResetReq, { TRemoveResetReq } from '@private/lib/access/db/removeResetReq.mjs'
+import updatePasswordDb, { TUpdatePasswordDb } from '@private/lib/access/db/updatePasswordDb.mjs'
 import * as Sentry from '@sentry/node'
 import { throwForbiddenError } from '@throw/throwForbiddenError.mjs'
 import { throwInternalError } from '@throw/throwInternalError.mjs'
@@ -18,7 +18,21 @@ interface IArgs {
 	password: string
 }
 
-export const updatePassword = {
+/** Readers and writers the resolver needs, all bound to the same model + paths by the caller. */
+export interface IUpdatePasswordDeps {
+	getResetPwd: TGetResetPwd
+	updatePasswordDb: TUpdatePasswordDb
+	removeResetReq: TRemoveResetReq
+}
+
+/**
+ * Change the password of an account holding a valid, unexpired reset hash.
+ *
+ * The collection and field layout live entirely in the injected reader/writers, so the same resolver
+ * serves any account model. In particular the cleanup unsets whatever `resetClear` names, which is not
+ * necessarily the two leaf paths this resolver reads — see `removeResetReq`.
+ */
+export const createUpdatePasswordMutation = (deps: IUpdatePasswordDeps) => ({
 	description: "changes the user's password",
 	type: new GraphQLNonNull(GraphQLBoolean),
 	args: {
@@ -41,7 +55,7 @@ export const updatePassword = {
 
 		try {
 			await session.withTransaction(async () => {
-				const resetPwd = await getResetPwd(session, uEmail)
+				const resetPwd = await deps.getResetPwd(session, uEmail)
 
 				// check if email is present in db
 				if (resetPwd === null) {
@@ -76,13 +90,13 @@ export const updatePassword = {
 					throw throwForbiddenError() // The link is no longer valid
 				} // else console.debug('--link valid')
 
-				const update = await updatePasswordDb(session, resetPwd._id, password)
+				const update = await deps.updatePasswordDb(session, resetPwd._id, password)
 				if (!update) {
 					throw throwInternalError() // "System error while updating the password."
 				} // else console.debug('--pwd updated')
 
 				// delete password reset request data from db
-				await removeResetReq(session, uEmail)
+				await deps.removeResetReq(session, uEmail)
 
 				// the confirmation email is sent after the commit, not here
 				confirmTo = resetPwd.name
@@ -123,4 +137,14 @@ export const updatePassword = {
 
 		return true
 	}
-}
+})
+
+/** Shape of the bound mutation, for the modules that take it as a dependency. */
+export type TUpdatePasswordMutation = ReturnType<typeof createUpdatePasswordMutation>
+
+/** `UserBase`-bound default — the mutation every existing consumer already imports. */
+export const updatePassword: TUpdatePasswordMutation = createUpdatePasswordMutation({
+	getResetPwd,
+	updatePasswordDb,
+	removeResetReq
+})

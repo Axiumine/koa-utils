@@ -4,8 +4,8 @@ import { EMAIL_HASH_LEN } from '@lib/Constants.mjs'
 import { DateLib } from '@lib/DateLib.mjs'
 import { StringLib } from '@lib/StringLib.mjs'
 import { tryCatchRethrow } from '@lib/tryCatchRethrow.mjs'
-import { getResetPwd } from '@private/lib/access/db/getResetPwd.mjs'
-import { saveResetReq } from '@private/lib/access/db/saveResetReq.mjs'
+import { getResetPwd, TGetResetPwd } from '@private/lib/access/db/getResetPwd.mjs'
+import { saveResetReq, TSaveResetReq } from '@private/lib/access/db/saveResetReq.mjs'
 import * as Sentry from '@sentry/node'
 import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'graphql'
 import mongoose from 'mongoose'
@@ -20,14 +20,23 @@ interface IPendingMail {
 	name: string
 }
 
+/** Readers and writers the resolver needs, all bound to the same model + paths by the caller. */
+export interface IResetPwdDeps {
+	getResetPwd: TGetResetPwd
+	saveResetReq: TSaveResetReq
+}
+
 /**
  * Take the user email and send an email with a link for change the password.
  * for privacy, true is returned whatever happens: unknown address, first request, or a request
  * throttled because the previous one is less than 10 minutes old. The caller can never tell them apart,
  * and the mail is queued after the commit without being awaited so the response time does not tell
  * them apart either.
+ *
+ * The collection and field layout live entirely in the injected reader/writer, so the same resolver
+ * serves any account model. Nothing about the flow itself changes.
  */
-export const resetPwd = {
+export const createResetPwdMutation = (deps: IResetPwdDeps) => ({
 	description: 'send reset password link',
 	type: new GraphQLNonNull(GraphQLBoolean),
 	args: {
@@ -48,7 +57,7 @@ export const resetPwd = {
 			await session.withTransaction(async () => {
 				// console.debug('email exists ?')
 				// email exists? -> retrieve whether there have already been reset requests -> return 4xx ??
-				const resetPwdVal = await getResetPwd(session, uEmail)
+				const resetPwdVal = await deps.getResetPwd(session, uEmail)
 
 				// don't reveal that the email doesn't exist, for privacy
 				if (resetPwdVal === null) return
@@ -82,7 +91,7 @@ export const resetPwd = {
 					const hash = StrObj.randomString(EMAIL_HASH_LEN)
 
 					// set hash and current reset date
-					await saveResetReq(session, resetPwdVal._id, nowDt, hash)
+					await deps.saveResetReq(session, resetPwdVal._id, nowDt, hash)
 
 					// the mail is queued after the commit, not here
 					pendingMail = { hash, name: resetPwdVal.name }
@@ -127,4 +136,10 @@ export const resetPwd = {
 
 		return true
 	}
-}
+})
+
+/** Shape of the bound mutation, for the modules that take it as a dependency. */
+export type TResetPwdMutation = ReturnType<typeof createResetPwdMutation>
+
+/** `UserBase`-bound default — the mutation every existing consumer already imports. */
+export const resetPwd: TResetPwdMutation = createResetPwdMutation({ getResetPwd, saveResetReq })
