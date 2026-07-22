@@ -113,14 +113,16 @@ The full document shape stored in the `user` collection: credentials/login times
 | account.newsletter | `boolean` (optional) | Newsletter opt-in flag. |
 | account.resetDateReq | `Date` (optional) | Date of the last password-reset request. |
 | account.resetHash | `string` (optional) | Password-reset token, written by `saveResetReq` and cleared by `removeResetReq`. Separate from `account.email.hash` — see Notes. |
-| account.disabled | `boolean` (TS) / `String` (schema) (optional) | Administrative disable flag — see Notes for the type mismatch. |
+| account.disabled | `boolean` (optional) | Administrative disable flag. Was `type: String` in the schema through 5.0.3 — see Notes, stored data needs a migration. |
 | account.deleted | `boolean` (optional) | Soft-delete flag. |
 | personalData.name | `string` (optional subdocument) | User's display/personal name, if `personalData` is present. |
 | __v | `number` (optional) | Mongoose version key. |
 
 **Notes:** `account.resetHash` and `account.email.hash` are two distinct tokens and must never be read or written interchangeably. They differ in lifetime (60 minutes vs 3 days), throttle (10 minutes vs `account.email.requestTimes`) and trust domain: `account.email.hash` proves control of an inbox, `account.resetHash` authorises a password change. They shared one field through 5.0.3, which meant an unauthenticated `resetPwd` call silently invalidated a pending activation link (each click on the now-dead link bumping `requestTimes` towards the 5-strike account deletion in `handleIfTooMuchRequestsTimes`), and a hash minted by either flow was accepted by the other.
 
-The TypeScript interface types `account.disabled` as `boolean`, but the actual `UserBaseSchema` definition declares it as `type: String` (while `account.deleted` right next to it is `type: Boolean`). This is a pre-existing mismatch between the interface and the runtime schema — do not assume `account.disabled` is a real boolean at the driver level; treat it defensively (e.g. the way Redis-stored `'true'`/`'false'` strings are handled elsewhere in this codebase) rather than "fixing" the schema type silently.
+`account.disabled` is `type: Boolean`, matching the interface. It was declared `type: String` through 5.0.3 (while `account.deleted` right next to it was already `Boolean`), and that inverted the flag rather than merely mistyping it. Mongoose casts on write and on hydrated reads, so a stored boolean `false` came back as the string `'false'` — truthy — and every consumer tests the flag with a bare `if (account.disabled)`. `infoUserForLogin` reads with `.exec()`, not `.lean()`, so `_finalizeLoginCheck` saw `'false'` and answered a `403` plus an "account disabled" email to a user explicitly marked **not** disabled. Writing `false` back through Mongoose stored the string too, so the flag could not be cleared through this model at all. Only an absent field behaved. The library never writes `disabled` itself, which is why the defect stayed latent: operators only ever wrote `true`.
+
+Fixing the schema does not fix the stored data. Hydrated reads now cast a legacy `'false'` back to `false`, but `.lean()` readers (`userData4VerifyEmail`, `emailChangeHashVerify`) bypass casting entirely and still see the raw string. Run `scripts/migrate-account-disabled-to-boolean.mjs` once per database as part of the upgrade — the code reads these flags raw and deliberately does not coerce.
 
 ## `UserBase`
 
@@ -147,7 +149,7 @@ The core user document model — the record created by `signUp`, authenticated b
 
 **Returns:** `Model<IUserBaseSchema>` — the compiled Mongoose model, used as `UserBase.findOne(...)`, `UserBase.create(...)`, etc.
 
-**Notes:** Collection name is explicitly `user` (not the pluralized/lowercased default Mongoose would derive from `'UserBase'`). See `IUserBaseSchema` for the field-level type mismatch on `account.disabled`.
+**Notes:** Collection name is explicitly `user` (not the pluralized/lowercased default Mongoose would derive from `'UserBase'`). See `IUserBaseSchema` for the `account.disabled` type change and the migration it requires.
 
 ## `IDevStatsGraphQLCalls`
 

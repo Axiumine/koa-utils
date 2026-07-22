@@ -22,6 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `saveResetReq` writes `account.resetHash`, `removeResetReq` unsets it, and `getResetPwd` projects and reads it. There
   is deliberately no fallback to `account.email.hash` — reading the verification slot is the defect itself.
 
+- `account.disabled` is now `type: Boolean` in `UserBaseSchema` and `UserAdminKoaUtilsSchema`, matching the
+  `boolean` both TypeScript interfaces always declared. It was `type: String`, which did not merely mistype the field —
+  it inverted it. Mongoose casts on write and on hydrated reads, so a stored boolean `false` came back as the string
+  `'false'`, which is truthy, and every consumer tests the flag with a bare `if (account.disabled)`. `infoUserForLogin`
+  and `infoUserAdminForLogin` read with `.exec()`, so `_finalizeLoginCheck` refused login with `403` and sent an
+  "account disabled" email to a user explicitly marked **not** disabled. Writing `false` back through Mongoose stored
+  the string too, so the flag could not be cleared through the models at all — only an absent field behaved. The
+  library never writes `disabled` itself, which is why this stayed latent: operators only ever wrote `true`.
+
 ### Changed
 
 - **Breaking for in-flight resets.** Reset links issued before the upgrade point at a hash stored in
@@ -31,6 +40,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   request.
 - `IUserBaseSchema.account` gains `resetHash?: string`. Additive — consumers constructing the object literally are
   unaffected.
+
+### Migration required
+
+- **`scripts/migrate-account-disabled-to-boolean.mjs` — run once per database before deploying.** The schema change
+  above repairs hydrated reads, not stored data, and `.lean()` readers (`userData4VerifyEmail`,
+  `emailChangeHashVerify`) bypass Mongoose casting entirely: on un-migrated rows they still see `'false'` and still
+  block the account. The code reads these flags raw and deliberately does not coerce, so the migration is the fix.
+
+  ```
+  MONGO_URI='mongodb://user:pass@host:27017/dbname' node scripts/migrate-account-disabled-to-boolean.mjs
+  MONGO_URI='...' node scripts/migrate-account-disabled-to-boolean.mjs --apply
+  ```
+
+  Dry run by default — it reports what it would change and writes nothing. `--apply` performs the update, `--db=<name>`
+  supplies the database when the URI carries none, `--collections=user,userAdmin` narrows the targets (that pair is the
+  default). `MONGO_URI` is mandatory; the script refuses to guess a connection string. It covers `account.disabled` and
+  `account.deleted` in both collections, and requires no install — `mongodb` ships with the `mongoose` peer.
+
+  Mapping: `'true'` → `true`, `'false'` → `false` (both case-insensitive, trimmed), `''` → field removed, already-boolean
+  → untouched. **Any other string is left alone and reported by `_id`**, and the run exits with code `2` — a value
+  nobody planned for is not something a migration should guess at. Resolve those rows by hand and re-run. Re-runs are
+  idempotent. Take a backup first: this edits account access flags.
 
 ## 5.0.3 — 2026-07-22
 

@@ -336,3 +336,5 @@ Confirms an in-progress email-change request. Lower-cases the email (no `.trim()
 **Throws:** `500 Internal Server Error` — stored record is missing `dateLastReq` (on hash match) or missing `requestTimes` (on hash mismatch); both are defensive branches marked `@fixme sentry` in source (they throw but do not currently call `Sentry.captureException` themselves).
 
 **Notes:** Does **not** open a mongoose session/transaction — reads (`findOne`, `countDocuments`) and writes (`confirmNewEmail`, `incReqTimes`) are separate, non-atomic calls. Several rejection paths that arguably warrant a thrown error instead return `false` (see the `@fixme` comments in source) — this is a known, intentional-for-now quirk; do not silently change it.
+
+The `account.deleted` / `account.disabled` checks read the raw stored values: this is a `.lean()` query, so Mongoose casting never runs. They are real booleans only on data that `scripts/migrate-account-disabled-to-boolean.mjs` has been through — a legacy string `'false'` is truthy and rejects the confirmation. The migration is the fix; the mutation deliberately does not coerce.

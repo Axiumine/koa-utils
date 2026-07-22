@@ -124,8 +124,12 @@ const UserAdminKoaUtilsSchema: Schema<IUserAdminKoaUtilsSchema> = new Schema(
 					type: Date,
 					required: false
 				},
+				// Boolean, matching IUserAdminKoaUtilsSchema — same fix as UserBase. As String, a
+				// stored `false` hydrated to the truthy string 'false' and infoUserAdminForLogin
+				// locked out admins who were explicitly not disabled. Existing rows need
+				// scripts/migrate-account-disabled-to-boolean.mjs, which covers this collection too.
 				disabled: {
-					type: String,
+					type: Boolean,
 					required: false
 				},
 				deleted: {
