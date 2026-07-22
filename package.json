@@ -32,7 +32,7 @@
 		"semgrep": "./scripts/semgrep.sh",
 		"semgrep:all": "./scripts/semgrep.sh --registry",
 		"semgrep:canary": "./scripts/semgrep-canary.sh",
-		"upload": "npm publish",
+		"upload": "npm publish --registry=https://registry.npmjs.org/",
 		"update": "yarn upgrade-interactive --latest --network-timeout 100000",
 		"cloc": "cloc . --exclude-dir=node_modules,dist,.git,upload",
 		"scc": "scc . --exclude-dir=node_modules,dist,.git -w --sort --directory-walker-job-workers=8 --count-as=mts:TypeScript"

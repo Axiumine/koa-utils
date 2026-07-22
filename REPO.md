@@ -89,7 +89,7 @@ src/
 | `yarn qodana` | `test:coverage` then a dockerised Qodana scan |
 | `yarn qodana:cli` | `test:coverage` then `qodana scan` via local CLI, sourcing `.env` |
 | `yarn semgrep` / `semgrep:all` / `semgrep:canary` | run `scripts/semgrep*.sh` (local, `--registry`, canary variants) |
-| `yarn upload` | `npm publish` (uses `.npmrc` token) |
+| `yarn upload` | `npm publish --registry=https://registry.npmjs.org/` (uses `.npmrc` token). The explicit `--registry` is required — see "Publishing" below |
 | `yarn clean` | `rm -rf ./dist` |
 | `yarn cloc` / `yarn scc` | code metrics, exclude node_modules/dist |
 | `yarn update` | interactive dep upgrade |
@@ -205,7 +205,11 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 
 - License: `GPL-3.0-or-later`.
 - Repo: <https://github.com/Axiumine/koa-utils>.
-- Current version: `5.0.2` (`package.json`). Bump version → `yarn upload` (= `npm publish`) → token in `.npmrc` is required.
+- Current version: `5.0.2` (`package.json`). Bump version → `yarn upload` → token in `.npmrc` is required.
+- **Publishing:** `yarn upload` pins `--registry=https://registry.npmjs.org/` on purpose. Yarn 1 exports the registry from
+  `.yarnrc` to child processes as `npm_config_registry`, so a bare `npm publish` run through `yarn` targets the local
+  Verdaccio mirror instead of npmjs. On a maintainer machine that fails with `ENEEDAUTH` against `yarnproxy.gio.lan`;
+  on a machine authenticated to the mirror it would publish there silently. The CLI flag outranks the injected env var.
 - `CHANGELOG.md` (root) tracks every release back to `3.8.0`, Keep a Changelog format. Update it in the same commit as the version bump.
 - `peerDependencies` covers every runtime lib (`@node-rs/bcrypt`, `@sentry/node`, `@socketlabs/email`, `clamscan`, `dotenv`, `file-type`, `fs-extra`, `graphql`, `keygrip`, `koa-logger`, `mongoose`, `pg`, `redis`, `reflect-metadata`, `sequelize`, `sequelize-typescript`, `sharp`, `uuid`). Library declares zero `dependencies` — consumer must install peers.
 
