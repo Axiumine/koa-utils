@@ -43,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Migration required
 
+Applies to anyone upgrading from **5.0.3 or earlier** — every version up to and including `v5.0.3` declared
+`account.disabled` as `{ type: String }`, so any database those versions wrote can hold `'true'`/`'false'` strings in
+that field. A database only ever written by a fixed version needs nothing; running the script anyway is safe and
+idempotent, since it only touches fields whose stored `$type` is `string`.
+
 - **`scripts/migrate-account-disabled-to-boolean.mjs` — run once per database before deploying.** The schema change
   above repairs hydrated reads, not stored data, and `.lean()` readers (`userData4VerifyEmail`,
   `emailChangeHashVerify`) bypass Mongoose casting entirely: on un-migrated rows they still see `'false'` and still
