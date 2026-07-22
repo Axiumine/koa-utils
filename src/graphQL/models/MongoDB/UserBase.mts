@@ -147,8 +147,16 @@ const UserBaseSchema: Schema<IUserBaseSchema> = new Schema(
 					type: String,
 					required: false
 				},
+				// Boolean, matching IUserBaseSchema. It was String, and that inverted the flag: a
+				// hydrated read (infoUserForLogin uses .exec(), not .lean()) cast a stored `false`
+				// to the string 'false', which is truthy, so every consumer's `if (account.disabled)`
+				// locked out a user explicitly marked NOT disabled. Writing `false` through Mongoose
+				// stored the string too. Existing rows holding 'true'/'false' strings must be
+				// migrated — run scripts/migrate-account-disabled-to-boolean.mjs. Mongoose repairs
+				// them on hydration, but .lean() readers (userData4VerifyEmail, emailChangeHashVerify)
+				// see the raw value and would still block on the string.
 				disabled: {
-					type: String,
+					type: Boolean,
 					required: false
 				},
 				deleted: {

@@ -94,6 +94,9 @@ export const emailChangeHashVerify = {
 			}
 
 			// account is deleted -> maybe by admin for any reason
+			// Read raw: this is a .lean() query, so Mongoose casting never runs and these are real
+			// booleans only on data that scripts/migrate-account-disabled-to-boolean.mjs has been
+			// through. A legacy string 'false' is truthy and blocks here — migrate, don't coerce.
 			else if (user.account.deleted) {
 				return false
 			}

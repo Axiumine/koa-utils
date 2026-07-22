@@ -58,6 +58,10 @@ export async function assertVerifyEmailAllowed(user: IVerifyEmailUser, email: st
 	await handleIfHashBad({ uId, uEmail: email, hash, requestTimes, dbHash: userAccountEmail.hash })
 
 	await handleIfMoreThan3DaysPassed(email, dateLastReq)
+	// The flags are passed raw. userData4VerifyEmail reads .lean(), so Mongoose casting never runs
+	// and these are exactly what the driver found — which is only ever a boolean once
+	// scripts/migrate-account-disabled-to-boolean.mjs has run. On un-migrated data a stored 'false'
+	// is a truthy string and blocks the account; the fix is the migration, not a coercion here.
 	await handleIfAccountDeleted(email, deleted)
 	await handleIfAccountDisabled(email, disabled)
 

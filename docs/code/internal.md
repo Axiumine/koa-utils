@@ -140,7 +140,7 @@ export interface IUserAdminKoaUtilsSchema {
 
 Full document shape for the `userAdmin` collection.
 
-**Notes:** The TS interface declares `account.disabled?: boolean`, but the actual `Schema` definition below it types `account.disabled` as `{ type: String, required: false }` — a Mongoose-vs-TypeScript mismatch. In practice `disabled` is stored as a string (mirrors the `redData?.disabled`/`redData?.deleted` truthy-string quirk noted for Redis elsewhere in this codebase) even though every consumer of `IUserAdminKoaUtilsSchema`/`IInfoUserAdminForLogin` types it as `boolean`.
+**Notes:** `account.disabled` is `{ type: Boolean, required: false }`, matching the interface. It was `{ type: String }` through 5.0.3, which carried the same defect documented for `UserBase` in `docs/code/graphql-models.md`: Mongoose cast a stored boolean `false` to the truthy string `'false'` on the hydrated read `infoUserAdminForLogin` performs, so `_finalizeLoginCheck` locked out admins who were explicitly not disabled and mailed them an "account disabled" notice. Stored strings are not repaired by the schema change — run `scripts/migrate-account-disabled-to-boolean.mjs`, which covers the `userAdmin` collection as well as `user`. Do not confuse these document flags with the Redis session flags (`redData?.disabled`/`redData?.deleted`), which really are strings and are truthy for `'true'` and `'false'` alike.
 
 ### `UserAdminKoaUtils` (default export)
 
@@ -490,6 +490,8 @@ Runs every guard that must pass before an email-verification link is honored, in
 **Returns:** `Promise<Types.ObjectId>` — `user._id`, once every guard has passed.
 
 **Throws:** Whatever the first failing guard throws (see the table below).
+
+**Notes:** `user.account.deleted` and `user.account.disabled` are passed to the last two guards **raw**. `userData4VerifyEmail` reads with `.lean()`, so Mongoose casting never runs and these are exactly what the driver found on disk. They are real booleans only once `scripts/migrate-account-disabled-to-boolean.mjs` has been through the database; on un-migrated rows a stored `'false'` is a truthy string and blocks the account. That is deliberate — the flags are not coerced here, because the fix belongs in the data.
 
 | Symbol | Signature | Description |
 |---|---|---|

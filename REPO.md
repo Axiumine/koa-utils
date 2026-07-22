@@ -228,6 +228,7 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - `signUp` sends an email even when the user already exists ("already valid" notice) to avoid leaking account presence — but then throws 409, so a side-channel oracle still exists via timing.
 - Private modules under `src/private/` reach into `@models/*` and DB collections — consumers should not import them directly.
 - `private/graphQL/models/MongoDB/private/UserAdminKoaUtils.mts` defines the admin user model used by `loginAdmin` (not exported).
+- `account.disabled`/`account.deleted` are `Boolean` on the documents but **strings** in the Redis session hash (`redData?.disabled`, truthy for `'true'` and `'false'` alike). `disabled` was wrongly `type: String` on the documents through 5.0.3 — legacy rows need `scripts/migrate-account-disabled-to-boolean.mjs`, because `.lean()` reads never cast.
 - `tryCatchRethrow` casts `e` to `GraphQLError | Error` but receives `unknown` from `catch (e: unknown)` — relies on `instanceof` narrowing.
 
 ---
@@ -238,4 +239,5 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - `.claude/skills/`, `.agents/skills/` — Claude Code / Agent SDK scaffolding.
 - `skills-lock.json` — pinned skill manifest.
 - `z-ram.sh` — local helper script (RAM tweak, not part of library).
+- `scripts/migrate-account-disabled-to-boolean.mjs` — one-shot data migration for consumers. Rewrites `account.disabled`/`account.deleted` from string to boolean in the `user` and `userAdmin` collections. Dry run unless `--apply`; needs `MONGO_URI`. Required after the schema fix — see `CHANGELOG.md`.
 - `CODEOWNERS` — single owner `@giovannimanzoni`.
