@@ -20,7 +20,7 @@ All runtime dependencies are declared as **peer dependencies**. Install the ones
 
 ```bash
 yarn add @node-rs/bcrypt @sentry/node @socketlabs/email clamscan dotenv \
-  file-type fs-extra graphql keygrip koa-logger mongoose pg redis \
+  file-type fs-extra graphql keygrip mongoose pg redis \
   reflect-metadata sequelize sequelize-typescript sharp uuid
 ```
 

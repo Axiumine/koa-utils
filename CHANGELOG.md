@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.5.0 — 2026-07-25
+
+Dependency cleanup only: no new export keys, no runtime signature changes, no behaviour change and no migration.
+
+### Removed
+
+- `koa-logger` is no longer declared as a peer dependency. Nothing under `src/` has ever imported it — it was a
+  required peer (there is no `peerDependenciesMeta` block, so every peer is mandatory), which meant each consumer had
+  to install a package this library never loads. It is also dropped from `devDependencies`, the README install
+  command and the `REPO.md` peer list. Consumers who use `koa-logger` in their own application must now depend on it
+  directly instead of picking it up through this package's peer set.
+
 ## 5.4.1 — 2026-07-25
 
 Internal quality-gate work only: no new export keys, no runtime signature changes, no behaviour change and no

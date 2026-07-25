@@ -1,6 +1,6 @@
 {
 	"name": "@axiumine/koa-utils",
-	"version": "5.4.1",
+	"version": "5.5.0",
 	"description": "Koa Utils",
 	"type": "module",
 	"repository": {
@@ -651,7 +651,6 @@
 		"fs-extra": "*",
 		"graphql": "*",
 		"keygrip": "^1.1.0",
-		"koa-logger": "*",
 		"mongoose": "*",
 		"pg": "*",
 		"redis": "*",
@@ -697,7 +696,6 @@
 		"fs-extra": "^11.3.4",
 		"graphql": "^16.13.1",
 		"koa": "^3.1.1",
-		"koa-logger": "^4.0.0",
 		"lint-staged": "^17.0.5",
 		"mariadb": "^3.5.2",
 		"mocha": "^11.7.6",
