@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 #
-# koa-utils — pre-commit coverage gate.
+# koa-utils — pre-commit gates: yarn.lock registry, 100% coverage, Qodana.
 #
-# Enforces the same 100% bar as CI (qodana.yaml testCoverageThresholds 100/100).
-# Thresholds live in .c8rc.json ("check-coverage": true, "per-file": true, all
-# metrics at 100) — this hook only decides *when* to run c8, never *how strict*.
+# Enforces the same bars as CI, before the commit rather than after the push.
+# Thresholds live elsewhere — .c8rc.json ("check-coverage": true, "per-file":
+# true, all metrics at 100) and qodana.yaml (critical 0 / high 0, coverage
+# 100/100). This hook only decides *when* to run them, never *how strict*.
 #
 # Wired via `git config core.hooksPath .githooks`, done by `yarn hooks:install`
 # (also run automatically by the `prepare` script on `yarn install`).
 #
 # Bypass: `git commit --no-verify` (CI still gates — the bypass is local only).
+# Qodana only: `SKIP_QODANA=1 git commit`.
 #
 # Caveat: the suite runs against the working tree, not the staged snapshot. If
 # unstaged edits are in flight, what is tested is not exactly what is committed.
@@ -102,4 +104,132 @@ EOF
 	exit 1
 fi
 
-echo "pre-commit: 100% coverage held. Proceeding with commit."
+echo "pre-commit: 100% coverage held."
+
+# ---------------------------------------------------------------------------
+# Qodana gate.
+#
+# CI runs Qodana on push to main (.github/workflows/qodana.yml), which is after
+# `yarn upload` has already published. 5.6.0 shipped a defect that way: the scan
+# went red about three minutes after the broken tarball was public. Running the
+# same scan here moves the verdict in front of the commit.
+#
+# Reuses the coverage report `yarn test:coverage` just wrote to .qodana/ — this
+# invokes docker directly rather than `yarn qodana`, which would re-run the
+# whole suite a second time.
+#
+# Never pulls, and never skips. Those are two separate rules and both matter:
+#
+#   - No pull inside the hook. Auto-pulling is what broke the 5.6.1 CI run —
+#     Docker Hub timed out, qodana-action fell through to --skip-pull, the
+#     container never started, and the resulting "failure" carried no verdict
+#     at all (156-byte empty report). A hook that pulls inherits that flake and
+#     turns a network blip into a failed commit.
+#
+#   - A prerequisite that is missing blocks, it does not warn-and-continue. A
+#     gate that silently steps aside when it cannot run is not a gate; it is
+#     the exact hole this hook exists to close, reopened one condition lower.
+#     So every check below prints the one command that fixes it and exits 1.
+#
+# Bypass: SKIP_QODANA=1 git commit
+# ---------------------------------------------------------------------------
+
+# $1 = what is wrong, $2… = the command(s) that fix it.
+qodana_block() {
+	local reason="$1"
+	shift
+	{
+		echo
+		echo "pre-commit: BLOCKED — Qodana gate cannot run: $reason"
+		echo
+		echo "Fix it with:"
+		echo
+		printf '    %s\n' "$@"
+		echo
+		echo "Bypass once (CI will still block): SKIP_QODANA=1 git commit"
+		echo
+	} >&2
+	exit 1
+}
+
+if [ -n "${SKIP_QODANA:-}" ]; then
+	echo "pre-commit: Qodana gate skipped — SKIP_QODANA is set. CI still scans on push to main." >&2
+	exit 0
+fi
+
+ROOT="$(git rev-parse --show-toplevel)"
+
+if ! command -v docker > /dev/null 2>&1; then
+	qodana_block "docker not found in PATH." \
+		"# install Docker Engine, then re-run the commit:" \
+		"https://docs.docker.com/engine/install/"
+fi
+
+if ! docker info > /dev/null 2>&1; then
+	qodana_block "docker daemon not reachable." \
+		"sudo systemctl start docker"
+fi
+
+if [ ! -f "$ROOT/qodana.yaml" ]; then
+	qodana_block "qodana.yaml missing from the repo root." \
+		"git checkout qodana.yaml"
+fi
+
+# Track the linter declared in qodana.yaml rather than hard-coding a tag here,
+# so bumping the version in one place cannot leave the hook scanning with an
+# older image than CI.
+LINTER="$(grep -oE 'jetbrains/qodana-js:[0-9][0-9.]*' "$ROOT/qodana.yaml" | head -n 1 || true)"
+
+if [ -z "$LINTER" ]; then
+	qodana_block "no 'jetbrains/qodana-js:<version>' linter line found in qodana.yaml." \
+		"# restore the 'linter:' key, then re-run the commit:" \
+		"git checkout qodana.yaml"
+fi
+
+if [ ! -f "$ROOT/.env" ]; then
+	qodana_block ".env missing — QODANA_TOKEN lives there, and Qodana 2023.2+ refuses to start without it." \
+		"# get a project token from https://qodana.cloud, then:" \
+		"echo 'QODANA_TOKEN=<token>' >> .env"
+fi
+
+if ! grep -q '^[[:space:]]*QODANA_TOKEN=' "$ROOT/.env"; then
+	qodana_block "no QODANA_TOKEN in .env — Qodana 2023.2+ refuses to start without it." \
+		"# get a project token from https://qodana.cloud, then:" \
+		"echo 'QODANA_TOKEN=<token>' >> .env"
+fi
+
+# Pull is deliberately the developer's command, not the hook's — see the header.
+# Blocking here costs one explicit fetch, once per image bump; auto-pulling
+# would cost a failed commit every time Docker Hub is slow.
+if ! docker image inspect "$LINTER" > /dev/null 2>&1; then
+	qodana_block "linter image $LINTER not present locally." \
+		"docker pull $LINTER"
+fi
+
+echo "pre-commit: running Qodana ($LINTER)…"
+
+mkdir -p "$ROOT/.qodana/results"
+
+if ! docker run --rm --env-file "$ROOT/.env" \
+	-v "$ROOT":/data/project \
+	-v "$ROOT/.qodana/results":/data/results \
+	"$LINTER"; then
+	cat >&2 << EOF
+
+pre-commit: BLOCKED — Qodana failed.
+
+Gate lives in qodana.yaml: severityThresholds critical 0 / high 0, and
+testCoverageThresholds fresh 100 / total 100. Any critical or high finding
+fails the commit.
+
+Report: .qodana/results/report/index.html
+
+Note this exit code also covers infrastructure failures (daemon died mid-scan,
+out of disk). If the report shows no findings, it was not a finding.
+
+Bypass once (CI will still block): SKIP_QODANA=1 git commit
+EOF
+	exit 1
+fi
+
+echo "pre-commit: Qodana clean. Proceeding with commit."

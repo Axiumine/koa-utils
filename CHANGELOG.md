@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+Repository tooling and npm metadata. Nothing under `src/` changed, so `dist` is byte-identical to 5.6.1 and there is
+nothing to install — but the deprecations below are visible to anyone resolving an older version.
+
+### Added
+
+- `.githooks/pre-commit` runs Qodana after the coverage gate, on the same commits that already trigger
+  `yarn test:coverage`. Until now Qodana ran only in CI, on push to `main` — which is *after* `yarn upload` has
+  published, since the publish is a local manual step running beside CI rather than behind it. That ordering is how
+  5.6.0 shipped: the scan went red roughly three minutes after the broken tarball was already public. The gate is the
+  same one either way (`qodana.yaml`: `severityThresholds` critical 0 / high 0, `testCoverageThresholds` 100/100).
+
+  The hook invokes docker directly rather than `yarn qodana`, which would re-run the whole suite a second time, and it
+  reads the linter tag out of `qodana.yaml` so bumping `linter:` cannot leave it scanning an older image than CI.
+
+  It never pulls: auto-pulling is what produced the misleading red on the 5.6.1 CI run, where Docker Hub timed out,
+  `qodana-action` fell through to `--skip-pull`, no container started, and the "failure" carried no verdict at all.
+  Every missing prerequisite — docker, daemon, `qodana.yaml`, its `linter:` key, `.env`, `QODANA_TOKEN`, the image
+  itself — blocks the commit and prints the one command that fixes it. `docker pull` stays the developer's command.
+  Bypass is `SKIP_QODANA=1 git commit`, narrower than `--no-verify` in that it keeps the coverage and lockfile gates.
+
+### Changed
+
+- Every published version carrying a defect fixed by a later release is now deprecated on npm: `4.0.1`–`5.0.3` (reset
+  completable without the hash; reset token sharing `account.email.hash`), `5.1.0`–`5.1.1` (account-enumeration
+  oracles; missing `requestTimes` projection), `5.2.0`–`5.3.0` (reset flow accepting deleted and disabled accounts),
+  and `5.6.0` (swallowed upload error). Each message names its defect and points at 5.6.1. `5.4.0`, `5.4.1` and
+  `5.5.0` are deliberately left alone — superseded, but nothing known wrong with them. Semver ranges already move
+  anyone who re-resolves; deprecation exists to reach exact pins and stale lockfiles, so it is spent on real defects
+  rather than on being merely out of date.
+
 ## 5.6.1 — 2026-07-25
 
 Fixes one line that 5.6.0's log cleanup deleted by mistake. No signature or export change.
