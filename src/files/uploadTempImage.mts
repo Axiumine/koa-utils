@@ -34,6 +34,7 @@ export async function uploadTemp(img: Promise<IFileUpload>): Promise<IUploadTemp
 		// @todo await logUpload('team', uId, originalFilename, fileName)
 	} catch (e) {
 		// error for file handling
+		console.error('Error storing image:', e)
 		throw new Error('Error storing image')
 	}
 

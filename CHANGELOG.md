@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.6.1 — 2026-07-25
+
+Fixes one line that 5.6.0's log cleanup deleted by mistake. No signature or export change.
+
+### Fixed
+
+- `uploadTemp` (`src/files/uploadTempImage.mts`) logs its caught error again. The 5.6.0 sweep removed
+  `console.error('Error storing image:', e)` along with the `console.debug` calls it was supposed to target, which
+  left `catch (e)` binding an error nobody read: the original failure from `validateJpgPngExtension`,
+  `validateJpgPngMimeType`, `scanVirus` or `reEncodeToWebp` was discarded and replaced by the generic
+  `Error('Error storing image')` with no trace anywhere. Qodana caught it as
+  `'e' is defined but never used (@typescript-eslint/no-unused-vars)`. The matching line in `uploadTempPdf.mts` was
+  never affected, and `docs/code/files.md` had described the intended behaviour correctly all along.
+
 ## 5.6.0 — 2026-07-25
 
 Log cleanup across `src/`. No export keys added or removed and no signature changed, so nothing breaks at compile
