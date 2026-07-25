@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+Internal quality-gate work only: no new export keys, no runtime signature changes, no behaviour change and no
+migration. Consumers are unaffected.
+
+### Changed
+
+- The `emailChangeHashVerify` and `updatePassword` resolvers were split into module-private helpers to stay within the
+  repo's eslint `max-lines-per-function` (50) and `max-params` (4) budgets, which the model-agnostic refactor had
+  pushed them past. Qodana surfaces those warnings as High, so the gate had gone red. `emailChangeHashVerify` now
+  delegates its matched- and mismatched-hash branches to `handleValidHash` and `handleHashMismatch`, both taking one
+  bundled context object; `updatePassword` moves its transaction body into `applyPasswordReset`. The exported
+  mutations, their argument interfaces and their `Promise<boolean>` results are unchanged, and coverage stays at 100%.
+
+### Fixed
+
+- The `scripts/migrate-account-disabled-to-boolean.mjs` usage example no longer inlines a `user:pass@` MongoDB URI,
+  which Qodana's "Password in URL" rule reported as a hardcoded password (a Critical finding). The example now shows a
+  credential-free URI and points at `MONGO_URI` for authentication; no code path changed.
+
 ## 5.4.0 — 2026-07-22
 
 Security release, plus a declaration-emit fix that unblocks re-exporting this package's mutations from a consumer's own

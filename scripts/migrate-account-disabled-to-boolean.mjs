@@ -40,7 +40,8 @@
  *   already boolean    -> untouched
  *
  * USAGE
- *   MONGO_URI='mongodb://user:pass@host:27017/dbname' node scripts/migrate-account-disabled-to-boolean.mjs
+ *   MONGO_URI='mongodb://host:27017/dbname' node scripts/migrate-account-disabled-to-boolean.mjs
+ *   ...                  put any authentication credentials in the MONGO_URI connection string
  *   ... --apply          actually write (default is a dry run that changes nothing)
  *   ... --db=<name>      database name, when the URI carries none
  *   ... --collections=user,userAdmin
