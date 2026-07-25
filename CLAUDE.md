@@ -31,7 +31,7 @@ Guidance for AI agents editing this package. Read `REPO.md` for full map.
 ## Coverage — hard 100%
 
 - Thresholds in `.c8rc.json`: `check-coverage: true`, `per-file: true`, `lines`/`statements`/`functions`/`branches` all `100`. `yarn test:coverage` exit non-zero moment any file drop below.
-- `.githooks/pre-commit` run `yarn test:coverage` on every commit touching `src/`, `test/`, `package.json`, `.c8rc.json`, `.mocharc.json` or `tsconfig*.json`. Docs-only commits skip. Wired by `yarn hooks:install` (via `prepare`), which set `git config core.hooksPath .githooks`.
+- `.githooks/pre-commit` run `yarn test:coverage` **then Qodana** on every commit touching `src/`, `test/`, `package.json`, `.c8rc.json`, `.mocharc.json` or `tsconfig*.json`. Docs-only commits skip both. Wired by `yarn hooks:install` (via `prepare`), which set `git config core.hooksPath .githooks`. See "Qodana — gate before publish, not after".
 - Right fix for red gate always new test — never lower threshold, never new exclude.
 - `.c8rc.json` `exclude` for genuinely untestable artefacts only — type-only emit (`I*.mjs`, `types/`, `interfaces/`, `TCommonHeaders`, `TCookieRefreshToken`), fully commented-out `checkForNSFW.mjs`, build output. Don't park real logic there for green.
 - **`src/private/**` covered and measured like everything else.** Excluded until coverage gate landed, which hid auth/email-verification chain — inverted `if` in `handleIfAccountDisabled` could land and suite still report 100%. Do not re-exclude.
@@ -98,12 +98,14 @@ Docs here hand-written reference, not generated (one exception: `<!-- gitnexus:s
 - Do not add `console.debug` to `src/`, and do not leave commented-out `console.*` lines behind. Owner cleared both in 5.6.0 — every commented `console.*` line and every `console.debug` call gone from `src/`. Reintroducing either re-open what that release closed. `console.info`, `console.error` and `console.log` stay where they are: they carry connection and error reporting (`src/dataSources/**`, `src/files/scanVirus.mts`, upload helpers). Debug a flow with a breakpoint or a temporary local edit, not with a line committed to `src/`.
 - Do not replace `accessTokenExpiry()`'s 30–90 min jitter with constant.
 - Do not add barrel `index.mts` at package root or any subdirectory — exports intentionally per-file.
-- Do not run `yarn upload` / `npm publish` unless user explicitly ask.
+- Do not run `yarn upload` / `npm publish` unless user explicitly ask. Same for `npm deprecate` — outward-facing, consumer-visible, owner ask only.
+- Do not blanket-deprecate every non-latest version to "force upgrades". Deprecate what carry a defect, name the defect in the message. See "Deprecating superseded versions".
 - Do not run destructive git (`reset --hard`, `clean -fd`, force-push) without confirmation.
 - Test runner is Mocha (`yarn test`, `yarn test:coverage`). Do not swap. Tests live in `test/`, mirror `src/` layout, use sinon + chai + `mongodb-memory-server`.
 - Do not lower or delete `.c8rc.json` thresholds (`check-coverage`, `per-file`, four `100`s) or `qodana.yaml` `testCoverageThresholds`. They contract, not default.
 - Do not add entries to `.c8rc.json` `exclude`, or `/* c8 ignore */` comments, to make red gate green. Write test instead.
-- Do not commit with `git commit --no-verify` to skip coverage hook, and do not suggest it to user as fix. Emergency escape for owner only — CI block anyway.
+- Do not commit with `git commit --no-verify` to skip coverage hook, nor `SKIP_QODANA=1` to skip the Qodana gate, and do not suggest either to user as fix. Emergency escape for owner only — CI block anyway.
+- Do not soften the hook's Qodana prerequisites into warnings, and do not add a `docker pull` to the hook. Every prerequisite block and print its fix; the pull stay the developer's command. See "Qodana — gate before publish, not after".
 - Do not disable, delete or edit `.githooks/pre-commit` or `.githooks/commit-msg` without explicit instruction. Widening the allowed commit types to make a message pass is exactly this — rewrite the message instead.
 
 ## Build / lint
@@ -116,7 +118,7 @@ Docs here hand-written reference, not generated (one exception: `<!-- gitnexus:s
 - `yarn test:coverage` — same via c8, and **fails run below 100%** on any file. This command decide whether change finished. Also feed Qodana coverage gate.
 - `yarn hooks:install` — point git at `.githooks/` (`core.hooksPath`) **and** install the yarn.lock registry filter. Idempotent, no-op outside git repo, run automatically from `prepare` on `yarn install`.
 - `yarn reindex` — `node .gitnexus/run.cjs analyze --no-stats`. Rebuild the GitNexus graph after every commit and merge. Block in `AGENTS.md` / this file still regenerate, minus the volatile symbol and relationship counts, so a reindex that change no guidance leave the tree clean. `.gitnexusrc` (`"noStats": true`, `"pdg": true`) apply the same omission plus the PDG layer to any invocation that miss the flag.
-- `yarn qodana` / `yarn qodana:cli` — run `test:coverage` then Qodana scan. Gate on coverage 100/100 **and** severity thresholds (`critical:0`, `high:0`) in `qodana.yaml`.
+- `yarn qodana` / `yarn qodana:cli` — run `test:coverage` then Qodana scan, and open the report. Gate on coverage 100/100 **and** severity thresholds (`critical:0`, `high:0`) in `qodana.yaml`. Same scan the pre-commit hook run, minus `--show-report` and minus the second test run.
 - `yarn upload` — `npm publish --registry=https://registry.npmjs.org/`. Flag not decoration, see next section. Owner ask only.
 
 ## Local npm proxy — yarn.lock stay public
@@ -148,6 +150,55 @@ Same proxy bite publish too — separate hole, separate fix:
 
 Yarn Berry (4.x) solve this natively — its lockfile store `resolution: "pkg@npm:1.0.0"` with no host, registry come from `.yarnrc.yml`. Migration is the real fix if the repo ever move off Yarn 1.
 
+## Qodana — gate before publish, not after
+
+Qodana run in two places, and the order matter:
+
+|Where|When|Blocks what|
+|---|---|---|
+|`.githooks/pre-commit`|every commit touching `src/`, `test/`, `package.json`, `.c8rc.json`, `.mocharc.json`, `tsconfig*.json`|the commit|
+|`.github/workflows/qodana.yml`|push to `main`, PR to `main`, manual dispatch|nothing — reports after the fact|
+
+Gate itself live in `qodana.yaml`: `severityThresholds` `critical: 0` / `high: 0`, `testCoverageThresholds` `fresh: 100` / `total: 100`. Both places read the same file.
+
+CI alone is not a gate on this repo. `yarn upload` is a local manual step that run beside CI, not behind it — 5.6.0 published, CI went red about three minutes later, and the broken tarball was already public. That is why the hook exist.
+
+**Hook specifics:**
+
+- Run docker directly, not `yarn qodana` — the yarn script re-run `yarn test:coverage`, which the hook already did. Reuse the report c8 just wrote.
+- **Never pull inside the hook, and never skip.** Two separate rules, both load-bearing. No pull, because auto-pulling is what broke the 5.6.1 CI run: Docker Hub timed out, `qodana-action` fell through to `--skip-pull`, container never started, and the "failure" carried no verdict at all — 156-byte empty report. A hook that pull inherit that flake and turn a network blip into a failed commit.
+- **No skip, because a gate that step aside when it cannot run is not a gate.** Every prerequisite — docker in `PATH`, daemon reachable, `qodana.yaml` present and carrying a `linter:` tag, `.env` present and carrying `QODANA_TOKEN`, image already local — **block the commit**, print the one command that fix it, exit 1. Missing image print `docker pull <linter>` and stop; it does not warn and continue.
+- Fail-open was the first shape of this hook and it was wrong. "A clone without docker must still be able to commit" is false for this repo: single CODEOWNER, and the whole point is that the gate run before publish. Do not reintroduce a warn-and-continue path for any prerequisite.
+- Linter tag read out of `qodana.yaml` at run time, not hard-coded in the hook. Bumping `linter:` in one place must not leave the hook scanning an older image than CI.
+- `QODANA_TOKEN` come from `.env` via `--env-file`. Qodana 2023.2+ refuse to start without it, so the hook check the key is present rather than letting the container fail obscurely.
+- Do not add `--show-report` to the hook invocation — it serve the report on a port and hang the commit.
+- Escape hatch is `SKIP_QODANA=1 git commit`, narrower than `--no-verify` (keep coverage and lockfile gates). Owner use only, same standing as `--no-verify`.
+- Scan exit code cover infrastructure failure as well as findings. Red hook + empty report = infrastructure, not a finding. Check `.qodana/results/report/index.html` before believing the block.
+
+**Reading CI results:** `gh run list --workflow=qodana.yml`, then `gh run view <id> --log-failed`. A red run is not automatically a finding — check for `can't pull image` / `couldn't create the container` first, and `gh run rerun <id> --failed` if so.
+
+## Deprecating superseded versions
+
+Every release that fix a security or correctness defect leave the broken version live on npm, installable forever by any exact pin or stale lockfile. Semver range carry no one forward — `^5.0.0` only help consumer who re-resolve. `npm deprecate` is the one channel that reach a pinned install, so **whenever you bump `version` for a fix, ask whether the version it supersede need deprecating**, and raise the answer with owner before publishing.
+
+**Deprecate when the old version carry a defect a consumer would want to know about:** auth bypass, enumeration oracle, data corruption, swallowed error, wrong HTTP status, broken artefact. Rule of thumb — anything that earn a `### Security` or `### Fixed` heading in `CHANGELOG.md` and change observable behaviour.
+
+**Do not deprecate merely-old versions.** Deprecation mean "this version is bad", not "this version is not newest". Blanket-deprecating every non-latest train consumer to ignore the warning, and it fire in CI for anyone with a lockfile pin — exactly the audience that need the signal for a real defect. `5.4.0`, `5.4.1` and `5.5.0` stay undeprecated on purpose: superseded, nothing known wrong.
+
+**How:**
+
+- Owner ask only, same as `yarn upload`. Deprecation is outward-facing and consumer-visible.
+- Read `CHANGELOG.md` first and find the real cutoff per defect — "fixed in 5.4.0" mean every version `<= 5.3.0` carry it. Don't guess the range off version numbers alone.
+- One command per defect class, not one blanket range. Message must name the defect and the fixed version, because that string is all a consumer see at install time. Tier the ranges when reasons differ materially — a message vague enough to cover every version is a message nobody act on.
+- Pin the registry, same reason `yarn upload` does — yarn inject the proxy as `npm_config_registry`:
+  ```
+  npm deprecate '@axiumine/koa-utils@<=5.3.0' "Security: <what breaks>. Upgrade to <fixed>. See CHANGELOG <version>." --registry=https://registry.npmjs.org/
+  ```
+- Verify after: `npm view '@axiumine/koa-utils@>=4' deprecated --registry=https://registry.npmjs.org/` list every deprecated version and its message. Registry propagation lag mean an immediate read-back can come back empty — retry before concluding the command failed.
+- Reversible: same command with empty message (`""`) clear the flag.
+
+Deprecation is a publish-time decision, not a code change — nothing in the repo record it. `CHANGELOG.md` stay the source of truth for *why*, so the deprecation message quote it rather than restate it.
+
 ## Adding a new export — checklist
 
 1. Create `src/<area>/<Name>.mts` with single named export.
@@ -163,6 +214,7 @@ Yarn Berry (4.x) solve this natively — its lockfile store `resolution: "pkg@np
 5. Add `test/<area>/<Name>.spec.mts` mirroring `src/` path, covering every branch of new symbol.
 6. Run `yarn test:coverage` — must report 100% on statements, branches, functions, lines. Less blocks commit hook.
 7. Bump `version` in `package.json` (semver: patch fixes, minor additive, major breaking). Don't bump unless asked.
+8. Bump was a fix? Check whether superseded version need deprecating — see "Deprecating superseded versions". Raise with owner, don't run `npm deprecate` unasked.
 
 ## Auth flow cheat sheet
 
