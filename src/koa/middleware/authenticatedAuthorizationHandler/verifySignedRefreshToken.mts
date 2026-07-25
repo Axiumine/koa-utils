@@ -11,7 +11,6 @@ export function verifySignedRefreshToken(ctx: IContextRefresh, keys: Keygrip): s
 	// @todo must check the cookie or the header or both, and what to do if one of the two is missing ??
 
 	const cookieHeader = ctx.request.header?.cookie
-	// console.debug('ctx.request.header', ctx.request.header)
 
 	if (cookieHeader === undefined) {
 		throw throwPreconditionFailedNoAuthCookie()
@@ -34,8 +33,6 @@ export function verifySignedRefreshToken(ctx: IContextRefresh, keys: Keygrip): s
 	if (!signature) {
 		throw throwRefreshTokenSignatureRequired()
 	}
-	// console.debug('refreshToken', refreshToken)
-	// console.debug('signature', signature)
 
 	// Verify signature
 	// Verify signature with Keygrip
@@ -45,7 +42,6 @@ export function verifySignedRefreshToken(ctx: IContextRefresh, keys: Keygrip): s
 		// Signature invalid
 		throw throwUnauthorizedError('Invalid Refresh Cookie signature')
 	}
-	// console.debug('signature OK')
 
 	return `refresh:${refreshToken}`
 }

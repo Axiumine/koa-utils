@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.6.0 — 2026-07-25
+
+Log cleanup across `src/`. No export keys added or removed and no signature changed, so nothing breaks at compile
+time — but two middlewares stop producing output, so read the note below before upgrading if you rely on their logs.
+
+### Removed
+
+- Every `console.debug` call is gone from `src/`, and so is every commented-out `console.*` line (36 of them, spread
+  over 26 files). `console.info`, `console.error` and `console.log` are untouched: connection tracing in
+  `src/dataSources/**`, ClamScan reporting in `src/files/scanVirus.mts` and the upload-helper error logs all still
+  work as before.
+- `logRequestToDb` no longer logs or times anything — it awaits `next()` and returns. The request timing, the
+  `ctx.state.user?.id` lookup and the `OBJECTID_0_OBJ` import went with the two log lines. The export and its
+  signature are unchanged, so it stays wired in harmlessly; consumers who want per-request logs must add their own
+  middleware.
+- `debugHandler` is now an inert pass-through: its four `console.debug` lines (timestamp, request headers, cookie
+  header, `refresh_token` cookie) were the whole body. Same export, same signature, no output.
+- `registerNewUser` no longer dumps the constructed user document — that line printed the bcrypt password hash and
+  the activation hash to stdout on every signup.
+- `DateLib.minElapsed` is side-effect free; it printed three lines on every call, including from the
+  password-reset throttle path.
+
+### Changed
+
+- `src/files/checkForNSFW.mts` is still one commented-out block, but the `console.debug` / `console.error` calls
+  inside it are now plain comments carrying the same text. The file remains disabled and holds no executable code.
+- `src/files/scanVirus.mts` lost the empty `else` branch left behind when its commented log line was removed.
+
 ## 5.5.0 — 2026-07-25
 
 Dependency cleanup only: no new export keys, no runtime signature changes, no behaviour change and no migration.

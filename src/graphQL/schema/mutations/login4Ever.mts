@@ -28,12 +28,9 @@ export const login4Ever = {
 	async resolve(_: unknown, args: ILogin4EverArgs, ctx: IContextLogin) {
 		const { email, password } = args
 
-		//console.debug('[login4Ever]')
-
 		const uEmail = email.toLowerCase().trim()
 		checkEmailLen(uEmail)
 		checkPwdLen(password)
-		//console.debug('[login4Ever] data ok')
 
 		let accessToken = ''
 
@@ -42,22 +39,17 @@ export const login4Ever = {
 			await session.withTransaction(async () => {
 				// search if the email exists
 				const user = await checkUserLoginAuthorization(uEmail, password, session)
-				//console.debug('[login4Ever] auth ok')
 
 				// pwd valid
 				const uId = user.userId
 				await updateLoginStats4ever(uId, user.lastLogin, session)
-				//console.debug('[login4Ever] update ok')
-				// console.debug('[login] lastlogin ok')
 
 				accessToken = generateAccessToken()
 				const refreshToken = generateRefreshToken()
 				const accTokenExp = accessTokenExpiry()
 
 				await setRedisLoginSession(uId, accessToken, accTokenExp, refreshToken)
-				//console.debug('[login4Ever] redis ok')
 				setLoginCookies(ctx, refreshToken)
-				//console.debug('[login4Ever] login cookie ok')
 			})
 		} catch (e: unknown) {
 			accessToken = ''
@@ -66,7 +58,6 @@ export const login4Ever = {
 		} finally {
 			await session.endSession()
 		}
-		//console.debug('[login4Ever] return accessToken', accessToken)
 		return { accessToken }
 	}
 }

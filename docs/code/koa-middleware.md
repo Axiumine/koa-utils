@@ -1,6 +1,6 @@
 # Koa — Auth Middleware & Router
 
-This section covers the Koa-level authentication surface: the two Redis-backed session guards (`authenticatedResourceHandler` for general API resources, `authenticatedAuthorizationHandler` for the refresh endpoint), the shared cookie-signature verifier they build on (`verifySignedRefreshToken` / `TCookieRefreshToken`), the logout middleware (`authenticatedLogoutHandler`), a diagnostic pass-through (`debugHandler`), and the email-verification route handler (`routerVerifyEmail`). All middleware here are curried factories — call them once (optionally with args) to get back the actual `(ctx, next) => Promise<...>` Koa middleware. Each reads its credential from a header or cookie, looks the session up in Redis under `${process.env.REDIS_KEY}` + key, and either populates `ctx.state.user` or throws a `GraphQLError` with an HTTP status via `throwGraphQLError`.
+This section covers the Koa-level authentication surface: the two Redis-backed session guards (`authenticatedResourceHandler` for general API resources, `authenticatedAuthorizationHandler` for the refresh endpoint), the shared cookie-signature verifier they build on (`verifySignedRefreshToken` / `TCookieRefreshToken`), the logout middleware (`authenticatedLogoutHandler`), an inert pass-through (`debugHandler`), and the email-verification route handler (`routerVerifyEmail`). All middleware here are curried factories — call them once (optionally with args) to get back the actual `(ctx, next) => Promise<...>` Koa middleware. Each reads its credential from a header or cookie, looks the session up in Redis under `${process.env.REDIS_KEY}` + key, and either populates `ctx.state.user` or throws a `GraphQLError` with an HTTP status via `throwGraphQLError`.
 
 ## `authenticatedResourceHandler`
 
@@ -127,11 +127,11 @@ Middleware for the logout endpoint. Reads both credentials: the signed refresh c
 export const debugHandler: () => (ctx: IContextRefresh, next: Next) => Promise<void>
 ```
 
-Pure diagnostic pass-through — performs no validation and populates nothing. Logs, via `console.debug`: the current timestamp, the full `ctx.request.header` object, `ctx.request.header?.cookie`, and `ctx.cookies.get('refresh_token')`, then immediately calls `next()`. Intended to be wired in ahead of the real auth middleware during live debugging of cookie/header propagation issues.
+Pure pass-through — performs no validation, populates nothing and produces no output; it immediately calls `next()`. Since 5.6.0 the four `console.debug` calls it used to emit (current timestamp, the full `ctx.request.header` object, `ctx.request.header?.cookie` and `ctx.cookies.get('refresh_token')`) are gone, so the middleware is now inert. The export and its signature are kept for compatibility with consumers that already wire it in; add your own logging inside it if you need the old cookie/header trace back.
 
 **Returns:** `(ctx, next) => Promise<void>` — always resolves via `next()`; never throws.
 
-**Notes:** the `console.debug` calls are intentional and must not be stripped — the owner uses them for live debugging.
+**Notes:** `ctx` is accepted but unused. Wiring this middleware in has no observable effect.
 
 ## `routerVerifyEmail`
 

@@ -28,7 +28,7 @@ src/
 │   ├── router/       # routerVerifyEmail (Koa router handler)
 │   ├── customFormatErrorFn.mts  # GraphQL error formatter
 │   ├── tdwKoaErrorHandler.mts   # Top-level Koa error middleware
-│   ├── logRequestToDb.mts       # Request timing/log middleware
+│   ├── logRequestToDb.mts       # Request pass-through middleware (no-op)
 │   ├── IFileUpload.mts          # graphql-upload-compatible shape
 │   └── IKoaError.mts
 ├── lib/

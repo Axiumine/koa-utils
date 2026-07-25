@@ -6,7 +6,6 @@ import { ClientSession, Types } from 'mongoose'
 
 export const createSaveResetReq = (model: TAccessModel, paths: IResetPwdPaths) =>
 	async function saveResetReq(session: ClientSession, _id: Types.ObjectId, now: Date, hash: string) {
-		// console.debug('imposto reset in coll Utenti')
 		try {
 			await model.updateOne(
 				{ _id },

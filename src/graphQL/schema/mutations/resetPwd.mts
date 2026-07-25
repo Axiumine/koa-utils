@@ -56,13 +56,11 @@ export const createResetPwdMutation = (deps: IResetPwdDeps) => ({
 		const session = await mongoose.startSession()
 		try {
 			await session.withTransaction(async () => {
-				// console.debug('email exists ?')
 				// email exists? -> retrieve whether there have already been reset requests -> return 4xx ??
 				const resetPwdVal = await deps.getResetPwd(session, uEmail)
 
 				// don't reveal that the email doesn't exist, for privacy
 				if (resetPwdVal === null) return
-				// console.debug("the email exists")
 
 				// ok, email exists
 
@@ -81,10 +79,8 @@ export const createResetPwdMutation = (deps: IResetPwdDeps) => ({
 				// this flow. Both cases now return true and send nothing.
 				let calculateHash = true
 				if (lastReq !== null) {
-					// console.debug('reset request already made')
-					// console.debug('previous pwd reset request: ' + lastReq + ' it is now ' + nowDt)
 					calculateHash = DateLib.minElapsed(lastReq) >= 10
-				} //else console.debug('first reset request')
+				}
 
 				if (calculateHash) {
 					// generate hash for password reset

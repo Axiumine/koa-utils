@@ -127,7 +127,7 @@ Identical flow to `loginRememberme` but with no `rememberMe` argument: validates
 - `403 Forbidden` — unverified email, wrong password, deleted account, or disabled account.
 - `500 Internal Server Error` — Redis write failure, or any other uncaught error.
 
-**Notes:** Runs in a `mongoose.startSession()` transaction. Contains commented-out `console.debug` trace lines (`[login4Ever] ...`) preserved for live debugging — do not strip.
+**Notes:** Runs in a `mongoose.startSession()` transaction. The commented-out `[login4Ever] ...` `console.debug` trace lines it used to carry were removed in 5.6.0.
 
 ## `loginAdmin`
 

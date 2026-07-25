@@ -1,6 +1,6 @@
 # Koa — Core Helpers
 
-This section covers the small set of framework-glue pieces every `@axiumine/koa-utils` consumer wires into its Koa + GraphQL stack: the GraphQL error formatter passed to the GraphQL executor, a request-logging middleware, the top-level Koa error-handling middleware, and the two plain interfaces (`IFileUpload`, `IKoaError`) that describe the shapes those pieces (and file-upload resolvers) expect. Together they form the request lifecycle: `tdwKoaErrorHandler` wraps `next()` to catch anything thrown downstream (including GraphQL errors already normalized by `customFormatErrorFn`), while `logRequestToDb` wraps `next()` to log method/url/status/timing around the same call chain.
+This section covers the small set of framework-glue pieces every `@axiumine/koa-utils` consumer wires into its Koa + GraphQL stack: the GraphQL error formatter passed to the GraphQL executor, a request pass-through middleware, the top-level Koa error-handling middleware, and the two plain interfaces (`IFileUpload`, `IKoaError`) that describe the shapes those pieces (and file-upload resolvers) expect. Together they form the request lifecycle: `tdwKoaErrorHandler` wraps `next()` to catch anything thrown downstream (including GraphQL errors already normalized by `customFormatErrorFn`), while `logRequestToDb` wraps `next()` as a no-op placeholder for the per-request logging that was never wired to a database.
 
 ## `customFormatErrorFn`
 
@@ -34,13 +34,13 @@ A GraphQL `formatError`-style function. If `err` is an instance of `GraphQLError
 async function logRequestToDb(ctx: IContextLog, next: Next): Promise<void>
 ```
 
-Koa middleware that logs each request/response pair to `console.debug` and times the request. Before calling `next()`, it logs `"${method} ${url}"`. After `next()` resolves, it computes elapsed milliseconds (`Date.now()` delta), resolves the acting user from `ctx.state.user?.id` (falling back to `OBJECTID_0_OBJ`, the zero `ObjectId` placeholder, when no authenticated user is present), reads `operationName` from `ctx.request.body?.operationName`, and logs `"${status} ${operationName} eseguita da ${user} - ${msTot}ms"`.
+Koa middleware that awaits `next()` and does nothing else. Through 5.5.0 it timed the request and wrote two `console.debug` lines around `next()` — `"${method} ${url}"` before, and `"${status} ${operationName} executed by ${user} - ${msTot}ms"` after, resolving the acting user from `ctx.state.user?.id` with `OBJECTID_0_OBJ` as fallback. All of that was removed in 5.6.0 along with the timing arithmetic and the `OBJECTID_0_OBJ` import; the intended database sink (`logGraphql`) was never implemented and remains a commented-out marker in the body. The export, its name and its signature are unchanged, so consumers keep working — they simply get no log output.
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
-| ctx | `IContextLog` | Minimal Koa-like context: `{ method, url, state.user.id, request.body?.operationName, status }`. |
+| ctx | `IContextLog` | Minimal Koa-like context: `{ method, url, state.user.id, request.body?.operationName, status }`. Accepted but no longer read — the type is kept so the middleware can be re-fleshed without a signature change. |
 | next | `Next` (from `koa`) | The downstream middleware/handler to await. |
 
 **Returns:** `Promise<void>` — resolves after `next()` completes and both log lines have been written.

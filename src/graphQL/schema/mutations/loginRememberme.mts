@@ -44,7 +44,6 @@ export const loginRememberme = {
 				// pwd valid
 				const uId = user.userId
 				await updateLoginStatsRememberme(uId, user.lastLogin, rememberMe, session)
-				// console.debug('[login] lastlogin ok')
 
 				accessToken = generateAccessToken()
 				const refreshToken = generateRefreshToken()

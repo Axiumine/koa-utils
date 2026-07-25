@@ -14,8 +14,6 @@ import { verifySignedRefreshToken } from './verifySignedRefreshToken.mjs'
 dotenv.config()
 
 export const authenticatedAuthorizationHandler = (keys: Keygrip) => async (ctx: IContextRefresh, next: Next) => {
-	// console.debug('[authorizationHandler] ')
-
 	/***************************
 	 * CLIENT:
 	 * - sends opaque token as cookie

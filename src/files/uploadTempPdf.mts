@@ -16,7 +16,6 @@ export async function uploadTempPdf(pdf: Promise<IFileUpload>): Promise<IUploadT
 	try {
 		// Step 1 - Readme.md
 		const { fileName, filePath } = await storeUploadAsTemp(pdf)
-		//console.log(fileName, filePath)
 		await validatePdfExtension(fileName, filePath)
 		await validateMimeTypePdf(filePath)
 		// step 2

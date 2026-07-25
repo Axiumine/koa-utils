@@ -74,7 +74,7 @@ Calls `.toString()` on the input and slices fixed-width substrings out of the re
 static minElapsed(dt: Date): number
 ```
 
-Computes how many whole minutes have elapsed between `dt` and the current time by delegating to `DateLib.timeDiffMin`. Has a debug side effect: it logs both the comparison timestamp and the current time via `console.debug` (Italian comments: "stampa date di confronto" / print dates for comparison) before returning.
+Computes how many whole minutes have elapsed between `dt` and the current time by delegating to `DateLib.timeDiffMin`. Side-effect free since 5.6.0: the three `console.debug` lines it used to emit (the comparison timestamp, the current time, and the resulting elapsed minutes) were removed.
 
 **Parameters:**
 
@@ -84,7 +84,7 @@ Computes how many whole minutes have elapsed between `dt` and the current time b
 
 **Returns:** `number` — elapsed whole minutes between `dt` and now (order-independent, always non-negative).
 
-**Notes:** Emits `console.debug` output on every call (per project convention this must not be stripped).
+**Notes:** Emits no output — safe to call on a hot path.
 
 ### `DateLib.timeDiffMin(lastReq, now)`
 

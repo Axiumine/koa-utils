@@ -32,11 +32,6 @@ export const authenticatedLogoutHandler = (keys: Keygrip) => async (ctx: IContex
 	 * - in authorization: ctx.request.header.authorization = Bearer ACCESS_TOKEN_HERE
 	 * - in cookie: ctx.request.header.cookie = refresh_cookie=TOKEN_HERE
 	 */
-	/*
-	if (typeof ctx.request.header?.operation !== 'undefined') {
-		const operationName = ctx.request.header.operation
-		console.debug('[authorizationHandler] operationName: ', operationName)
-	} */
 	let introspection = false
 
 	// refresh

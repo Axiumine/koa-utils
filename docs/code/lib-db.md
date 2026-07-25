@@ -157,7 +157,7 @@ and inserts it via `UserBase.create(newUsers, { session })`.
 
 **Returns:** `Promise<string>` — the generated `hashConfirmEmail` (from `emailHash()`), used by the caller to build the "verify your email" link/email.
 
-**Notes:** Logs the constructed `newUsers` array via `console.debug('newUsers: ', JSON.stringify(newUsers, undefined, 2))` before insert — intentional live-debugging output per repo convention, not to be stripped. Called from `signUp` (`src/graphQL/schema/mutations/signUp.mts`) only after `userExist` has confirmed the email is free, inside the same `mongoose.startSession()` / `session.withTransaction(...)` block. Depends on `emailHash` (`@lib/emailHash.mjs`) and `encryptPassword` (`@lib/encryptPassword.mjs`) — neither is part of this file's exports.
+**Notes:** Emits no output. Through 5.5.0 it dumped the constructed `newUsers` array — including the bcrypt hash and the activation hash — via `console.debug` before insert; that line was removed in 5.6.0. Called from `signUp` (`src/graphQL/schema/mutations/signUp.mts`) only after `userExist` has confirmed the email is free, inside the same `mongoose.startSession()` / `session.withTransaction(...)` block. Depends on `emailHash` (`@lib/emailHash.mjs`) and `encryptPassword` (`@lib/encryptPassword.mjs`) — neither is part of this file's exports.
 
 ## `userExist`
 

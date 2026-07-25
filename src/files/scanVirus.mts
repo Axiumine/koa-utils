@@ -73,8 +73,6 @@ export async function scanVirus(filePath: string): Promise<IScanVirusResult> {
 				scope.setLevel('warning')
 				Sentry.captureMessage(`Infected file detected: ${filePath}`)
 			})
-		} else {
-			//console.log(`The file ${filePath} is clean.`)
 		}
 
 		return { isInfected, viruses, alerted, scanned: true }

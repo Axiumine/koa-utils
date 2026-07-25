@@ -40,7 +40,6 @@ interface IVerifyContext {
  */
 async function handleHashMismatch(ctx: IVerifyContext, uId: Types.ObjectId, requestTimes: number | undefined) {
 	// hash failed
-	console.debug('HASH FAILED')
 
 	if (typeof requestTimes === 'undefined') {
 		throw throwInternalError()
@@ -65,8 +64,6 @@ async function handleValidHash(ctx: IVerifyContext, uId: Types.ObjectId, dateLas
 		throw throwInternalError()
 	}
 
-	console.debug('activation link hash is valid')
-
 	// if dateLastReq is older than 3 days, warn and stop
 	const StrLibObj = new StringLib()
 	const now = new Date()
@@ -74,7 +71,6 @@ async function handleValidHash(ctx: IVerifyContext, uId: Types.ObjectId, dateLas
 
 	if (StrLibObj.isoToTimestamp(day3ago) > StrLibObj.isoToTimestamp(dateLastReq)) {
 		// dateLastReq too old then 3 days
-		console.debug('but link is too old')
 
 		// noinspection ES6MissingAwait
 		socketLabs.hashReqTooOld(uEmail)
@@ -135,15 +131,11 @@ export const createEmailChangeHashVerifyMutation = (deps: IEmailChangeHashVerify
 
 		// if email not found, return (do not tell the user the real problem !)
 		if (user === null) {
-			console.debug('email NOT found ', uEmail)
-
 			return false // @fixme throw
 		}
-		console.debug('email found')
 
 		const ctx: IVerifyContext = { deps, user, uEmail, socketLabs: new SocketLabsLib() }
 
-		console.debug('comparing hash ')
 		const uId = readPath(user, '_id') as Types.ObjectId
 		const dateLastReq = readPath(user, paths.dateLastReq) as Date | undefined
 

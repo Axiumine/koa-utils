@@ -17,17 +17,14 @@ export async function _finalizeLoginCheck(user: ILoginUserShape, uEmail: string,
 	const ret = await compareHashAsync(password, user.login.password)
 
 	if (!ret) {
-		// console.debug('[checkUserLoginAuthorization] pwd failed')
 		throw throwForbiddenError()
 	}
 
 	if (user.account.deleted) {
-		// console.debug('[checkUserLoginAuthorization] user deleted')
 		throw throwForbiddenError()
 	}
 
 	if (user.account.disabled) {
-		// console.debug('[checkUserLoginAuthorization] user disabled')
 		const SocketLabsObj = new SocketLabsLib()
 		await SocketLabsObj.accountDisabled(uEmail)
 		throw throwForbiddenError()

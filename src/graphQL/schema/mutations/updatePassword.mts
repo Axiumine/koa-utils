@@ -50,7 +50,6 @@ async function applyPasswordReset(
 	if (resetPwd === null) {
 		throw throwForbiddenError() // don't reveal whether the email is present, for privacy
 	}
-	// console.debug('--email present')
 
 	// No usable reset state. This is NOT an internal error as far as the caller is concerned:
 	// answering 500 here while an unknown address answers 403 turns this mutation into an
@@ -71,18 +70,18 @@ async function applyPasswordReset(
 	// check if hash is missing or invalid
 	if (resetPwd.resetHash !== hash) {
 		throw throwForbiddenError() // don't reveal whether the email is present, for privacy
-	} // else console.debug('--hash valid')
+	}
 
 	// check if the request was made within 1 hour
 	const dt1 = new Date('' + resetPwd.resetDateReq)
 	if (DateLib.minElapsed(dt1) > 60) {
 		throw throwForbiddenError() // The link is no longer valid
-	} // else console.debug('--link valid')
+	}
 
 	const update = await deps.updatePasswordDb(session, resetPwd._id, password)
 	if (!update) {
 		throw throwInternalError() // "System error while updating the password."
-	} // else console.debug('--pwd updated')
+	}
 
 	// delete password reset request data from db
 	await deps.removeResetReq(session, uEmail)

@@ -8,7 +8,6 @@ export const _validateMimeType = async (filePath: string, allowedMimeTypes: stri
 	const { fileTypeFromFile } = await import('file-type')
 
 	const fileType = await fileTypeFromFile(filePath) // Get the file type from the file
-	//console.debug('fileType', fileType)
 	if (!fileType) return '' // Could not detect file type
 	// Check if the detected MIME type is allowed and is so, return file extension
 	if (allowedMimeTypes.includes(fileType.mime)) {

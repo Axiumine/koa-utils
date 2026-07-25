@@ -4,7 +4,6 @@ import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { ClientSession, Types } from 'mongoose'
 
 export async function registerNewUser(uEmail: string, password: string, session: ClientSession) {
-	// console.debug('new user')
 	const userId = new Types.ObjectId()
 	const nowDt = new Date()
 	const hashConfirmEmail = emailHash()
@@ -28,7 +27,6 @@ export async function registerNewUser(uEmail: string, password: string, session:
 			}
 		}
 	]
-	console.debug('newUsers: ', JSON.stringify(newUsers, undefined, 2))
 
 	await UserBase.create(newUsers, { session })
 	return hashConfirmEmail

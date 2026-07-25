@@ -412,8 +412,6 @@ SendResponse {
 		return this.client.send(basicMessage).then(
 			() => {
 				//Handle successful API call
-				// console.debug('[sendEmail] Email sent correctly')
-				//console.				// console.debug('[sendEmail] Email sent correctly')(res);
 				return true
 			},
 			(e: Error) => {

@@ -95,7 +95,7 @@ Docs here hand-written reference, not generated (one exception: `<!-- gitnexus:s
 - Do not import from `src/private/**` outside package, and do not add `private/*` to `package.json` `exports`. Those modules internal.
 - Do not introduce `.ts` files — extension is `.mts`. Do not write `import x from './y'` — write `'./y.mjs'`.
 - Do not add `dependencies` to `package.json`. Library declare zero runtime deps; everything `peerDependencies` so consumer control versions.
-- Do not strip commented-out `console.debug` lines wholesale — owner use them for live debugging. Remove only when modifying exact lines they describe.
+- Do not add `console.debug` to `src/`, and do not leave commented-out `console.*` lines behind. Owner cleared both in 5.6.0 — every commented `console.*` line and every `console.debug` call gone from `src/`. Reintroducing either re-open what that release closed. `console.info`, `console.error` and `console.log` stay where they are: they carry connection and error reporting (`src/dataSources/**`, `src/files/scanVirus.mts`, upload helpers). Debug a flow with a breakpoint or a temporary local edit, not with a line committed to `src/`.
 - Do not replace `accessTokenExpiry()`'s 30–90 min jitter with constant.
 - Do not add barrel `index.mts` at package root or any subdirectory — exports intentionally per-file.
 - Do not run `yarn upload` / `npm publish` unless user explicitly ask.

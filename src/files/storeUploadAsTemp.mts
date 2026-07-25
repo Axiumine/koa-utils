@@ -75,8 +75,6 @@ export async function storeUploadAsTemp(upload: Promise<IFileUpload>, maxFileSiz
 		stream.pipe(writeStream)
 	})
 
-	//console.debug('storedFileName', storedFileName)
-
 	return {
 		originalFilename: filename,
 		fileName: storedFileName,

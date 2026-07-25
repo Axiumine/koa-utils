@@ -14,7 +14,6 @@ export const refresh = {
 	description: 'refresh token',
 	type: new GraphQLNonNull(RefreshType),
 	async resolve(_: unknown, {}, ctx: IContextRefresh) {
-		// console.debug('refresh')
 		let status = false // default
 
 		// has the refresh token, access token already expired

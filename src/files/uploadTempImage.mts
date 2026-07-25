@@ -17,7 +17,6 @@ export async function uploadTemp(img: Promise<IFileUpload>): Promise<IUploadTemp
 	try {
 		// Step 1 - Readme.md
 		const { fileName, filePath } = await storeUploadAsTemp(img)
-		//console.debug(fileName, filePath)
 		await validateJpgPngExtension(fileName, filePath)
 		await validateJpgPngMimeType(filePath)
 		// step 2
@@ -35,7 +34,6 @@ export async function uploadTemp(img: Promise<IFileUpload>): Promise<IUploadTemp
 		// @todo await logUpload('team', uId, originalFilename, fileName)
 	} catch (e) {
 		// error for file handling
-		console.error('Error storing image:', e)
 		throw new Error('Error storing image')
 	}
 

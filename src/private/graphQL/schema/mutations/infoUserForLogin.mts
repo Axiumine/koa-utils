@@ -7,7 +7,6 @@ export async function infoUserForLogin(email: string, session: ClientSession): P
 		.select('_id login.password login.lastLogin account.email.valid account.deleted ' + 'account.disabled')
 		.session(session)
 		.exec()
-	// console.debug('[infoUserForLogin] ret: ', ret);
 
 	if (ret === null) throw throwUnauthorizedError()
 
