@@ -7,10 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-Repository tooling and npm metadata. Nothing under `src/` changed, so `dist` is byte-identical to 5.6.1 and there is
-nothing to install — but the deprecations below are visible to anyone resolving an older version.
+The email-verification chain, reported from a consumer binding `createVerifyEmailFlow` to a non-`UserBase` model, plus
+the repository tooling and npm metadata that was already sitting here. Additive throughout — every existing call site
+keeps its signature — with two behaviour changes on paths reachable without authentication: guard notifications are now
+debounced, and `handleBadDB` answers the same redirect as every other guard.
 
 ### Added
+
+- `createVerifyEmailFlow` takes an abandonment policy. Two guards dispose of a pending registration — the fifth wrong
+  hash and a link older than 3 days — and until now both meant `deleteOne`, with no way to change it: overriding
+  `flow.deleteUserByEmail` after the fact did nothing, because the guards closed over the internal writer. That is fatal
+  for a row other collections depend on, and mongo has no cascade to fall back on.
+
+  ```ts
+  createVerifyEmailFlow({ model: Imprenditore, onAbandon: 'soft-delete', deletedValue: () => new Date() })
+  createVerifyEmailFlow({ model: Imprenditore, deleteUserByEmail: myCascadingWriter })
+  ```
+
+  `onAbandon: 'delete'` (the default) is the old behaviour; `'soft-delete'` `$set`s `paths.deleted` and leaves the row;
+  `'keep'` is a no-op. `deletedValue` defaults to `true` for `UserBase`'s boolean column and is otherwise written
+  verbatim — a function is called once per write, so a `Date` column gets the time of its own. `deleteUserByEmail`
+  replaces the writer outright and wins over both. Whatever the policy, both guards still throw: disposal never decides
+  whether the link is honoured. The factory builds exactly one writer, uses it in the guards and returns it, so
+  `flow.deleteUserByEmail` now reports the policy rather than pretending to set it.
+
+- `IVerifyEmailMailer` (`lib/access/verifyEmailMailer`) — the six notifications the chain sends, as an interface, with
+  `socketLabsVerifyEmailMailer`, `throttleMailer(mailer, throttle)` and `defaultVerifyEmailMailer`. Every guard used to
+  construct its own `SocketLabsLib` inline, which pinned every consumer to this package's provider, copy and
+  `SOCKETLABS_*` env vars, and left no branch of the chain drivable from an integration suite: with real credentials in
+  `.env` the only paths reachable without mailing a real person were "address not found" and the bad-DB guard — the
+  success path included, since `enableEmailAccess` sent the welcome mail itself. All six `handleIf*` guards,
+  `enableEmailAccess` and the `emailChangeHashVerify` mutation now take the mailer as a dependency, and
+  `createVerifyEmailFlow` accepts `mailer`. The interface is structural, so `SocketLabsLib` itself satisfies it.
+
+  `handleIfAccountDeleted` still sends `accountDisabled`: there is no `accountDeleted` template, and that is what it has
+  always sent. Documented rather than changed — the copy is a product decision.
+
+- `createMailThrottle` / `ALWAYS_MAIL` (`lib/access/createMailThrottle`) — in-process debounce behind the mailer, one
+  send per key per window, keyed `` `${template}:${address}` ``. Default 15 minutes, `maxKeys` 5000 with expired-first
+  sweeping and oldest-key eviction so cycling addresses cannot grow the map or mute a real one. `TMailThrottle` is a
+  single function so a deployment can swap in a Redis `SET key NX PX`; `ALWAYS_MAIL` restores the old behaviour.
 
 - `.githooks/pre-commit` runs Qodana after the coverage gate, on the same commits that already trigger
   `yarn test:coverage`. Until now Qodana ran only in CI, on push to `main` — which is *after* `yarn upload` has
@@ -26,6 +62,29 @@ nothing to install — but the deprecations below are visible to anyone resolvin
   Every missing prerequisite — docker, daemon, `qodana.yaml`, its `linter:` key, `.env`, `QODANA_TOKEN`, the image
   itself — blocks the commit and prints the one command that fixes it. `docker pull` stays the developer's command.
   Bypass is `SKIP_QODANA=1 git commit`, narrower than `--no-verify` in that it keeps the coverage and lockfile gates.
+
+### Security
+
+- **Unauthenticated mail amplification in the verify-email route.** `handleIfEmailAlreadyValid`,
+  `handleIfAccountDeleted` and `handleIfAccountDisabled` mailed the address on *every* request and had no counter to
+  lean on — unlike the wrong-hash and expiry guards, which at least advance `requestTimes`. Anyone who knew a registered
+  address could hold `GET /check/verify-email/<address>/<anything>` open in a loop and make the platform's own SocketLabs
+  account mail its owner once per request: a mail bomb aimed at a third party, and a sending-reputation problem for the
+  platform. All five guard notifications are now debounced per address per template (default 15 minutes) and
+  `emailChangeHashVerify` shares the window; `sendWelcome` is not debounced, being on the success path only. Opt out with
+  `mailThrottle: ALWAYS_MAIL`, or replace the window with a cross-instance one.
+
+- **Account-existence oracle in `handleBadDB`.** It threw a hardcoded `'/x/error'` where every sibling guard throws
+  `EMAIL_CHECK_LINK` (`'/x/email-check'`), so a corrupt record on a **real** account and an unknown address answered the
+  same unauthenticated URL with two different redirects. It now throws `EMAIL_CHECK_LINK` like the rest; the distinction
+  is kept where it is useful and not disclosed, in the existing `Sentry.captureMessage('[handleBadDB] DB ERROR')`.
+  Consumers relying on `/x/error` from this branch should watch Sentry instead.
+
+### Fixed
+
+- `deleteUserByEmail` reports `deletedCount === 0` to Sentry (`captureMessage(…, 'warning')`) instead of carrying a
+  `// @todo report on Sentry` comment above a commented-out check. It still resolves — a guard's redirect must not
+  depend on the delete having matched — but a disposal that silently hit nothing is no longer invisible.
 
 ### Changed
 

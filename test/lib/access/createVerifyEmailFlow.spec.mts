@@ -8,10 +8,13 @@
  * not `user`.
  */
 import { createVerifyEmailFlow } from '../../../dist/lib/access/createVerifyEmailFlow.mjs'
+import { ALWAYS_MAIL } from '@lib/access/createMailThrottle.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { expect } from 'chai'
 import { Types } from 'mongoose'
 import sinon from 'sinon'
+
+import { fakeVerifyEmailMailer } from '../../helpers/fakeVerifyEmailMailer.mjs'
 
 const EMAIL = 'user@example.com'
 const HASH = 'the-stored-verify-hash'
@@ -78,13 +81,14 @@ describe('createVerifyEmailFlow', () => {
 	let wrongHash: sinon.SinonStub
 	let tooMuchVerifyRequests: sinon.SinonStub
 	let hashReqTooOld: sinon.SinonStub
+	let alreadyValid: sinon.SinonStub
 
 	beforeEach(() => {
 		sendWelcome = sinon.stub(SocketLabsLib.prototype, 'sendWelcome').resolves()
 		wrongHash = sinon.stub(SocketLabsLib.prototype, 'wrongHash').resolves()
 		tooMuchVerifyRequests = sinon.stub(SocketLabsLib.prototype, 'tooMuchVerifyRequests').resolves()
 		hashReqTooOld = sinon.stub(SocketLabsLib.prototype, 'hashReqTooOld').resolves()
-		sinon.stub(SocketLabsLib.prototype, 'emailAlreadyValid').resolves()
+		alreadyValid = sinon.stub(SocketLabsLib.prototype, 'emailAlreadyValid').resolves()
 	})
 
 	afterEach(() => sinon.restore())
@@ -225,6 +229,147 @@ describe('createVerifyEmailFlow', () => {
 			const [, update] = model.updateOne.firstCall.args
 			expect(update).to.deep.equal({ $inc: { 'verification.requestTimes': 1 } })
 			expect(wrongHash.calledOnceWithExactly(EMAIL, 1)).to.equal(true)
+		})
+	})
+
+	describe('onAbandon', () => {
+		// The two abandonment guards used to hard-code deleteOne. For a row other collections hang off,
+		// that is data loss with no cascade to undo it — and the returned flow member could not change it,
+		// because the guards had already closed over the internal writer.
+		const staleDoc = () => makeDoc({ verification: { hash: HASH, dateLastReq: new Date(), requestTimes: 5 } })
+
+		it("defaults to 'delete', unchanged from before the option existed", async () => {
+			const model = makeModel(staleDoc())
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, mailer: fakeVerifyEmailMailer() })
+
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(model.deleteOne.calledOnceWithExactly({ mail: EMAIL })).to.equal(true)
+		})
+
+		it("'soft-delete' writes the deleted path and never calls deleteOne", async () => {
+			const model = makeModel(staleDoc())
+			const flow = createVerifyEmailFlow({
+				model,
+				paths: PATHS,
+				onAbandon: 'soft-delete',
+				mailer: fakeVerifyEmailMailer()
+			})
+			const { ctx, redirects } = makeCtx()
+
+			await flow.routerVerifyEmail()(ctx)
+
+			expect(model.deleteOne.called).to.equal(false)
+			expect(model.updateOne.calledOnce).to.equal(true)
+			expect(model.updateOne.firstCall.args[1]).to.deep.equal({ $set: { 'flags.deleted': true } })
+			// disposal policy never decides whether the link is honoured
+			expect(redirects).to.deep.equal(['/x/email-check'])
+		})
+
+		it("'soft-delete' with a deletedValue factory stores a timestamp rather than a boolean", async () => {
+			const model = makeModel(staleDoc())
+			const stamp = new Date('2026-03-03T00:00:00.000Z')
+			const flow = createVerifyEmailFlow({
+				model,
+				paths: PATHS,
+				onAbandon: 'soft-delete',
+				deletedValue: () => stamp,
+				mailer: fakeVerifyEmailMailer()
+			})
+
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(model.updateOne.firstCall.args[1]).to.deep.equal({ $set: { 'flags.deleted': stamp } })
+		})
+
+		it("'keep' disposes of nothing but still refuses the link", async () => {
+			const model = makeModel(staleDoc())
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, onAbandon: 'keep', mailer: fakeVerifyEmailMailer() })
+			const { ctx, redirects } = makeCtx()
+
+			await flow.routerVerifyEmail()(ctx)
+
+			expect(model.deleteOne.called).to.equal(false)
+			expect(model.updateOne.called).to.equal(false)
+			expect(redirects).to.deep.equal(['/x/email-check'])
+		})
+
+		it('an explicit deleteUserByEmail wins over onAbandon, and is what the guards actually call', async () => {
+			const model = makeModel(staleDoc())
+			const custom = sinon.stub().resolves()
+			const flow = createVerifyEmailFlow({
+				model,
+				paths: PATHS,
+				onAbandon: 'soft-delete',
+				deleteUserByEmail: custom as never,
+				mailer: fakeVerifyEmailMailer()
+			})
+
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(custom.calledOnceWithExactly(EMAIL)).to.equal(true)
+			expect(model.deleteOne.called).to.equal(false)
+			expect(model.updateOne.called).to.equal(false)
+			// The returned member is the same writer the guards hold, so it reports the policy in force
+			// instead of being a second, ignored copy.
+			expect(flow.deleteUserByEmail).to.equal(custom)
+		})
+
+		it('the returned deleteUserByEmail is the writer the guards run, not a separate default', async () => {
+			const model = makeModel(staleDoc())
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, onAbandon: 'soft-delete', mailer: fakeVerifyEmailMailer() })
+
+			await flow.deleteUserByEmail(EMAIL)
+
+			// soft-delete, exactly like the guard path above — not the hard delete of the old internal writer
+			expect(model.deleteOne.called).to.equal(false)
+			expect(model.updateOne.calledOnceWith({ mail: EMAIL })).to.equal(true)
+		})
+	})
+
+	describe('mailer and mailThrottle', () => {
+		it('routes every guard notification through an injected mailer', async () => {
+			const mailer = fakeVerifyEmailMailer()
+			const model = makeModel(makeDoc({ verified: true }))
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, mailer })
+
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(mailer.emailAlreadyValid.calledOnceWithExactly(EMAIL)).to.equal(true)
+			// nothing reached the real client
+			expect(sendWelcome.called).to.equal(false)
+		})
+
+		it('debounces a repeated notification by default', async () => {
+			const model = makeModel(makeDoc({ verified: true }))
+			const flow = createVerifyEmailFlow({ model, paths: PATHS })
+
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+
+			// Same address, same template, same window: the second GET must not mail the account owner
+			// again. Unauthenticated callers used to get one mail per request, unbounded.
+			expect(alreadyValid.calledOnce).to.equal(true)
+		})
+
+		it('a per-flow throttle is not shared between flows', async () => {
+			const first = createVerifyEmailFlow({ model: makeModel(makeDoc({ verified: true })), paths: PATHS })
+			const second = createVerifyEmailFlow({ model: makeModel(makeDoc({ verified: true })), paths: PATHS })
+
+			await first.routerVerifyEmail()(makeCtx().ctx)
+			await second.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(alreadyValid.calledTwice).to.equal(true)
+		})
+
+		it('mailThrottle: ALWAYS_MAIL restores one mail per request', async () => {
+			const model = makeModel(makeDoc({ verified: true }))
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, mailThrottle: ALWAYS_MAIL })
+
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(alreadyValid.calledTwice).to.equal(true)
 		})
 	})
 

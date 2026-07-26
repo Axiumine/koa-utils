@@ -1,4 +1,4 @@
-import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
+import { defaultVerifyEmailMailer, IVerifyEmailMailer } from '@lib/access/verifyEmailMailer.mjs'
 import mongoose from 'mongoose'
 
 import { EMAIL_CHECK_LINK } from './Constants.mjs'
@@ -17,15 +17,17 @@ interface IHandleIfHashBadArgs {
  *
  * The strike counter is bumped through an injected writer so the guard can serve a model other than
  * `UserBase`: the counter path itself lives in the verify-email `paths` map the writer was built with.
+ *
+ * The warning mail goes through an injected mailer for the same reason plus one more — a constructed-in-place
+ * SocketLabs client made this branch unreachable from an integration suite without sending for real.
  */
-export const createHandleIfHashBad = (incReqTimesFn: TIncReqTimes) =>
+export const createHandleIfHashBad = (incReqTimesFn: TIncReqTimes, mailer: IVerifyEmailMailer) =>
 	async function handleIfHashBad({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) {
 		if (hash !== dbHash) {
 			// hash failed
 			await incReqTimesFn(uId)
 
-			const SocketLabsObj = new SocketLabsLib()
-			await SocketLabsObj.wrongHash(uEmail, requestTimes + 1)
+			await mailer.wrongHash(uEmail, requestTimes + 1)
 			throw new Error(EMAIL_CHECK_LINK)
 		}
 	}
@@ -34,4 +36,4 @@ export const createHandleIfHashBad = (incReqTimesFn: TIncReqTimes) =>
 export type THandleIfHashBad = ReturnType<typeof createHandleIfHashBad>
 
 /** `UserBase`-bound default — the behaviour every existing consumer already imports. */
-export const handleIfHashBad: THandleIfHashBad = createHandleIfHashBad(incReqTimes)
+export const handleIfHashBad: THandleIfHashBad = createHandleIfHashBad(incReqTimes, defaultVerifyEmailMailer)

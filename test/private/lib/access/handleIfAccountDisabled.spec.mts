@@ -1,23 +1,27 @@
 /**
  * Tests for private/lib/access/handleIfAccountDisabled.mts
  *
- * Chain: handleIfAccountDisabled(email, disabled)
- *          → if disabled: new SocketLabsLib().accountDisabled(email) → throw Error(EMAIL_CHECK_LINK)
+ * Chain: createHandleIfAccountDisabled(mailer)
+ *          → if disabled: mailer.accountDisabled(email) → throw Error(EMAIL_CHECK_LINK)
  *          → if not disabled (or omitted, default = false): resolves with no return value
  */
-import { handleIfAccountDisabled } from '@private/lib/access/handleIfAccountDisabled.mjs'
+import { createHandleIfAccountDisabled, handleIfAccountDisabled } from '@private/lib/access/handleIfAccountDisabled.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { EMAIL_CHECK_LINK } from '@private/lib/access/Constants.mjs'
 import { expect } from 'chai'
 import sinon from 'sinon'
 
+import { fakeVerifyEmailMailer, IFakeVerifyEmailMailer } from '../../../helpers/fakeVerifyEmailMailer.mjs'
+
 // ---------------------------------------------------------------------------
 
 describe('handleIfAccountDisabled', () => {
-	let accountDisabledStub: sinon.SinonStub
+	let mailer: IFakeVerifyEmailMailer
+	let guard: ReturnType<typeof createHandleIfAccountDisabled>
 
 	beforeEach(() => {
-		accountDisabledStub = sinon.stub(SocketLabsLib.prototype, 'accountDisabled').resolves()
+		mailer = fakeVerifyEmailMailer()
+		guard = createHandleIfAccountDisabled(mailer)
 	})
 
 	afterEach(() => {
@@ -28,27 +32,43 @@ describe('handleIfAccountDisabled', () => {
 		let caught: unknown
 
 		try {
-			await handleIfAccountDisabled('user@test.com', true)
+			await guard('user@test.com', true)
 		} catch (e) {
 			caught = e
 		}
 
 		expect(caught).to.be.instanceOf(Error)
 		expect((caught as Error).message).to.equal(EMAIL_CHECK_LINK)
-		expect(accountDisabledStub.calledOnceWith('user@test.com')).to.equal(true)
+		expect(mailer.accountDisabled.calledOnceWith('user@test.com')).to.equal(true)
 	})
 
 	it('disabled = false → resolves without calling accountDisabled', async () => {
-		const result = await handleIfAccountDisabled('user@test.com', false)
+		const result = await guard('user@test.com', false)
 
 		expect(result).to.equal(undefined)
-		expect(accountDisabledStub.called).to.equal(false)
+		expect(mailer.accountDisabled.called).to.equal(false)
 	})
 
 	it('disabled omitted (default = false) → resolves without calling accountDisabled', async () => {
-		const result = await handleIfAccountDisabled('user@test.com')
+		const result = await guard('user@test.com')
 
 		expect(result).to.equal(undefined)
-		expect(accountDisabledStub.called).to.equal(false)
+		expect(mailer.accountDisabled.called).to.equal(false)
+	})
+
+	it('the bound default reaches SocketLabs accountDisabled', async () => {
+		const stub = sinon.stub(SocketLabsLib.prototype, 'accountDisabled').resolves()
+		// Address used by this test only — the default binding debounces per address + template.
+		const email = 'bound-disabled@test.com'
+
+		let caught: unknown
+		try {
+			await handleIfAccountDisabled(email, true)
+		} catch (e) {
+			caught = e
+		}
+
+		expect((caught as Error).message).to.equal(EMAIL_CHECK_LINK)
+		expect(stub.calledOnceWith(email)).to.equal(true)
 	})
 })

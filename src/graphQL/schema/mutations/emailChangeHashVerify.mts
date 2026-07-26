@@ -1,5 +1,5 @@
-import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { DEFAULT_VERIFY_EMAIL_PATHS, IVerifyEmailPaths, TAccessModel } from '@lib/access/accessPaths.mjs'
+import { defaultVerifyEmailMailer, IVerifyEmailMailer } from '@lib/access/verifyEmailMailer.mjs'
 import { StringLib } from '@lib/StringLib.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import confirmNewEmail, { TConfirmNewEmail } from '@private/lib/access/db/confirmNewEmail.mjs'
@@ -21,17 +21,23 @@ export interface IEmailChangeHashVerifyDeps {
 	paths: IVerifyEmailPaths
 	confirmNewEmail: TConfirmNewEmail
 	incReqTimes: TIncReqTimes
+	/**
+	 * Who sends the three notifications this resolver can trigger. Optional, defaulting to the debounced
+	 * SocketLabs binding — the client used to be constructed in `resolve`, so no caller could exercise a
+	 * branch without a real send.
+	 */
+	mailer?: IVerifyEmailMailer
 }
 
 /**
  * Everything the extracted branch handlers need, bundled so each stays within the max-params budget:
- * the bound deps, the lean document just read, the lowercased email and one shared SocketLabs client.
+ * the bound deps, the lean document just read, the lowercased email and the resolved mailer.
  */
 interface IVerifyContext {
 	deps: IEmailChangeHashVerifyDeps
 	user: unknown
 	uEmail: string
-	socketLabs: SocketLabsLib
+	mailer: IVerifyEmailMailer
 }
 
 /**
@@ -47,7 +53,7 @@ async function handleHashMismatch(ctx: IVerifyContext, uId: Types.ObjectId, requ
 
 	await ctx.deps.incReqTimes(uId)
 	// noinspection ES6MissingAwait
-	ctx.socketLabs.wrongHash(ctx.uEmail, requestTimes)
+	ctx.mailer.wrongHash(ctx.uEmail, requestTimes)
 	return false
 }
 
@@ -56,7 +62,7 @@ async function handleHashMismatch(ctx: IVerifyContext, uId: Types.ObjectId, requ
  * free, accept it. Extracted from resolve() only to keep it inside the max-lines-per-function budget.
  */
 async function handleValidHash(ctx: IVerifyContext, uId: Types.ObjectId, dateLastReq: Date | undefined) {
-	const { deps, user, uEmail, socketLabs } = ctx
+	const { deps, user, uEmail, mailer } = ctx
 	const { paths } = deps
 
 	if (typeof dateLastReq === 'undefined') {
@@ -73,7 +79,7 @@ async function handleValidHash(ctx: IVerifyContext, uId: Types.ObjectId, dateLas
 		// dateLastReq too old then 3 days
 
 		// noinspection ES6MissingAwait
-		socketLabs.hashReqTooOld(uEmail)
+		mailer.hashReqTooOld(uEmail)
 		return false
 	}
 
@@ -87,7 +93,7 @@ async function handleValidHash(ctx: IVerifyContext, uId: Types.ObjectId, dateLas
 	// if account is disabled, for any reason
 	if (readPath(user, paths.disabled)) {
 		// noinspection ES6MissingAwait
-		socketLabs.accountDisabled(uEmail)
+		mailer.accountDisabled(uEmail)
 		return false
 	}
 
@@ -109,42 +115,46 @@ async function handleValidHash(ctx: IVerifyContext, uId: Types.ObjectId, dateLas
  * The projection is built from the same map the reads use, which is what keeps a read field from going
  * missing — the exact bug that made every wrong hash answer 500 through 5.1.0.
  */
-export const createEmailChangeHashVerifyMutation = (deps: IEmailChangeHashVerifyDeps) => ({
-	description: 'Change email - Verify match between email and hash',
-	type: new GraphQLNonNull(GraphQLBoolean),
-	args: {
-		email: { type: new GraphQLNonNull(GraphQLString) },
-		hash: { type: new GraphQLNonNull(GraphQLString) }
-	},
-	async resolve(_: unknown, args: IEmailChangeHashVerifyArgs) {
-		const { paths } = deps
-		const uEmail = args.email.toLowerCase()
+export const createEmailChangeHashVerifyMutation = (deps: IEmailChangeHashVerifyDeps) => {
+	const mailer = deps.mailer ?? defaultVerifyEmailMailer
 
-		// search if the email exists
-		// Every field this resolver reads must be listed. account.email.requestTimes was missing, and
-		// because this is a .lean() read the absent key made handleHashMismatch throw 500 on *every*
-		// wrong hash: the strike counter never advanced and the owner never got the wrongHash warning.
-		const user = await deps.model
-			.findOne({ [paths.newEmailTmp]: uEmail })
-			.select(buildProjection([paths.hash, paths.dateLastReq, paths.requestTimes, paths.deleted, paths.disabled]))
-			.lean()
+	return {
+		description: 'Change email - Verify match between email and hash',
+		type: new GraphQLNonNull(GraphQLBoolean),
+		args: {
+			email: { type: new GraphQLNonNull(GraphQLString) },
+			hash: { type: new GraphQLNonNull(GraphQLString) }
+		},
+		async resolve(_: unknown, args: IEmailChangeHashVerifyArgs) {
+			const { paths } = deps
+			const uEmail = args.email.toLowerCase()
 
-		// if email not found, return (do not tell the user the real problem !)
-		if (user === null) {
-			return false // @fixme throw
+			// search if the email exists
+			// Every field this resolver reads must be listed. account.email.requestTimes was missing, and
+			// because this is a .lean() read the absent key made handleHashMismatch throw 500 on *every*
+			// wrong hash: the strike counter never advanced and the owner never got the wrongHash warning.
+			const user = await deps.model
+				.findOne({ [paths.newEmailTmp]: uEmail })
+				.select(buildProjection([paths.hash, paths.dateLastReq, paths.requestTimes, paths.deleted, paths.disabled]))
+				.lean()
+
+			// if email not found, return (do not tell the user the real problem !)
+			if (user === null) {
+				return false // @fixme throw
+			}
+
+			const ctx: IVerifyContext = { deps, user, uEmail, mailer }
+
+			const uId = readPath(user, '_id') as Types.ObjectId
+			const dateLastReq = readPath(user, paths.dateLastReq) as Date | undefined
+
+			if (args.hash === readPath(user, paths.hash)) {
+				return handleValidHash(ctx, uId, dateLastReq)
+			}
+			return handleHashMismatch(ctx, uId, readPath(user, paths.requestTimes) as number | undefined)
 		}
-
-		const ctx: IVerifyContext = { deps, user, uEmail, socketLabs: new SocketLabsLib() }
-
-		const uId = readPath(user, '_id') as Types.ObjectId
-		const dateLastReq = readPath(user, paths.dateLastReq) as Date | undefined
-
-		if (args.hash === readPath(user, paths.hash)) {
-			return handleValidHash(ctx, uId, dateLastReq)
-		}
-		return handleHashMismatch(ctx, uId, readPath(user, paths.requestTimes) as number | undefined)
 	}
-})
+}
 
 /** Shape of the bound mutation, for the modules that take it as a dependency. */
 export type TEmailChangeHashVerifyMutation = ReturnType<typeof createEmailChangeHashVerifyMutation>

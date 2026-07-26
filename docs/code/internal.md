@@ -436,7 +436,7 @@ Applies `_buildLoginStatsUpdate(lastLogin, rememberMe)`'s `$set`/`$unset` to `Us
 | Name | Value | Description |
 |---|---|---|
 | `SALT_ROUNDS` | `14` | Bcrypt cost factor used by the access flow. Matches the intentional `SALT_ROUNDS=14` referenced in `CLAUDE.md` — do not lower it. |
-| `EMAIL_CHECK_LINK` | `'/x/email-check'` | Redirect path baked into the `.message` of every `Error` thrown by the `handleIf*` guard chain below (consumed by the `routerVerifyEmail` Koa router as a redirect target, not surfaced as a GraphQL error). |
+| `EMAIL_CHECK_LINK` | `'/x/email-check'` | Redirect path baked into the `.message` of every `Error` thrown by the guard chain below — `handleBadDB` included, which threw a hardcoded `/x/error` through 5.6.1 (consumed by the `routerVerifyEmail` Koa router as a redirect target, not surfaced as a GraphQL error). One target for every rejection is what keeps the route from answering differently for a known and an unknown address. |
 
 ## `lib/access/db/` — email-verification & reset-password DB writes
 
@@ -455,9 +455,10 @@ Reads walk the configured dotted paths out of the `.lean()` documents with `read
 
 | Symbol | Signature | Description |
 |---|---|---|
+| `createAbandonUser` (`abandonUser.mts`) | `({ model, paths, mode, deletedValue }: ICreateAbandonUserArgs) => TDeleteUserByEmail` | Factory only — no bound default, since the default policy *is* `deleteUserByEmail`. Picks the writer the two disposal guards run: `mode: 'delete'` returns `createDeleteUserByEmail(model, paths)`; `'soft-delete'` returns a writer doing `updateOne({ [paths.email]: email }, { $set: { [paths.deleted]: value } }, { runValidators: true })`, where `value` is `deletedValue` — called if it is a function, so a timestamp column gets the time of its own write — defaulting to `true`; `'keep'` returns a no-op resolving `undefined`. Nothing is `$unset` alongside the tombstone: derived unset lists break a required-members subdocument, which is `verifyClear`'s whole reason for being caller-supplied. Reached from [`createVerifyEmailFlow`](./lib-access.md)'s `onAbandon`. |
 | `confirmNewEmail` (default) | `(_id: ObjectId, email: string) => Promise<...>` | Finalizes an email-change: `$set`s `login.email` to the new address and `$unset`s every path in `emailChangeClear` — by default `account.email.hash`/`dateLastReq`/`requestTimes`/`newEmailTmp`. |
-| `deleteUserByEmail` (default) | `(email: string) => Promise<void>` | Deletes the user document matching `login.email`. Carries a `// @todo report on Sentry` comment and a commented-out `deletedCount === 0` check — deletion result is currently unchecked. |
-| `enableEmailAccess` | `(_id: ObjectId, email: string) => Promise<void>` | Sets `account.email.valid = true`, `$unset`s every path in `verifyClear` — by default `hash`/`dateLastReq`/`requestTimes` — with `runValidators: true`, then sends the welcome email via `new SocketLabsLib().sendWelcome(email)`. This is the `enableEmailAccess` step in the `routerVerifyEmail` auth-flow cheat sheet. |
+| `deleteUserByEmail` (default) | `(email: string) => Promise<void>` | Deletes the user document matching `login.email`. Reports `deletedCount === 0` to Sentry (`captureMessage('[deleteUserByEmail] no document matched …', 'warning')`) and resolves anyway — a guard's redirect must not depend on the delete having matched. The `@todo` and the commented-out check it replaced are gone. |
+| `enableEmailAccess` | `(_id: ObjectId, email: string) => Promise<void>` | Sets `account.email.valid = true`, `$unset`s every path in `verifyClear` — by default `hash`/`dateLastReq`/`requestTimes` — with `runValidators: true`, then sends the welcome email through its mailer. `createEnableEmailAccess(model, paths, mailer)` takes the mailer as a third parameter (`IVerifyEmailMailer`, [`verifyEmailMailer`](./lib-access.md#verifyemailmailer)); the bound default passes `defaultVerifyEmailMailer`, i.e. SocketLabs. This is the `enableEmailAccess` step in the `routerVerifyEmail` auth-flow cheat sheet. |
 | `getResetPwd` | `(session: ClientSession, email: string) => Promise<{ _id, resetDateReq, resetHash, name } \| null>` | Looks up password-reset state (`account.resetDateReq`, `account.resetHash`, `personalData.name`, plus the `account.deleted` / `account.disabled` flags) via a `.lean()` read. Returns `null` for a deleted or disabled account — the same answer an unknown address gets, so `resetPwd` sends nothing and still returns `true`, and `updatePassword` answers the same `403`. The flags are read raw, as in `assertVerifyEmailAllowed`: `.lean()` bypasses Mongoose casting, so an un-migrated `'false'` is a truthy string and blocks the reset (the fix is `scripts/migrate-account-disabled-to-boolean.mjs`, not a coercion here). `resetHash` is populated only when `resetDateReq` is defined **and** the stored hash is a string; any other case yields `null`, never a coerced value and never a fallback to `account.email.hash`. The "reset pending, hash gone" orphan state must fail closed. Returns `null` if no user matches. Note that `resetHash === null` is the ordinary state for any account that has simply never requested a reset, not an error condition — `updatePassword` therefore answers it with the same `403` it gives an unknown address (a `500` there was an enumeration oracle, fixed after 5.1.1) and reports the genuinely malformed records to Sentry instead. |
 | `incReqTimes` | `(_id: ObjectId) => Promise<UpdateWriteOpResult>` | `$inc`s `account.email.requestTimes` by 1 (`runValidators: true`). |
 | `removeResetReq` (default) | `(session: ClientSession, email: string) => Promise<UpdateWriteOpResult>` | `$unset`s every path in the flow's `resetClear` list, by `email` — by default `account.resetDateReq`/`account.resetHash`, and nothing under `account.email.`. The list is **caller-supplied, not derived** from the pair `saveResetReq` writes: a layout holding the request in one required-members subdocument can only be cleared by unsetting the container, since unsetting a member leaves a document that fails validation and the write is rejected. Passes **no** options object: an email matching no document is a no-op. It used to pass `{ upsert: true }`, which inserted a row keyed by `login.email` instead, and since `updateOne` runs no validators that row satisfied none of the schema's required fields. |
@@ -468,7 +469,9 @@ Reads walk the configured dotted paths out of the `.lean()` documents with `read
 
 ## `lib/access/` — verification guard chain (`handleIf*`, `handleBadDB`)
 
-`routerVerifyEmail` no longer calls these guards directly. It fetches the user via `userData4VerifyEmail`, then delegates the whole check to `assertVerifyEmailAllowed(user, email, hash)` (`src/private/lib/access/assertVerifyEmailAllowed.mts`), which is the function that actually calls the guards below in sequence — `handleIfEmailAlreadyValid`, `handleBadDB`, `handleIfTooMuchRequestsTimes`, `handleIfHashBad`, `handleIfMoreThan3DaysPassed`, `handleIfAccountDeleted`, `handleIfAccountDisabled` — and returns the user's `_id` once every guard has passed. The router then calls `enableEmailAccess` on that id. On failure the guards all throw a plain `Error` whose `.message` is a redirect path (`EMAIL_CHECK_LINK = '/x/email-check'` for every guard except `handleBadDB`, see below) rather than a `GraphQLError`; the router is expected to catch it and redirect using `e.message`. Maintainers adding a new guard must preserve this convention.
+`routerVerifyEmail` no longer calls these guards directly. It fetches the user via `userData4VerifyEmail`, then delegates the whole check to `assertVerifyEmailAllowed(user, email, hash)` (`src/private/lib/access/assertVerifyEmailAllowed.mts`), which is the function that actually calls the guards below in sequence — `handleIfEmailAlreadyValid`, `handleBadDB`, `handleIfTooMuchRequestsTimes`, `handleIfHashBad`, `handleIfMoreThan3DaysPassed`, `handleIfAccountDeleted`, `handleIfAccountDisabled` — and returns the user's `_id` once every guard has passed. The router then calls `enableEmailAccess` on that id. On failure the guards all throw a plain `Error` whose `.message` is a redirect path (`EMAIL_CHECK_LINK = '/x/email-check'`, now `handleBadDB` included) rather than a `GraphQLError`; the router is expected to catch it and redirect using `e.message`. Maintainers adding a new guard must preserve this convention — including the target: a guard with its own redirect path tells an unauthenticated caller which branch it hit.
+
+Every guard that mails does so through an injected `IVerifyEmailMailer` ([`verifyEmailMailer`](./lib-access.md#verifyemailmailer)) rather than constructing `SocketLabsLib` inline, and the bound defaults pass `defaultVerifyEmailMailer` — SocketLabs behind a **15-minute per-address, per-template debounce**. Three of these guards (`handleIfEmailAlreadyValid`, `handleIfAccountDeleted`, `handleIfAccountDisabled`) have no counter of their own and are reachable from an unauthenticated GET, so through 5.6.1 they mailed the address once per request.
 
 ### `assertVerifyEmailAllowed`
 
@@ -487,9 +490,12 @@ export interface IVerifyEmailUser {
 
 export interface IAssertVerifyEmailAllowedDeps {
 	paths: IVerifyEmailPaths
+	handleIfEmailAlreadyValid: THandleIfEmailAlreadyValid
 	handleIfHashBad: THandleIfHashBad
 	handleIfMoreThan3DaysPassed: THandleIfMoreThan3DaysPassed
 	handleIfTooMuchRequestsTimes: THandleIfTooMuchRequestsTimes
+	handleIfAccountDeleted: THandleIfAccountDeleted
+	handleIfAccountDisabled: THandleIfAccountDisabled
 }
 
 export const createAssertVerifyEmailAllowed:
@@ -500,7 +506,7 @@ export const assertVerifyEmailAllowed: TAssertVerifyEmailAllowed   // UserBase-b
 
 Runs every guard that must pass before an email-verification link is honored, in order, against the projection `userData4VerifyEmail` returns. `dbHash` passed to `handleIfHashBad` is always the value stored on the account (`paths.hash`, by default `account.email.hash`), never the one supplied in the URL. Enabling the account is deliberately not done here — the caller (`routerVerifyEmail`) does it on the returned id, so that irreversible side effect can't be reordered ahead of a guard.
 
-Since 5.3.0 the document is read through `paths` with `readPath` rather than by fixed property access, and the three guards that write to the database are injected — that is what lets the same chain serve any account layout. The guard *order* and the values passed to each are unchanged. `IVerifyEmailUser` is still exported, now purely as documentation of the shape the default paths project; the parameter itself is typed `unknown`.
+Since 5.3.0 the document is read through `paths` with `readPath` rather than by fixed property access, and the guards that write to the database are injected — that is what lets the same chain serve any account layout. All six `handleIf*` guards are dependencies now: the three mail-only ones used to be hard imports, each constructing its own SocketLabs client, so no caller could reach those branches without mailing for real. `handleBadDB` stays a direct import — it writes nothing and mails nobody. The guard *order* and the values passed to each are unchanged. `IVerifyEmailUser` is still exported, now purely as documentation of the shape the default paths project; the parameter itself is typed `unknown`.
 
 **Parameters:**
 
@@ -518,19 +524,32 @@ Since 5.3.0 the document is read through `paths` with `readPath` rather than by 
 
 | Symbol | Signature | Description |
 |---|---|---|
-| `handleBadDB` | `(requestTimes?: number, dateLastReq?: Date) => void` | Invariant guard: if either argument is `undefined` (a hash present without `requestTimes`/`dateLastReq` should never happen), logs via `Sentry.captureMessage('[handleBadDB] DB ERROR', 'error')` and throws a plain `Error('/x/error')` — note this is the **hardcoded** path `/x/error`, not the `EMAIL_CHECK_LINK` constant used everywhere else in this group. |
-| `handleIfAccountDeleted` | `(email: string, deleted: boolean = false) => Promise<void>` | If `deleted`, sends an "account disabled" notice via `new SocketLabsLib().accountDisabled(email)`, then throws `Error(EMAIL_CHECK_LINK)`. |
+| `handleBadDB` | `(requestTimes?: number, dateLastReq?: Date) => void` | Invariant guard: if either argument is `undefined` (a hash present without `requestTimes`/`dateLastReq` should never happen), logs via `Sentry.captureMessage('[handleBadDB] DB ERROR', 'error')` and throws `Error(EMAIL_CHECK_LINK)`. Through 5.6.1 it threw a hardcoded `'/x/error'` instead, which made a corrupt record on a **real** account distinguishable from an unknown address: the same URL answered `/x/error` for one and `/x/email-check` for the other, an account-existence oracle out of an unauthenticated GET. The distinction is kept in Sentry, where it belongs. |
+| `handleIfAccountDeleted` | `(email: string, deleted: boolean = false) => Promise<void>` | If `deleted`, sends `mailer.accountDisabled(email)`, then throws `Error(EMAIL_CHECK_LINK)`. `accountDisabled`, not a deleted-specific template — `SocketLabsLib` has none, and this is what it has always sent. |
 | `handleIfAccountDisabled` | `(email: string, disabled: boolean = false) => Promise<void>` | Same pattern as `handleIfAccountDeleted`, gated on `disabled`. |
-| `handleIfEmailAlreadyValid` | `(uEmail: string, valid: boolean) => Promise<void>` | If `valid`, sends the "email already valid" notice via `SocketLabsLib().emailAlreadyValid(uEmail)`, then throws `Error(EMAIL_CHECK_LINK)`. Ties into the `signUp` "already valid" email + 409 dual-path behavior documented in `CLAUDE.md`. |
-| `handleIfHashBad` | `({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) => Promise<void>` | Single destructured object argument (`IHandleIfHashBadArgs = { uId: mongoose.Types.ObjectId; uEmail: string; hash: string; requestTimes?: number; dbHash?: string }`). If `hash !== dbHash`: increments the stored request counter via `incReqTimes(uId)`, sends `SocketLabsLib().wrongHash(uEmail, requestTimes + 1)`, then throws `Error(EMAIL_CHECK_LINK)`. |
-| `handleIfMoreThan3DaysPassed` | `(uEmail: string, dateLastReq: Date = new Date()) => Promise<void>` | Computes "3 days ago" and compares timestamps via `StringLib.isoToTimestamp`; if `dateLastReq` is older than 3 days, sends `SocketLabsLib().hashReqTooOld(uEmail)`, **deletes the user account** (`deleteUserByEmail(uEmail)`), then throws `Error(EMAIL_CHECK_LINK)`. |
-| `handleIfTooMuchRequestsTimes` | `(uEmail: string, requestTimes: number = 99) => Promise<void>` | If `requestTimes >= 5`, sends `SocketLabsLib().tooMuchVerifyRequests(uEmail)`, **deletes the user account** (`deleteUserByEmail(uEmail)`), then throws `Error(EMAIL_CHECK_LINK)`. |
+| `handleIfEmailAlreadyValid` | `(uEmail: string, valid: boolean) => Promise<void>` | If `valid`, sends `mailer.emailAlreadyValid(uEmail)`, then throws `Error(EMAIL_CHECK_LINK)`. Ties into the `signUp` "already valid" email + 409 dual-path behavior documented in `CLAUDE.md`. |
+| `handleIfHashBad` | `({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) => Promise<void>` | Single destructured object argument (`IHandleIfHashBadArgs = { uId: mongoose.Types.ObjectId; uEmail: string; hash: string; requestTimes?: number; dbHash?: string }`). If `hash !== dbHash`: increments the stored request counter via `incReqTimes(uId)`, sends `mailer.wrongHash(uEmail, requestTimes + 1)`, then throws `Error(EMAIL_CHECK_LINK)`. |
+| `handleIfMoreThan3DaysPassed` | `(uEmail: string, dateLastReq: Date = new Date()) => Promise<void>` | Computes "3 days ago" and compares timestamps via `StringLib.isoToTimestamp`; if `dateLastReq` is older than 3 days, sends `mailer.hashReqTooOld(uEmail)`, **disposes of the account** through the writer it was built with, then throws `Error(EMAIL_CHECK_LINK)`. |
+| `handleIfTooMuchRequestsTimes` | `(uEmail: string, requestTimes: number = 99) => Promise<void>` | If `requestTimes >= 5`, sends `mailer.tooMuchVerifyRequests(uEmail)`, **disposes of the account** through the writer it was built with, then throws `Error(EMAIL_CHECK_LINK)`. |
 
 **Import (all rows above):** _internal — not exported_.
 
-**Notes:** the three guards that touch the database — `handleIfHashBad`, `handleIfMoreThan3DaysPassed`, `handleIfTooMuchRequestsTimes` — are factories since 5.3.0 (`createHandleIfHashBad(incReqTimes)`, `createHandleIfMoreThan3DaysPassed(deleteUserByEmail)`, `createHandleIfTooMuchRequestsTimes(deleteUserByEmail)`), each with a `UserBase`-bound default of the same name. The writer they are built with carries the collection *and* the field paths, so a delete fired by a guard hits the caller's collection rather than `user`. The four pure guards (`handleBadDB`, `handleIfEmailAlreadyValid`, `handleIfAccountDeleted`, `handleIfAccountDisabled`) read nothing and are unchanged.
+**Notes:** every `handleIf*` guard is a factory with a `UserBase`-bound default of the same name. What each takes:
 
-`handleIfMoreThan3DaysPassed` and `handleIfTooMuchRequestsTimes` both permanently delete the user account as a side effect of the guard failing — there is no recovery path once either fires. `handleBadDB`'s hardcoded `/x/error` (vs. every sibling's `EMAIL_CHECK_LINK`) is a real inconsistency in this file, not a typo introduced here — preserve it unless the owner asks for a fix.
+| Factory | Dependencies |
+|---|---|
+| `createHandleIfHashBad` | `(incReqTimes, mailer)` |
+| `createHandleIfMoreThan3DaysPassed` | `(deleteUserByEmail, mailer)` |
+| `createHandleIfTooMuchRequestsTimes` | `(deleteUserByEmail, mailer)` |
+| `createHandleIfEmailAlreadyValid` | `(mailer)` |
+| `createHandleIfAccountDeleted` | `(mailer)` |
+| `createHandleIfAccountDisabled` | `(mailer)` |
+
+`handleBadDB` is the only one that is not a factory — it neither writes nor mails. The writer the two disposal guards are built with carries the collection *and* the field paths, so nothing a guard fires touches `user` unless that is the model it was bound to.
+
+`handleIfMoreThan3DaysPassed` and `handleIfTooMuchRequestsTimes` dispose of the account as a side effect of the guard failing, and with the default `onAbandon: 'delete'` there is no recovery path once either fires. Since that writer is whatever [`createVerifyEmailFlow`](./lib-access.md#abandonment-policy--onabandon-deletedvalue-deleteuserbyemail) was given, the guards cannot tell a delete from a tombstone from a no-op — and must not: both still throw regardless, so disposal never decides whether the link is honoured. Do not add a branch here that inspects the policy.
+
+`mailer` is a **required** parameter on all six factories, not optional with a default. These modules are internal, every call site is in this repository, and an optional mailer would let a new caller silently fall back to the process-wide throttle it did not ask for.
 
 ## `lib/makeBodyJson`
 
