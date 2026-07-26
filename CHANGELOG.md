@@ -91,10 +91,16 @@ debounced, and `handleBadDB` answers the same redirect as every other guard.
 - Every published version carrying a defect fixed by a later release is now deprecated on npm: `4.0.1`–`5.0.3` (reset
   completable without the hash; reset token sharing `account.email.hash`), `5.1.0`–`5.1.1` (account-enumeration
   oracles; missing `requestTimes` projection), `5.2.0`–`5.3.0` (reset flow accepting deleted and disabled accounts),
-  and `5.6.0` (swallowed upload error). Each message names its defect and points at 5.6.1. `5.4.0`, `5.4.1` and
-  `5.5.0` are deliberately left alone — superseded, but nothing known wrong with them. Semver ranges already move
-  anyone who re-resolves; deprecation exists to reach exact pins and stale lockfiles, so it is spent on real defects
-  rather than on being merely out of date.
+  `5.6.0` (swallowed upload error), and — as of this release — `5.4.0`, `5.4.1`, `5.5.0` and `5.6.1`, which carry the
+  two security defects fixed here: the unauthenticated mail amplification and the `handleBadDB` existence oracle. Those
+  four were deliberately left alone until now, superseded but with nothing known wrong; the guard chain has been
+  mailing on every request since long before them, so that no longer holds. Each message names its defect and points
+  at 5.7.0. Semver ranges already move anyone who re-resolves; deprecation exists to reach exact pins and stale
+  lockfiles, so it is spent on real defects rather than on being merely out of date.
+
+  The messages on `4.0.1`–`5.3.0` still read "Upgrade to 5.6.1", which is itself deprecated now. Left as-is
+  deliberately: they name the worse defect, and a consumer following them lands on a version whose own message points
+  the rest of the way.
 
 ## 5.6.1 — 2026-07-25
 
