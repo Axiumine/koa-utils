@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The email-verification chain, reported from a consumer binding `createVerifyEmailFlow` to a non-`UserBase` model, plus
 the repository tooling and npm metadata that was already sitting here. Additive throughout — every existing call site
-keeps its signature — with one behaviour change on a path reachable without authentication: guard notifications are now
-debounced.
+keeps its signature — with two behaviour changes on paths reachable without authentication: guard notifications are now
+debounced, and `handleBadDB` answers the same redirect as every other guard.
 
 ### Added
 
@@ -73,6 +73,12 @@ debounced.
   platform. All five guard notifications are now debounced per address per template (default 15 minutes) and
   `emailChangeHashVerify` shares the window; `sendWelcome` is not debounced, being on the success path only. Opt out with
   `mailThrottle: ALWAYS_MAIL`, or replace the window with a cross-instance one.
+
+- **Account-existence oracle in `handleBadDB`.** It threw a hardcoded `'/x/error'` where every sibling guard throws
+  `EMAIL_CHECK_LINK` (`'/x/email-check'`), so a corrupt record on a **real** account and an unknown address answered the
+  same unauthenticated URL with two different redirects. It now throws `EMAIL_CHECK_LINK` like the rest; the distinction
+  is kept where it is useful and not disclosed, in the existing `Sentry.captureMessage('[handleBadDB] DB ERROR')`.
+  Consumers relying on `/x/error` from this branch should watch Sentry instead.
 
 ### Fixed
 

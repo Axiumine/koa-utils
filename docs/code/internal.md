@@ -436,7 +436,7 @@ Applies `_buildLoginStatsUpdate(lastLogin, rememberMe)`'s `$set`/`$unset` to `Us
 | Name | Value | Description |
 |---|---|---|
 | `SALT_ROUNDS` | `14` | Bcrypt cost factor used by the access flow. Matches the intentional `SALT_ROUNDS=14` referenced in `CLAUDE.md` — do not lower it. |
-| `EMAIL_CHECK_LINK` | `'/x/email-check'` | Redirect path baked into the `.message` of every `Error` thrown by the `handleIf*` guard chain below (consumed by the `routerVerifyEmail` Koa router as a redirect target, not surfaced as a GraphQL error). |
+| `EMAIL_CHECK_LINK` | `'/x/email-check'` | Redirect path baked into the `.message` of every `Error` thrown by the guard chain below — `handleBadDB` included, which threw a hardcoded `/x/error` through 5.6.1 (consumed by the `routerVerifyEmail` Koa router as a redirect target, not surfaced as a GraphQL error). One target for every rejection is what keeps the route from answering differently for a known and an unknown address. |
 
 ## `lib/access/db/` — email-verification & reset-password DB writes
 
@@ -469,7 +469,7 @@ Reads walk the configured dotted paths out of the `.lean()` documents with `read
 
 ## `lib/access/` — verification guard chain (`handleIf*`, `handleBadDB`)
 
-`routerVerifyEmail` no longer calls these guards directly. It fetches the user via `userData4VerifyEmail`, then delegates the whole check to `assertVerifyEmailAllowed(user, email, hash)` (`src/private/lib/access/assertVerifyEmailAllowed.mts`), which is the function that actually calls the guards below in sequence — `handleIfEmailAlreadyValid`, `handleBadDB`, `handleIfTooMuchRequestsTimes`, `handleIfHashBad`, `handleIfMoreThan3DaysPassed`, `handleIfAccountDeleted`, `handleIfAccountDisabled` — and returns the user's `_id` once every guard has passed. The router then calls `enableEmailAccess` on that id. On failure the guards all throw a plain `Error` whose `.message` is a redirect path (`EMAIL_CHECK_LINK = '/x/email-check'` for every guard except `handleBadDB`, see below) rather than a `GraphQLError`; the router is expected to catch it and redirect using `e.message`. Maintainers adding a new guard must preserve this convention.
+`routerVerifyEmail` no longer calls these guards directly. It fetches the user via `userData4VerifyEmail`, then delegates the whole check to `assertVerifyEmailAllowed(user, email, hash)` (`src/private/lib/access/assertVerifyEmailAllowed.mts`), which is the function that actually calls the guards below in sequence — `handleIfEmailAlreadyValid`, `handleBadDB`, `handleIfTooMuchRequestsTimes`, `handleIfHashBad`, `handleIfMoreThan3DaysPassed`, `handleIfAccountDeleted`, `handleIfAccountDisabled` — and returns the user's `_id` once every guard has passed. The router then calls `enableEmailAccess` on that id. On failure the guards all throw a plain `Error` whose `.message` is a redirect path (`EMAIL_CHECK_LINK = '/x/email-check'`, now `handleBadDB` included) rather than a `GraphQLError`; the router is expected to catch it and redirect using `e.message`. Maintainers adding a new guard must preserve this convention — including the target: a guard with its own redirect path tells an unauthenticated caller which branch it hit.
 
 Every guard that mails does so through an injected `IVerifyEmailMailer` ([`verifyEmailMailer`](./lib-access.md#verifyemailmailer)) rather than constructing `SocketLabsLib` inline, and the bound defaults pass `defaultVerifyEmailMailer` — SocketLabs behind a **15-minute per-address, per-template debounce**. Three of these guards (`handleIfEmailAlreadyValid`, `handleIfAccountDeleted`, `handleIfAccountDisabled`) have no counter of their own and are reachable from an unauthenticated GET, so through 5.6.1 they mailed the address once per request.
 
@@ -524,7 +524,7 @@ Since 5.3.0 the document is read through `paths` with `readPath` rather than by 
 
 | Symbol | Signature | Description |
 |---|---|---|
-| `handleBadDB` | `(requestTimes?: number, dateLastReq?: Date) => void` | Invariant guard: if either argument is `undefined` (a hash present without `requestTimes`/`dateLastReq` should never happen), logs via `Sentry.captureMessage('[handleBadDB] DB ERROR', 'error')` and throws a plain `Error('/x/error')` — note this is the **hardcoded** path `/x/error`, not the `EMAIL_CHECK_LINK` constant used everywhere else in this group. |
+| `handleBadDB` | `(requestTimes?: number, dateLastReq?: Date) => void` | Invariant guard: if either argument is `undefined` (a hash present without `requestTimes`/`dateLastReq` should never happen), logs via `Sentry.captureMessage('[handleBadDB] DB ERROR', 'error')` and throws `Error(EMAIL_CHECK_LINK)`. Through 5.6.1 it threw a hardcoded `'/x/error'` instead, which made a corrupt record on a **real** account distinguishable from an unknown address: the same URL answered `/x/error` for one and `/x/email-check` for the other, an account-existence oracle out of an unauthenticated GET. The distinction is kept in Sentry, where it belongs. |
 | `handleIfAccountDeleted` | `(email: string, deleted: boolean = false) => Promise<void>` | If `deleted`, sends `mailer.accountDisabled(email)`, then throws `Error(EMAIL_CHECK_LINK)`. `accountDisabled`, not a deleted-specific template — `SocketLabsLib` has none, and this is what it has always sent. |
 | `handleIfAccountDisabled` | `(email: string, disabled: boolean = false) => Promise<void>` | Same pattern as `handleIfAccountDeleted`, gated on `disabled`. |
 | `handleIfEmailAlreadyValid` | `(uEmail: string, valid: boolean) => Promise<void>` | If `valid`, sends `mailer.emailAlreadyValid(uEmail)`, then throws `Error(EMAIL_CHECK_LINK)`. Ties into the `signUp` "already valid" email + 409 dual-path behavior documented in `CLAUDE.md`. |
@@ -550,8 +550,6 @@ Since 5.3.0 the document is read through `paths` with `readPath` rather than by 
 `handleIfMoreThan3DaysPassed` and `handleIfTooMuchRequestsTimes` dispose of the account as a side effect of the guard failing, and with the default `onAbandon: 'delete'` there is no recovery path once either fires. Since that writer is whatever [`createVerifyEmailFlow`](./lib-access.md#abandonment-policy--onabandon-deletedvalue-deleteuserbyemail) was given, the guards cannot tell a delete from a tombstone from a no-op — and must not: both still throw regardless, so disposal never decides whether the link is honoured. Do not add a branch here that inspects the policy.
 
 `mailer` is a **required** parameter on all six factories, not optional with a default. These modules are internal, every call site is in this repository, and an optional mailer would let a new caller silently fall back to the process-wide throttle it did not ask for.
-
-`handleBadDB`'s hardcoded `/x/error` (vs. every sibling's `EMAIL_CHECK_LINK`) is a real inconsistency in this file, not a typo introduced here — preserve it unless the owner asks for a fix.
 
 ## `lib/makeBodyJson`
 
