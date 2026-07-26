@@ -30,6 +30,18 @@ signature and its behaviour.
   whether the link is honoured. The factory builds exactly one writer, uses it in the guards and returns it, so
   `flow.deleteUserByEmail` now reports the policy rather than pretending to set it.
 
+- `IVerifyEmailMailer` (`lib/access/verifyEmailMailer`) — the six notifications the chain sends, as an interface, with
+  `socketLabsVerifyEmailMailer` and `defaultVerifyEmailMailer`. Every guard used to construct its own `SocketLabsLib`
+  inline, which pinned every consumer to this package's provider, copy and `SOCKETLABS_*` env vars, and left no branch
+  of the chain drivable from an integration suite: with real credentials in `.env` the only paths reachable without
+  mailing a real person were "address not found" and the bad-DB guard — the success path included, since
+  `enableEmailAccess` sent the welcome mail itself. All six `handleIf*` guards, `enableEmailAccess` and the
+  `emailChangeHashVerify` mutation now take the mailer as a dependency, and `createVerifyEmailFlow` accepts `mailer`.
+  The interface is structural, so `SocketLabsLib` itself satisfies it.
+
+  `handleIfAccountDeleted` still sends `accountDisabled`: there is no `accountDeleted` template, and that is what it has
+  always sent. Documented rather than changed — the copy is a product decision.
+
 - `.githooks/pre-commit` runs Qodana after the coverage gate, on the same commits that already trigger
   `yarn test:coverage`. Until now Qodana ran only in CI, on push to `main` — which is *after* `yarn upload` has
   published, since the publish is a local manual step running beside CI rather than behind it. That ordering is how

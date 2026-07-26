@@ -2,9 +2,9 @@ import { DEFAULT_VERIFY_EMAIL_PATHS, IVerifyEmailPaths } from '@lib/access/acces
 import { Types } from 'mongoose'
 
 import { handleBadDB } from './handleBadDB.mjs'
-import { handleIfAccountDeleted } from './handleIfAccountDeleted.mjs'
-import { handleIfAccountDisabled } from './handleIfAccountDisabled.mjs'
-import { handleIfEmailAlreadyValid } from './handleIfEmailAlreadyValid.mjs'
+import { handleIfAccountDeleted, THandleIfAccountDeleted } from './handleIfAccountDeleted.mjs'
+import { handleIfAccountDisabled, THandleIfAccountDisabled } from './handleIfAccountDisabled.mjs'
+import { handleIfEmailAlreadyValid, THandleIfEmailAlreadyValid } from './handleIfEmailAlreadyValid.mjs'
 import { handleIfHashBad, THandleIfHashBad } from './handleIfHashBad.mjs'
 import { handleIfMoreThan3DaysPassed, THandleIfMoreThan3DaysPassed } from './handleIfMoreThan3DaysPassed.mjs'
 import { handleIfTooMuchRequestsTimes, THandleIfTooMuchRequestsTimes } from './handleIfTooMuchRequestsTimes.mjs'
@@ -25,12 +25,21 @@ export interface IVerifyEmailUser {
 	}
 }
 
-/** Collaborators the chain needs, all bound to the same model + paths by the caller. */
+/**
+ * Collaborators the chain needs, all bound to the same model + paths by the caller.
+ *
+ * The three mail-only guards are here for the same reason the writer-backed ones are: hard-importing them
+ * meant the mailer they use was fixed at module load, so no caller could reach these branches without a real
+ * SocketLabs send. `handleBadDB` stays a direct import — it writes nothing and mails nobody.
+ */
 export interface IAssertVerifyEmailAllowedDeps {
 	paths: IVerifyEmailPaths
+	handleIfEmailAlreadyValid: THandleIfEmailAlreadyValid
 	handleIfHashBad: THandleIfHashBad
 	handleIfMoreThan3DaysPassed: THandleIfMoreThan3DaysPassed
 	handleIfTooMuchRequestsTimes: THandleIfTooMuchRequestsTimes
+	handleIfAccountDeleted: THandleIfAccountDeleted
+	handleIfAccountDisabled: THandleIfAccountDisabled
 }
 
 /**
@@ -65,7 +74,7 @@ export const createAssertVerifyEmailAllowed = (deps: IAssertVerifyEmailAllowedDe
 		const deleted = readPath(user, paths.deleted) as boolean | undefined
 		const disabled = readPath(user, paths.disabled) as boolean | undefined
 
-		await handleIfEmailAlreadyValid(email, readPath(user, paths.valid) as boolean)
+		await deps.handleIfEmailAlreadyValid(email, readPath(user, paths.valid) as boolean)
 		handleBadDB(requestTimes, dateLastReq)
 		await deps.handleIfTooMuchRequestsTimes(email, requestTimes)
 		// dbHash is the value STORED for this account — never the one supplied in the URL
@@ -82,8 +91,8 @@ export const createAssertVerifyEmailAllowed = (deps: IAssertVerifyEmailAllowedDe
 		// and these are exactly what the driver found — which is only ever a boolean once
 		// scripts/migrate-account-disabled-to-boolean.mjs has run. On un-migrated data a stored 'false'
 		// is a truthy string and blocks the account; the fix is the migration, not a coercion here.
-		await handleIfAccountDeleted(email, deleted)
-		await handleIfAccountDisabled(email, disabled)
+		await deps.handleIfAccountDeleted(email, deleted)
+		await deps.handleIfAccountDisabled(email, disabled)
 
 		return uId
 	}
@@ -94,7 +103,10 @@ export type TAssertVerifyEmailAllowed = ReturnType<typeof createAssertVerifyEmai
 /** `UserBase`-bound default — the behaviour every existing consumer already imports. */
 export const assertVerifyEmailAllowed: TAssertVerifyEmailAllowed = createAssertVerifyEmailAllowed({
 	paths: DEFAULT_VERIFY_EMAIL_PATHS,
+	handleIfEmailAlreadyValid,
 	handleIfHashBad,
 	handleIfMoreThan3DaysPassed,
-	handleIfTooMuchRequestsTimes
+	handleIfTooMuchRequestsTimes,
+	handleIfAccountDeleted,
+	handleIfAccountDisabled
 })

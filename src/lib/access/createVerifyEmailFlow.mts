@@ -6,6 +6,9 @@ import { createEnableEmailAccess, TEnableEmailAccess } from '@private/lib/access
 import { createIncReqTimes, TIncReqTimes } from '@private/lib/access/db/incReqTimes.mjs'
 import { createSetEmailHash, TSetEmailHash } from '@private/lib/access/db/setEmailHash.mjs'
 import { createUserData4VerifyEmail, TUserData4VerifyEmail } from '@private/lib/access/db/userData4VerifyEmail.mjs'
+import { createHandleIfAccountDeleted } from '@private/lib/access/handleIfAccountDeleted.mjs'
+import { createHandleIfAccountDisabled } from '@private/lib/access/handleIfAccountDisabled.mjs'
+import { createHandleIfEmailAlreadyValid } from '@private/lib/access/handleIfEmailAlreadyValid.mjs'
 import { createHandleIfHashBad } from '@private/lib/access/handleIfHashBad.mjs'
 import { createHandleIfMoreThan3DaysPassed } from '@private/lib/access/handleIfMoreThan3DaysPassed.mjs'
 import { createHandleIfTooMuchRequestsTimes } from '@private/lib/access/handleIfTooMuchRequestsTimes.mjs'
@@ -16,6 +19,7 @@ import {
 } from '../../graphQL/schema/mutations/emailChangeHashVerify.mjs'
 import { createVerifyEmailRouter, TVerifyEmailRouter } from '../../koa/router/verifyEmail.mjs'
 import { IVerifyEmailPaths, resolveVerifyEmailPaths, TAccessModel, TOnAbandon } from './accessPaths.mjs'
+import { IVerifyEmailMailer, socketLabsVerifyEmailMailer } from './verifyEmailMailer.mjs'
 
 /** What the factory needs: the account model, plus any path or policy that differs from the default. */
 export interface ICreateVerifyEmailFlowArgs {
@@ -31,6 +35,8 @@ export interface ICreateVerifyEmailFlowArgs {
 	deletedValue?: unknown
 	/** Full override of the disposal writer; wins over `onAbandon` and `deletedValue`. */
 	deleteUserByEmail?: TDeleteUserByEmail
+	/** Who sends the verify-email notifications. Default: SocketLabs. */
+	mailer?: IVerifyEmailMailer
 }
 
 /** Everything the verify-email chain exposes, bound to the model and paths passed in. */
@@ -83,12 +89,14 @@ export const createVerifyEmailFlow = ({
 	paths,
 	onAbandon = 'delete',
 	deletedValue,
-	deleteUserByEmail
+	deleteUserByEmail,
+	mailer
 }: ICreateVerifyEmailFlowArgs): IVerifyEmailFlow => {
 	const resolved = resolveVerifyEmailPaths(paths)
+	const resolvedMailer = mailer ?? socketLabsVerifyEmailMailer
 
 	const userData4VerifyEmail = createUserData4VerifyEmail(model, resolved)
-	const enableEmailAccess = createEnableEmailAccess(model, resolved)
+	const enableEmailAccess = createEnableEmailAccess(model, resolved, resolvedMailer)
 	const confirmNewEmail = createConfirmNewEmail(model, resolved)
 	// One writer, used by the guards and handed back — the returned member cannot disagree with what runs.
 	const abandonUser = deleteUserByEmail ?? createAbandonUser({ model, paths: resolved, mode: onAbandon, deletedValue })
@@ -96,9 +104,12 @@ export const createVerifyEmailFlow = ({
 
 	const assertVerifyEmailAllowed = createAssertVerifyEmailAllowed({
 		paths: resolved,
-		handleIfHashBad: createHandleIfHashBad(incReqTimes),
-		handleIfMoreThan3DaysPassed: createHandleIfMoreThan3DaysPassed(abandonUser),
-		handleIfTooMuchRequestsTimes: createHandleIfTooMuchRequestsTimes(abandonUser)
+		handleIfEmailAlreadyValid: createHandleIfEmailAlreadyValid(resolvedMailer),
+		handleIfHashBad: createHandleIfHashBad(incReqTimes, resolvedMailer),
+		handleIfMoreThan3DaysPassed: createHandleIfMoreThan3DaysPassed(abandonUser, resolvedMailer),
+		handleIfTooMuchRequestsTimes: createHandleIfTooMuchRequestsTimes(abandonUser, resolvedMailer),
+		handleIfAccountDeleted: createHandleIfAccountDeleted(resolvedMailer),
+		handleIfAccountDisabled: createHandleIfAccountDisabled(resolvedMailer)
 	})
 
 	return {
@@ -113,7 +124,8 @@ export const createVerifyEmailFlow = ({
 			model,
 			paths: resolved,
 			confirmNewEmail,
-			incReqTimes
+			incReqTimes,
+			mailer: resolvedMailer
 		}),
 		routerVerifyEmail: createVerifyEmailRouter({
 			userData4VerifyEmail,

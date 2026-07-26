@@ -1,16 +1,19 @@
-import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
+import { defaultVerifyEmailMailer, IVerifyEmailMailer } from '@lib/access/verifyEmailMailer.mjs'
 import { StringLib } from '@lib/StringLib.mjs'
 
 import { EMAIL_CHECK_LINK } from './Constants.mjs'
 import deleteUserByEmail, { TDeleteUserByEmail } from './db/deleteUserByEmail.mjs'
 
 /**
- * A verification link older than 3 days deletes the pending account.
+ * A verification link older than 3 days disposes of the pending account.
  *
- * The delete runs through an injected writer so the guard can serve a model other than `UserBase`:
- * both the collection and the login-email path come from the writer it was built with.
+ * Disposal runs through an injected writer so the guard can serve a model other than `UserBase`, and so the
+ * *policy* is the caller's: hard delete, tombstone flag or nothing. See `createAbandonUser`. The guard throws
+ * either way — what happens to the row never changes whether the link is honoured.
+ *
+ * The mail goes through an injected mailer, which also carries the debounce on the default binding.
  */
-export const createHandleIfMoreThan3DaysPassed = (deleteUserByEmailFn: TDeleteUserByEmail) =>
+export const createHandleIfMoreThan3DaysPassed = (deleteUserByEmailFn: TDeleteUserByEmail, mailer: IVerifyEmailMailer) =>
 	async function handleIfMoreThan3DaysPassed(
 		uEmail: string,
 		dateLastReq: Date = new Date() // but it is already handled
@@ -27,8 +30,7 @@ export const createHandleIfMoreThan3DaysPassed = (deleteUserByEmailFn: TDeleteUs
 
 		if (ts3DayAgo > tsReq) {
 			// dateLastReq too old then 3 days
-			const SocketLabsObj = new SocketLabsLib()
-			await SocketLabsObj.hashReqTooOld(uEmail)
+			await mailer.hashReqTooOld(uEmail)
 
 			await deleteUserByEmailFn(uEmail)
 
@@ -40,4 +42,7 @@ export const createHandleIfMoreThan3DaysPassed = (deleteUserByEmailFn: TDeleteUs
 export type THandleIfMoreThan3DaysPassed = ReturnType<typeof createHandleIfMoreThan3DaysPassed>
 
 /** `UserBase`-bound default — the behaviour every existing consumer already imports. */
-export const handleIfMoreThan3DaysPassed: THandleIfMoreThan3DaysPassed = createHandleIfMoreThan3DaysPassed(deleteUserByEmail)
+export const handleIfMoreThan3DaysPassed: THandleIfMoreThan3DaysPassed = createHandleIfMoreThan3DaysPassed(
+	deleteUserByEmail,
+	defaultVerifyEmailMailer
+)

@@ -1,87 +1,123 @@
 /**
  * Tests for private/lib/access/handleIfTooMuchRequestsTimes.mts
  *
- * Chain: handleIfTooMuchRequestsTimes
- *          → SocketLabsLib.tooMuchVerifyRequests (sendEmail)
- *          → deleteUserByEmail (UserBase.deleteOne)
+ * Chain: createHandleIfTooMuchRequestsTimes(disposeFn, mailer)
+ *          → mailer.tooMuchVerifyRequests → disposeFn(uEmail) → throw Error(EMAIL_CHECK_LINK)
  *
  * Branches:
- *   - requestTimes < 5 → no-op, returns undefined, no email sent, no delete
- *   - requestTimes >= 5 → sends "too much requests" email, deletes user, throws EMAIL_CHECK_LINK
+ *   - requestTimes < 5 → no-op, returns undefined, no email sent, no disposal
+ *   - requestTimes >= 5 → sends "too much requests" email, disposes of the user, throws EMAIL_CHECK_LINK
  *   - requestTimes omitted → defaults to 99 (>= 5) → same throw path
  */
-import { handleIfTooMuchRequestsTimes } from '@private/lib/access/handleIfTooMuchRequestsTimes.mjs'
+import { createHandleIfTooMuchRequestsTimes, handleIfTooMuchRequestsTimes } from '@private/lib/access/handleIfTooMuchRequestsTimes.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { EMAIL_CHECK_LINK } from '@private/lib/access/Constants.mjs'
 import { expect } from 'chai'
 import sinon from 'sinon'
 
+import { fakeVerifyEmailMailer, IFakeVerifyEmailMailer } from '../../../helpers/fakeVerifyEmailMailer.mjs'
+
 // ---------------------------------------------------------------------------
 
 describe('handleIfTooMuchRequestsTimes', () => {
-	let tooMuchVerifyRequestsStub: sinon.SinonStub
-	let deleteOneStub: sinon.SinonStub
+	let disposeFake: sinon.SinonStub
+	let mailer: IFakeVerifyEmailMailer
+	let guard: ReturnType<typeof createHandleIfTooMuchRequestsTimes>
 
 	beforeEach(() => {
-		tooMuchVerifyRequestsStub = sinon.stub(SocketLabsLib.prototype, 'tooMuchVerifyRequests').resolves(null)
-		deleteOneStub = sinon.stub(UserBase, 'deleteOne').resolves({ deletedCount: 1 } as never)
+		disposeFake = sinon.stub().resolves()
+		mailer = fakeVerifyEmailMailer()
+		guard = createHandleIfTooMuchRequestsTimes(disposeFake as never, mailer)
 	})
 
 	afterEach(() => {
 		sinon.restore()
 	})
 
-	it('requestTimes below 5 → does nothing (no email, no delete, no throw)', async () => {
-		const result = await handleIfTooMuchRequestsTimes('under@test.com', 4)
+	it('requestTimes below 5 → does nothing (no email, no disposal, no throw)', async () => {
+		const result = await guard('under@test.com', 4)
 
 		expect(result).to.equal(undefined)
-		expect(tooMuchVerifyRequestsStub.called).to.equal(false)
-		expect(deleteOneStub.called).to.equal(false)
+		expect(mailer.tooMuchVerifyRequests.called).to.equal(false)
+		expect(disposeFake.called).to.equal(false)
 	})
 
-	it('requestTimes exactly 5 → sends email, deletes user, throws EMAIL_CHECK_LINK', async () => {
+	it('requestTimes exactly 5 → sends email, disposes of the user, throws EMAIL_CHECK_LINK', async () => {
 		let thrown: Error | undefined
 
 		try {
-			await handleIfTooMuchRequestsTimes('exact@test.com', 5)
+			await guard('exact@test.com', 5)
 		} catch (e) {
 			thrown = e as Error
 		}
 
 		expect(thrown).to.be.instanceOf(Error)
 		expect(thrown?.message).to.equal(EMAIL_CHECK_LINK)
-		expect(tooMuchVerifyRequestsStub.calledOnceWith('exact@test.com')).to.equal(true)
-		expect(deleteOneStub.calledOnceWith({ 'login.email': 'exact@test.com' })).to.equal(true)
+		expect(mailer.tooMuchVerifyRequests.calledOnceWith('exact@test.com')).to.equal(true)
+		expect(disposeFake.calledOnceWith('exact@test.com')).to.equal(true)
 	})
 
-	it('requestTimes above 5 → sends email, deletes user, throws EMAIL_CHECK_LINK', async () => {
+	it('requestTimes above 5 → sends email, disposes of the user, throws EMAIL_CHECK_LINK', async () => {
 		let thrown: Error | undefined
 
 		try {
-			await handleIfTooMuchRequestsTimes('above@test.com', 10)
+			await guard('above@test.com', 10)
 		} catch (e) {
 			thrown = e as Error
 		}
 
 		expect(thrown).to.be.instanceOf(Error)
 		expect(thrown?.message).to.equal(EMAIL_CHECK_LINK)
-		expect(tooMuchVerifyRequestsStub.calledOnceWith('above@test.com')).to.equal(true)
-		expect(deleteOneStub.calledOnceWith({ 'login.email': 'above@test.com' })).to.equal(true)
+		expect(mailer.tooMuchVerifyRequests.calledOnceWith('above@test.com')).to.equal(true)
+		expect(disposeFake.calledOnceWith('above@test.com')).to.equal(true)
 	})
 
 	it('requestTimes omitted → defaults to 99 → throws EMAIL_CHECK_LINK', async () => {
 		let thrown: Error | undefined
 
 		try {
-			await handleIfTooMuchRequestsTimes('default@test.com')
+			await guard('default@test.com')
 		} catch (e) {
 			thrown = e as Error
 		}
 
 		expect(thrown).to.be.instanceOf(Error)
 		expect(thrown?.message).to.equal(EMAIL_CHECK_LINK)
-		expect(tooMuchVerifyRequestsStub.calledOnceWith('default@test.com')).to.equal(true)
-		expect(deleteOneStub.calledOnceWith({ 'login.email': 'default@test.com' })).to.equal(true)
+		expect(mailer.tooMuchVerifyRequests.calledOnceWith('default@test.com')).to.equal(true)
+		expect(disposeFake.calledOnceWith('default@test.com')).to.equal(true)
+	})
+
+	it('a no-op disposal writer (onAbandon: keep) still rejects the link', async () => {
+		const keep = sinon.stub().resolves()
+		const keeping = createHandleIfTooMuchRequestsTimes(keep as never, mailer)
+
+		let thrown: Error | undefined
+		try {
+			await keeping('kept@test.com', 7)
+		} catch (e) {
+			thrown = e as Error
+		}
+
+		expect(thrown?.message).to.equal(EMAIL_CHECK_LINK)
+		expect(keep.calledOnce).to.equal(true)
+	})
+
+	it('the bound default deletes through UserBase and reaches SocketLabs tooMuchVerifyRequests', async () => {
+		const deleteOneStub = sinon.stub(UserBase, 'deleteOne').resolves({ deletedCount: 1 } as never)
+		const tooMuchStub = sinon.stub(SocketLabsLib.prototype, 'tooMuchVerifyRequests').resolves(null)
+		// Address used by this test only — the default binding debounces per address + template.
+		const email = 'bound-too-much@test.com'
+
+		let thrown: Error | undefined
+		try {
+			await handleIfTooMuchRequestsTimes(email, 5)
+		} catch (e) {
+			thrown = e as Error
+		}
+
+		expect(thrown?.message).to.equal(EMAIL_CHECK_LINK)
+		expect(tooMuchStub.calledOnceWith(email)).to.equal(true)
+		expect(deleteOneStub.calledOnceWith({ 'login.email': email })).to.equal(true)
 	})
 })

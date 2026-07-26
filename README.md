@@ -111,6 +111,8 @@ Every `paths` key is optional and falls back to the `UserBase` layout, so the pa
 
 `onAbandon` decides what the two disposal guards — the fifth wrong hash and a link older than 3 days — do to a pending registration. The default `'delete'` removes the row; use `'soft-delete'` or `'keep'` when other collections depend on it, since mongo has no cascade, or pass `deleteUserByEmail` to replace the writer outright. The link is rejected either way.
 
+`mailer` replaces the sender for every notice the chain sends — any object carrying the six `IVerifyEmailMailer` methods (`emailAlreadyValid`, `wrongHash`, `tooMuchVerifyRequests`, `hashReqTooOld`, `accountDisabled`, `sendWelcome`). Omit it and the guards mail through SocketLabs with this package's copy and `SOCKETLABS_*` env vars, as before.
+
 ### GraphQL error helpers
 
 ```ts

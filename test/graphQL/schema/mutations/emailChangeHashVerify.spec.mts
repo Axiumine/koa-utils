@@ -15,7 +15,11 @@
  *
  * emailChangeHashVerify does NOT use mongoose.startSession — it uses direct model calls.
  */
-import { emailChangeHashVerify } from '../../../../dist/graphQL/schema/mutations/emailChangeHashVerify.mjs'
+import {
+	createEmailChangeHashVerifyMutation,
+	emailChangeHashVerify
+} from '../../../../dist/graphQL/schema/mutations/emailChangeHashVerify.mjs'
+import { DEFAULT_VERIFY_EMAIL_PATHS } from '@lib/access/accessPaths.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { expect } from 'chai'
@@ -23,6 +27,7 @@ import sinon from 'sinon'
 import { Types } from 'mongoose'
 
 import { expectGraphQLErrorAsync } from '../../../helpers/assertGraphQLError.mjs'
+import { fakeVerifyEmailMailer } from '../../../helpers/fakeVerifyEmailMailer.mjs'
 
 // ---------------------------------------------------------------------------
 
@@ -242,5 +247,39 @@ describe('emailChangeHashVerify — resolve', () => {
 		]) {
 			expect(selectedFields.split(/\s+/)).to.include(field)
 		}
+	})
+
+	// -------------------------------------------------------------------------
+	// injected mailer
+	// -------------------------------------------------------------------------
+
+	describe('with an injected mailer', () => {
+		it('sends every notification through it, and nothing through SocketLabs', async () => {
+			const mailer = fakeVerifyEmailMailer()
+			const mutation = createEmailChangeHashVerifyMutation({
+				model: UserBase as never,
+				paths: DEFAULT_VERIFY_EMAIL_PATHS,
+				confirmNewEmail: sinon.stub().resolves() as never,
+				incReqTimes: sinon.stub().resolves() as never,
+				mailer
+			})
+			const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000)
+
+			findOneStub.returns(makeFindOneChain(fakeUser({ hash: 'correctHash', dateLastReq: fourDaysAgo })))
+			expect(await mutation.resolve(null, { email: 'u@test.com', hash: 'correctHash' })).to.equal(false)
+
+			findOneStub.returns(makeFindOneChain(fakeUser({ hash: 'correctHash', disabled: true })))
+			expect(await mutation.resolve(null, { email: 'u@test.com', hash: 'correctHash' })).to.equal(false)
+
+			findOneStub.returns(makeFindOneChain(fakeUser({ hash: 'differentHash', requestTimes: 2 })))
+			expect(await mutation.resolve(null, { email: 'u@test.com', hash: 'wrongHash' })).to.equal(false)
+
+			expect(mailer.hashReqTooOld.calledOnceWithExactly('u@test.com')).to.equal(true)
+			expect(mailer.accountDisabled.calledOnceWithExactly('u@test.com')).to.equal(true)
+			expect(mailer.wrongHash.calledOnceWithExactly('u@test.com', 2)).to.equal(true)
+			expect(hashReqTooOldStub.called).to.equal(false)
+			expect(accountDisabledStub.called).to.equal(false)
+			expect(wrongHashStub.called).to.equal(false)
+		})
 	})
 })

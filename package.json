@@ -64,6 +64,10 @@
 			"import": "./dist/lib/access/createVerifyEmailFlow.mjs",
 			"types": "./dist/lib/access/createVerifyEmailFlow.d.mts"
 		},
+		"./lib/access/verifyEmailMailer": {
+			"import": "./dist/lib/access/verifyEmailMailer.mjs",
+			"types": "./dist/lib/access/verifyEmailMailer.d.mts"
+		},
 		"./lib/MongoDB/IOnboarding": {
 			"import": "./dist/lib/MongoDB/IOnboarding.mjs",
 			"types": "./dist/lib/MongoDB/IOnboarding.d.mts"

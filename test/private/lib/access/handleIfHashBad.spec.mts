@@ -1,14 +1,14 @@
 /**
  * Tests for private/lib/access/handleIfHashBad.mts
  *
- * Chain: incReqTimes(UserBase.updateOne) → SocketLabsLib.wrongHash → throw Error(EMAIL_CHECK_LINK)
+ * Chain: incReqTimes (injected writer) → mailer.wrongHash → throw Error(EMAIL_CHECK_LINK)
  *
  * Branches:
  *   - hash !== dbHash → incReqTimes + wrongHash(uEmail, requestTimes + 1) → throws Error(EMAIL_CHECK_LINK)
  *   - hash !== dbHash with default requestTimes (param omitted) → wrongHash called with 1
  *   - hash === dbHash → resolves, no side effects
  */
-import { handleIfHashBad } from '@private/lib/access/handleIfHashBad.mjs'
+import { createHandleIfHashBad, handleIfHashBad } from '@private/lib/access/handleIfHashBad.mjs'
 import { EMAIL_CHECK_LINK } from '@private/lib/access/Constants.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
@@ -16,15 +16,19 @@ import { expect } from 'chai'
 import sinon from 'sinon'
 import { Types } from 'mongoose'
 
+import { fakeVerifyEmailMailer, IFakeVerifyEmailMailer } from '../../../helpers/fakeVerifyEmailMailer.mjs'
+
 // ---------------------------------------------------------------------------
 
 describe('handleIfHashBad', () => {
-	let updateOneStub: sinon.SinonStub
-	let wrongHashStub: sinon.SinonStub
+	let incReqTimesFake: sinon.SinonStub
+	let mailer: IFakeVerifyEmailMailer
+	let guard: ReturnType<typeof createHandleIfHashBad>
 
 	beforeEach(() => {
-		updateOneStub = sinon.stub(UserBase, 'updateOne').resolves({ modifiedCount: 1 } as never)
-		wrongHashStub = sinon.stub(SocketLabsLib.prototype, 'wrongHash').resolves()
+		incReqTimesFake = sinon.stub().resolves()
+		mailer = fakeVerifyEmailMailer()
+		guard = createHandleIfHashBad(incReqTimesFake as never, mailer)
 	})
 
 	afterEach(() => {
@@ -36,17 +40,16 @@ describe('handleIfHashBad', () => {
 
 		let caught: unknown
 		try {
-			await handleIfHashBad({ uId, uEmail: 'user@test.com', hash: 'wrongHash', requestTimes: 3, dbHash: 'correctHash' })
+			await guard({ uId, uEmail: 'user@test.com', hash: 'wrongHash', requestTimes: 3, dbHash: 'correctHash' })
 		} catch (e) {
 			caught = e
 		}
 
 		expect(caught).to.be.instanceOf(Error)
 		expect((caught as Error).message).to.equal(EMAIL_CHECK_LINK)
-		expect(updateOneStub.calledOnce).to.equal(true)
-		expect(updateOneStub.firstCall.args[0]).to.deep.equal({ _id: uId })
-		expect(wrongHashStub.calledOnce).to.equal(true)
-		expect(wrongHashStub.firstCall.args).to.deep.equal(['user@test.com', 4])
+		expect(incReqTimesFake.calledOnceWith(uId)).to.equal(true)
+		expect(mailer.wrongHash.calledOnce).to.equal(true)
+		expect(mailer.wrongHash.firstCall.args).to.deep.equal(['user@test.com', 4])
 	})
 
 	it('hash mismatch with dbHash undefined → still throws and sends wrongHash email', async () => {
@@ -54,14 +57,14 @@ describe('handleIfHashBad', () => {
 
 		let caught: unknown
 		try {
-			await handleIfHashBad({ uId, uEmail: 'user@test.com', hash: 'someHash', requestTimes: 0, dbHash: undefined })
+			await guard({ uId, uEmail: 'user@test.com', hash: 'someHash', requestTimes: 0, dbHash: undefined })
 		} catch (e) {
 			caught = e
 		}
 
 		expect(caught).to.be.instanceOf(Error)
 		expect((caught as Error).message).to.equal(EMAIL_CHECK_LINK)
-		expect(wrongHashStub.firstCall.args).to.deep.equal(['user@test.com', 1])
+		expect(mailer.wrongHash.firstCall.args).to.deep.equal(['user@test.com', 1])
 	})
 
 	it('hash mismatch with requestTimes omitted (default 0) → wrongHash called with 1', async () => {
@@ -69,22 +72,42 @@ describe('handleIfHashBad', () => {
 
 		let caught: unknown
 		try {
-			await handleIfHashBad({ uId, uEmail: 'user@test.com', hash: 'wrongHash', requestTimes: undefined, dbHash: 'correctHash' })
+			await guard({ uId, uEmail: 'user@test.com', hash: 'wrongHash', requestTimes: undefined, dbHash: 'correctHash' })
 		} catch (e) {
 			caught = e
 		}
 
 		expect(caught).to.be.instanceOf(Error)
-		expect(wrongHashStub.firstCall.args).to.deep.equal(['user@test.com', 1])
+		expect(mailer.wrongHash.firstCall.args).to.deep.equal(['user@test.com', 1])
 	})
 
 	it('hash matches dbHash → resolves without throwing and without side effects', async () => {
 		const uId = new Types.ObjectId()
 
-		const result = await handleIfHashBad({ uId, uEmail: 'user@test.com', hash: 'sameHash', requestTimes: 2, dbHash: 'sameHash' })
+		const result = await guard({ uId, uEmail: 'user@test.com', hash: 'sameHash', requestTimes: 2, dbHash: 'sameHash' })
 
 		expect(result).to.equal(undefined)
-		expect(updateOneStub.called).to.equal(false)
-		expect(wrongHashStub.called).to.equal(false)
+		expect(incReqTimesFake.called).to.equal(false)
+		expect(mailer.wrongHash.called).to.equal(false)
+	})
+
+	it('the bound default writes through UserBase and reaches SocketLabs wrongHash', async () => {
+		const updateOneStub = sinon.stub(UserBase, 'updateOne').resolves({ modifiedCount: 1 } as never)
+		const wrongHashStub = sinon.stub(SocketLabsLib.prototype, 'wrongHash').resolves()
+		const uId = new Types.ObjectId()
+		// Address used by this test only — the default binding debounces per address + template.
+		const email = 'bound-wrong-hash@test.com'
+
+		let caught: unknown
+		try {
+			await handleIfHashBad({ uId, uEmail: email, hash: 'wrong', requestTimes: 3, dbHash: 'right' })
+		} catch (e) {
+			caught = e
+		}
+
+		expect((caught as Error).message).to.equal(EMAIL_CHECK_LINK)
+		expect(updateOneStub.calledOnce).to.equal(true)
+		expect(updateOneStub.firstCall.args[0]).to.deep.equal({ _id: uId })
+		expect(wrongHashStub.calledOnceWith(email, 4)).to.equal(true)
 	})
 })

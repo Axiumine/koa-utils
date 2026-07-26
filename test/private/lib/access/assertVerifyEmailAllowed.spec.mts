@@ -9,7 +9,11 @@
  * Mutation testing found six ways to break this while the whole suite stayed green.
  * Every test below corresponds to one of them.
  */
-import { assertVerifyEmailAllowed } from '../../../../dist/private/lib/access/assertVerifyEmailAllowed.mjs'
+import {
+	assertVerifyEmailAllowed,
+	createAssertVerifyEmailAllowed
+} from '../../../../dist/private/lib/access/assertVerifyEmailAllowed.mjs'
+import { DEFAULT_VERIFY_EMAIL_PATHS } from '@lib/access/accessPaths.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { expect } from 'chai'
@@ -128,6 +132,36 @@ describe('assertVerifyEmailAllowed', () => {
 		await expectRejects(() =>
 			assertVerifyEmailAllowed(makeUser({ emailOverrides: { dateLastReq: old } }), EMAIL, GOOD_HASH)
 		)
+	})
+
+	it('runs the injected guards, in order, on the values it read from the document', async () => {
+		// All six guards are dependencies now. They used to be four injected + three hard-imported, and the
+		// hard-imported ones each constructed their own SocketLabs client, so no caller could reach those
+		// branches without mailing for real. This also pins the order, which nothing else does: the
+		// already-valid check has to precede the strike counter, and the account flags have to be read
+		// before anything is granted.
+		const calls: string[] = []
+		const spy = (name: string) => sinon.stub().callsFake(async () => void calls.push(name))
+		const guards = {
+			handleIfEmailAlreadyValid: spy('alreadyValid'),
+			handleIfHashBad: spy('hashBad'),
+			handleIfMoreThan3DaysPassed: spy('tooOld'),
+			handleIfTooMuchRequestsTimes: spy('tooMuch'),
+			handleIfAccountDeleted: spy('deleted'),
+			handleIfAccountDisabled: spy('disabled')
+		}
+		const chain = createAssertVerifyEmailAllowed({ paths: DEFAULT_VERIFY_EMAIL_PATHS, ...guards } as never)
+		const user = makeUser()
+
+		const uId = await chain(user, EMAIL, GOOD_HASH)
+
+		expect(calls).to.deep.equal(['alreadyValid', 'tooMuch', 'hashBad', 'tooOld', 'deleted', 'disabled'])
+		expect(guards.handleIfEmailAlreadyValid.firstCall.args).to.deep.equal([EMAIL, false])
+		expect(guards.handleIfTooMuchRequestsTimes.firstCall.args).to.deep.equal([EMAIL, 1])
+		expect(guards.handleIfHashBad.firstCall.args[0]).to.deep.include({ uEmail: EMAIL, hash: GOOD_HASH, dbHash: GOOD_HASH })
+		expect(guards.handleIfAccountDeleted.firstCall.args).to.deep.equal([EMAIL, false])
+		expect(guards.handleIfAccountDisabled.firstCall.args).to.deep.equal([EMAIL, false])
+		expect(String(uId)).to.equal(String((user as unknown as { _id: Types.ObjectId })._id))
 	})
 
 	it('does not enable the account itself — that stays with the caller', async () => {

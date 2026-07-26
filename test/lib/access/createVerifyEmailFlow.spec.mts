@@ -13,6 +13,8 @@ import { expect } from 'chai'
 import { Types } from 'mongoose'
 import sinon from 'sinon'
 
+import { fakeVerifyEmailMailer } from '../../helpers/fakeVerifyEmailMailer.mjs'
+
 const EMAIL = 'user@example.com'
 const HASH = 'the-stored-verify-hash'
 
@@ -78,12 +80,14 @@ describe('createVerifyEmailFlow', () => {
 	let wrongHash: sinon.SinonStub
 	let tooMuchVerifyRequests: sinon.SinonStub
 	let hashReqTooOld: sinon.SinonStub
+	let alreadyValid: sinon.SinonStub
 
 	beforeEach(() => {
 		sendWelcome = sinon.stub(SocketLabsLib.prototype, 'sendWelcome').resolves()
 		wrongHash = sinon.stub(SocketLabsLib.prototype, 'wrongHash').resolves()
 		tooMuchVerifyRequests = sinon.stub(SocketLabsLib.prototype, 'tooMuchVerifyRequests').resolves()
 		hashReqTooOld = sinon.stub(SocketLabsLib.prototype, 'hashReqTooOld').resolves()
+		alreadyValid = sinon.stub(SocketLabsLib.prototype, 'emailAlreadyValid').resolves()
 	})
 
 	afterEach(() => sinon.restore())
@@ -235,7 +239,7 @@ describe('createVerifyEmailFlow', () => {
 
 		it("defaults to 'delete', unchanged from before the option existed", async () => {
 			const model = makeModel(staleDoc())
-			const flow = createVerifyEmailFlow({ model, paths: PATHS })
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, mailer: fakeVerifyEmailMailer() })
 
 			await flow.routerVerifyEmail()(makeCtx().ctx)
 
@@ -244,7 +248,12 @@ describe('createVerifyEmailFlow', () => {
 
 		it("'soft-delete' writes the deleted path and never calls deleteOne", async () => {
 			const model = makeModel(staleDoc())
-			const flow = createVerifyEmailFlow({ model, paths: PATHS, onAbandon: 'soft-delete' })
+			const flow = createVerifyEmailFlow({
+				model,
+				paths: PATHS,
+				onAbandon: 'soft-delete',
+				mailer: fakeVerifyEmailMailer()
+			})
 			const { ctx, redirects } = makeCtx()
 
 			await flow.routerVerifyEmail()(ctx)
@@ -259,7 +268,13 @@ describe('createVerifyEmailFlow', () => {
 		it("'soft-delete' with a deletedValue factory stores a timestamp rather than a boolean", async () => {
 			const model = makeModel(staleDoc())
 			const stamp = new Date('2026-03-03T00:00:00.000Z')
-			const flow = createVerifyEmailFlow({ model, paths: PATHS, onAbandon: 'soft-delete', deletedValue: () => stamp })
+			const flow = createVerifyEmailFlow({
+				model,
+				paths: PATHS,
+				onAbandon: 'soft-delete',
+				deletedValue: () => stamp,
+				mailer: fakeVerifyEmailMailer()
+			})
 
 			await flow.routerVerifyEmail()(makeCtx().ctx)
 
@@ -268,7 +283,7 @@ describe('createVerifyEmailFlow', () => {
 
 		it("'keep' disposes of nothing but still refuses the link", async () => {
 			const model = makeModel(staleDoc())
-			const flow = createVerifyEmailFlow({ model, paths: PATHS, onAbandon: 'keep' })
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, onAbandon: 'keep', mailer: fakeVerifyEmailMailer() })
 			const { ctx, redirects } = makeCtx()
 
 			await flow.routerVerifyEmail()(ctx)
@@ -285,7 +300,8 @@ describe('createVerifyEmailFlow', () => {
 				model,
 				paths: PATHS,
 				onAbandon: 'soft-delete',
-				deleteUserByEmail: custom as never
+				deleteUserByEmail: custom as never,
+				mailer: fakeVerifyEmailMailer()
 			})
 
 			await flow.routerVerifyEmail()(makeCtx().ctx)
@@ -300,13 +316,37 @@ describe('createVerifyEmailFlow', () => {
 
 		it('the returned deleteUserByEmail is the writer the guards run, not a separate default', async () => {
 			const model = makeModel(staleDoc())
-			const flow = createVerifyEmailFlow({ model, paths: PATHS, onAbandon: 'soft-delete' })
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, onAbandon: 'soft-delete', mailer: fakeVerifyEmailMailer() })
 
 			await flow.deleteUserByEmail(EMAIL)
 
 			// soft-delete, exactly like the guard path above — not the hard delete of the old internal writer
 			expect(model.deleteOne.called).to.equal(false)
 			expect(model.updateOne.calledOnceWith({ mail: EMAIL })).to.equal(true)
+		})
+	})
+
+	describe('mailer', () => {
+		it('routes every guard notification through an injected mailer', async () => {
+			const mailer = fakeVerifyEmailMailer()
+			const model = makeModel(makeDoc({ verified: true }))
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, mailer })
+
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(mailer.emailAlreadyValid.calledOnceWithExactly(EMAIL)).to.equal(true)
+			// nothing reached the real client
+			expect(alreadyValid.called).to.equal(false)
+			expect(sendWelcome.called).to.equal(false)
+		})
+
+		it('falls back to SocketLabs when none is supplied', async () => {
+			const model = makeModel(makeDoc({ verified: true }))
+			const flow = createVerifyEmailFlow({ model, paths: PATHS })
+
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(alreadyValid.calledOnceWithExactly(EMAIL)).to.equal(true)
 		})
 	})
 

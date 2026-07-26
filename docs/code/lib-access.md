@@ -99,6 +99,7 @@ export interface ICreateVerifyEmailFlowArgs {
 	onAbandon?: TOnAbandon              // 'delete' | 'soft-delete' | 'keep' — default 'delete'
 	deletedValue?: unknown              // what 'soft-delete' writes; a function is called per write. Default true
 	deleteUserByEmail?: TDeleteUserByEmail   // full override, wins over onAbandon / deletedValue
+	mailer?: IVerifyEmailMailer         // who sends the notifications. Default: SocketLabs
 }
 
 export interface IVerifyEmailFlow {
@@ -167,6 +168,50 @@ Whatever the policy, **both guards still throw.** Disposal never decides whether
 | `emailChangeClear` | the three above **plus** `account.email.newEmailTmp` | Paths `confirmNewEmail` `$unset`s |
 
 Both `*Clear` keys follow the same rule as `resetClear`: caller-supplied lists of paths to `$unset`, never derived from the leaves the flow reads, so a strict-subdocument layout can pass its container path.
+
+## `verifyEmailMailer`
+
+**Import:** `import { defaultVerifyEmailMailer, socketLabsVerifyEmailMailer } from '@axiumine/koa-utils/lib/access/verifyEmailMailer'`
+
+**Signature:**
+```ts
+export interface IVerifyEmailMailer {
+	emailAlreadyValid(email: string): Promise<unknown>
+	wrongHash(email: string, requestTimes: number): Promise<unknown>
+	tooMuchVerifyRequests(email: string): Promise<unknown>
+	hashReqTooOld(email: string): Promise<unknown>
+	accountDisabled(email: string): Promise<unknown>
+	sendWelcome(email: string): Promise<unknown>
+}
+
+export const socketLabsVerifyEmailMailer: IVerifyEmailMailer
+export const defaultVerifyEmailMailer: IVerifyEmailMailer
+```
+
+The six notices the verify-email chain sends, behind one interface. Through 5.6.1 each guard did `new SocketLabsLib().wrongHash(...)` inline, which pinned every consumer to SocketLabs, to this package's hard-coded copy, and to this package's `SOCKETLABS_*` / `PLATFORM_NAME` / `APP_DOMAIN` env vars — a consumer whose transactional mail lives elsewhere had no seam to reach.
+
+`createVerifyEmailFlow` takes the mailer as `mailer?: IVerifyEmailMailer` and passes it to all six guards, so one object covers the whole chain:
+
+```ts
+const flow = createVerifyEmailFlow({
+	model: Imprenditore,
+	paths: { email: 'mail' },
+	mailer: {
+		emailAlreadyValid: (email) => mail.send('already-valid', email),
+		wrongHash: (email, requestTimes) => mail.send('wrong-hash', email, { requestTimes }),
+		tooMuchVerifyRequests: (email) => mail.send('too-many', email),
+		hashReqTooOld: (email) => mail.send('expired', email),
+		accountDisabled: (email) => mail.send('disabled', email),
+		sendWelcome: (email) => mail.send('welcome', email)
+	}
+})
+```
+
+All six methods are required — a partial mailer would silently fall back to SocketLabs copy for whatever it left out, which is exactly the surprise the seam exists to remove. Return values are passed through untouched and never inspected: a guard throws its redirect whether or not the notice was delivered.
+
+`socketLabsVerifyEmailMailer` is the SocketLabs implementation, one `new SocketLabsLib()` per call — per call rather than once at load because the constructor reads `process.env`, and hoisting it would pin whatever the environment held when the module first resolved. An omitted `mailer` key resolves to it.
+
+`defaultVerifyEmailMailer` is the separate name the `UserBase`-bound guard exports mail through — the same object today. Import that one when wrapping rather than replacing the built-in copy, so a change to what the bound chain does reaches your wrapper too.
 
 ## `accessPaths`
 

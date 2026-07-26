@@ -9,12 +9,15 @@
  * both collaborator calls (with argument shapes) plus the resolved return value
  * is sufficient for 100% statements/branches/functions/lines.
  */
-import { enableEmailAccess } from '@private/lib/access/db/enableEmailAccess.mjs'
+import { createEnableEmailAccess, enableEmailAccess } from '@private/lib/access/db/enableEmailAccess.mjs'
+import { DEFAULT_VERIFY_EMAIL_PATHS } from '@lib/access/accessPaths.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { expect } from 'chai'
 import sinon from 'sinon'
 import { Types } from 'mongoose'
+
+import { fakeVerifyEmailMailer } from '../../../../helpers/fakeVerifyEmailMailer.mjs'
 
 // ---------------------------------------------------------------------------
 
@@ -65,5 +68,16 @@ describe('enableEmailAccess', () => {
 		const result = await enableEmailAccess(_id, 'noreturn@test.com')
 
 		expect(result).to.equal(undefined)
+	})
+
+	it('sends the welcome through an injected mailer, bypassing SocketLabs entirely', async () => {
+		const mailer = fakeVerifyEmailMailer()
+		const writer = createEnableEmailAccess(UserBase as never, DEFAULT_VERIFY_EMAIL_PATHS, mailer)
+		const _id = new Types.ObjectId()
+
+		await writer(_id, 'injected@test.com')
+
+		expect(mailer.sendWelcome.calledOnceWithExactly('injected@test.com')).to.equal(true)
+		expect(sendWelcomeStub.called).to.equal(false)
 	})
 })
