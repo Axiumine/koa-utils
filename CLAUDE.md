@@ -199,11 +199,11 @@ Ordered. Do not reorder.
 
 - Maintainer: Giovanni Manzoni (`@giovannimanzoni`). Single CODEOWNER. License GPL-3.0-or-later → any added file must be compatible.
 - Conventional commits, enforced by `.githooks/commit-msg`.
-- Subject: aim ≤ 50 chars (convention), **hook hard-reject above 72** (`MAX_LEN=72`).
+- **Whole message ≤ 150 chars** (`MAX_LEN=150`), subject + body counted together. Hook hard-reject above. 1 number, 1 check — no separate subject cap, no body line count, no wrap width.
 - **Allowed types exactly `feat|fix|chore|docs|refactor|ci`.** `test:`, `build:`, `perf:`, `style:` rejected, even though older commits used them. Scope optional (`feat(auth): ...`). Never widen hook to fit a message — pick a type that fit.
 - **No `!` breaking marker.** `feat!: ...` fail regex. Signal breaking change in body.
 - **Banned words anywhere in message: `Co-Authored-By`, `Claude`, `anthropic`, `Sonnet`, `Opus`** (case-insensitive). Hook reject. Never append AI attribution trailer in this repo, whatever default elsewhere.
-- Body: max 10 lines (blanks, `#` comments, `Key: value` trailers not counted), wrap 72 chars.
+- Match is substring, case-insensitive → a commit message can never name `CLAUDE.md`, `.claude/settings.json`, `scripts/caveman-claudemd-gate.sh`, nor a branch whose name carry those. Say "agent rule file" / "project settings file" / "gate script" instead, and rename the branch before merging — `Merge branch '...'` carry the branch name into the subject. Never widen hook to fit. Rule live here: a blocked message is a rewrite, not a hook edit.
 - Merge + revert commits skip format check, still hit banned-word check.
 
 <!-- gitnexus:start -->
