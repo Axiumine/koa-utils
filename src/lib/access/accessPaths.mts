@@ -131,3 +131,22 @@ export const DEFAULT_VERIFY_EMAIL_PATHS: IVerifyEmailPaths = Object.freeze({
 export function resolveVerifyEmailPaths(paths?: Partial<IVerifyEmailPaths>): IVerifyEmailPaths {
 	return { ...DEFAULT_VERIFY_EMAIL_PATHS, ...paths }
 }
+
+/**
+ * What the verify-email guards do with an abandoned pending registration — a link older than 3 days, or a
+ * fifth wrong hash.
+ *
+ * `'delete'` removes the row. It is the behaviour through 5.6.1, the only one the chain had, and it is safe
+ * for `UserBase`, whose rows own nothing. It is not safe for a model at the head of a hierarchy the package
+ * cannot see: once the factory accepts an arbitrary model, the package no longer knows what deleting a row
+ * costs, and with no foreign keys and no cascade in Mongo it takes the children with it in effect while
+ * leaving them behind in fact.
+ *
+ * `'soft-delete'` writes `paths.deleted` instead — the one tombstone convention {@link IVerifyEmailPaths}
+ * already declares and the chain otherwise only ever read. The guards test it for truthiness, so the value
+ * written is the caller's (`deletedValue`), boolean or timestamp alike.
+ *
+ * `'keep'` leaves the document alone. The guard still throws, so the link is still refused; only the row
+ * survives, and disposing of it becomes the caller's job.
+ */
+export type TOnAbandon = 'delete' | 'soft-delete' | 'keep'

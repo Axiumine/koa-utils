@@ -7,10 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-Repository tooling and npm metadata. Nothing under `src/` changed, so `dist` is byte-identical to 5.6.1 and there is
-nothing to install — but the deprecations below are visible to anyone resolving an older version.
+The email-verification chain, reported from a consumer binding `createVerifyEmailFlow` to a non-`UserBase` model, plus
+the repository tooling and npm metadata that was already sitting here. Additive — every existing call site keeps its
+signature and its behaviour.
 
 ### Added
+
+- `createVerifyEmailFlow` takes an abandonment policy. Two guards dispose of a pending registration — the fifth wrong
+  hash and a link older than 3 days — and until now both meant `deleteOne`, with no way to change it: overriding
+  `flow.deleteUserByEmail` after the fact did nothing, because the guards closed over the internal writer. That is fatal
+  for a row other collections depend on, and mongo has no cascade to fall back on.
+
+  ```ts
+  createVerifyEmailFlow({ model: Imprenditore, onAbandon: 'soft-delete', deletedValue: () => new Date() })
+  createVerifyEmailFlow({ model: Imprenditore, deleteUserByEmail: myCascadingWriter })
+  ```
+
+  `onAbandon: 'delete'` (the default) is the old behaviour; `'soft-delete'` `$set`s `paths.deleted` and leaves the row;
+  `'keep'` is a no-op. `deletedValue` defaults to `true` for `UserBase`'s boolean column and is otherwise written
+  verbatim — a function is called once per write, so a `Date` column gets the time of its own. `deleteUserByEmail`
+  replaces the writer outright and wins over both. Whatever the policy, both guards still throw: disposal never decides
+  whether the link is honoured. The factory builds exactly one writer, uses it in the guards and returns it, so
+  `flow.deleteUserByEmail` now reports the policy rather than pretending to set it.
 
 - `.githooks/pre-commit` runs Qodana after the coverage gate, on the same commits that already trigger
   `yarn test:coverage`. Until now Qodana ran only in CI, on push to `main` — which is *after* `yarn upload` has
@@ -26,6 +44,12 @@ nothing to install — but the deprecations below are visible to anyone resolvin
   Every missing prerequisite — docker, daemon, `qodana.yaml`, its `linter:` key, `.env`, `QODANA_TOKEN`, the image
   itself — blocks the commit and prints the one command that fixes it. `docker pull` stays the developer's command.
   Bypass is `SKIP_QODANA=1 git commit`, narrower than `--no-verify` in that it keeps the coverage and lockfile gates.
+
+### Fixed
+
+- `deleteUserByEmail` reports `deletedCount === 0` to Sentry (`captureMessage(…, 'warning')`) instead of carrying a
+  `// @todo report on Sentry` comment above a commented-out check. It still resolves — a guard's redirect must not
+  depend on the delete having matched — but a disposal that silently hit nothing is no longer invisible.
 
 ### Changed
 

@@ -96,6 +96,9 @@ resetPwd: { resetDateReq: Date, resetHash: String(50) }   // both required if pr
 export interface ICreateVerifyEmailFlowArgs {
 	model: TAccessModel
 	paths?: Partial<IVerifyEmailPaths>
+	onAbandon?: TOnAbandon              // 'delete' | 'soft-delete' | 'keep' — default 'delete'
+	deletedValue?: unknown              // what 'soft-delete' writes; a function is called per write. Default true
+	deleteUserByEmail?: TDeleteUserByEmail   // full override, wins over onAbandon / deletedValue
 }
 
 export interface IVerifyEmailFlow {
@@ -130,6 +133,24 @@ router.get('/check/verify-email/:email/:hash', flow.routerVerifyEmail())
 // schema Mutation fields: { emailChangeHashVerify: flow.emailChangeHashVerify }
 ```
 
+### Abandonment policy — `onAbandon`, `deletedValue`, `deleteUserByEmail`
+
+Two guards dispose of an abandoned registration: the fifth wrong hash (`handleIfTooMuchRequestsTimes`) and a link older than the 3-day window (`handleIfMoreThan3DaysPassed`). Through 5.6.1 that always meant `deleteOne({ [paths.email]: email })`, which is wrong for any row other rows depend on — the package cannot know what a delete costs in a schema it was handed, and a mongo collection has no cascade to fall back on. A registration at the head of a dependent chain has to survive its own expiry.
+
+| `onAbandon` | What the two guards do to the row | Notes |
+|---|---|---|
+| `'delete'` *(default)* | `model.deleteOne({ [paths.email]: email })` | Behaviour of 5.6.1 and earlier, unchanged. Reports to Sentry when `deletedCount === 0` |
+| `'soft-delete'` | `model.updateOne({ [paths.email]: email }, { $set: { [paths.deleted]: deletedValue } }, { runValidators: true })` | The row stays; the account-state guards already reject it, since they only test truthiness |
+| `'keep'` | nothing — the writer is a no-op | Disposal becomes the caller's job (a cron sweep, an admin queue) |
+
+`deletedValue` defaults to `true`, matching `UserBase`'s `Boolean` column, and is otherwise written verbatim — a `Date` column takes `deletedValue: () => new Date()`, and the function is called once per write so each row gets the time of its own. It is ignored by the other two modes. Nothing is `$unset` alongside the tombstone: derived unset lists are `verifyClear`'s job and its caller's, for the strict-subdocument reason above.
+
+`deleteUserByEmail` replaces the writer outright and wins over both other keys — use it for a real cascade (`await PuntoVendita.deleteMany(...)` then the row), an audit log, or a queue push.
+
+Whatever the policy, **both guards still throw.** Disposal never decides whether the link is honoured, so a `'keep'` flow answers the same `/x/email-check` redirect a `'delete'` flow does.
+
+`flow.deleteUserByEmail` is the writer the guards hold, not a hook: the factory builds exactly one and both uses it and returns it. Reassigning the returned member after the fact changes nothing — the guards closed over it at construction. Pass the override into the factory.
+
 ### `IVerifyEmailPaths`
 
 | Key | Default | Used for |
@@ -154,6 +175,7 @@ Both `*Clear` keys follow the same rule as `resetClear`: caller-supplied lists o
 **Signature:**
 ```ts
 export type TAccessModel = Model<any>
+export type TOnAbandon = 'delete' | 'soft-delete' | 'keep'
 
 export const DEFAULT_RESET_PWD_PATHS: IResetPwdPaths          // frozen
 export const DEFAULT_VERIFY_EMAIL_PATHS: IVerifyEmailPaths    // frozen
@@ -163,6 +185,8 @@ export function resolveVerifyEmailPaths(paths?: Partial<IVerifyEmailPaths>): IVe
 ```
 
 Both default maps are `Object.freeze`d, lists included, so one consumer cannot mutate the defaults of another. The `resolve*` helpers merge a partial override over the defaults with a plain spread and return a fresh object — a key present with an explicit `undefined` value overrides the default *with* `undefined`, so pass only the keys being changed.
+
+`TOnAbandon` lives here rather than next to the factory that consumes it: the private `abandonUser` writer needs the type, and importing it from `createVerifyEmailFlow` — which imports `abandonUser` — would be circular.
 
 `TAccessModel` is deliberately `Model<any>`: the flows only ever call `findOne`, `updateOne`, `countDocuments` and `deleteOne` with computed field paths, so nothing can be typed against a concrete document shape without forcing every consumer to describe theirs. The path map is what pins the contract instead — a wrong path is a runtime no-op, which is why the defaults are exported and the flows are tested against them.
 

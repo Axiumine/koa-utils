@@ -52,7 +52,7 @@ src/
 │   ├── IAuthorizationDisDel.mts
 │   ├── makeOnboardingData.mts
 │   ├── access/                 # model-agnostic access flows (5.3.0+)
-│   │   ├── accessPaths.mts     # TAccessModel, IResetPwdPaths/IVerifyEmailPaths + frozen defaults + resolve*
+│   │   ├── accessPaths.mts     # TAccessModel, TOnAbandon, IResetPwdPaths/IVerifyEmailPaths + frozen defaults + resolve*
 │   │   ├── createResetPwdFlow.mts     # { resetPwd, updatePassword } bound to any model/layout
 │   │   └── createVerifyEmailFlow.mts  # whole verify-email chain bound to any model/layout
 │   ├── MariaDB/                # IMariaDBErr, MariaDBErrType, throwSqlErrors
@@ -67,7 +67,7 @@ src/
 └── private/          # Internal helpers — NOT exported via package.json
     ├── files/_validateMimeType.mts, reEncode.mts
     ├── graphQL/Consts.mts, schema/{context,mutations}/
-    └── lib/access/{db/*, handleIf*, assertVerifyEmailAllowed.mts, pathTools.mts}
+    └── lib/access/{db/* (incl. abandonUser.mts), handleIf*, assertVerifyEmailAllowed.mts, pathTools.mts}
 ```
 
 `types/` directory exists but is empty / placeholder.
@@ -119,7 +119,7 @@ Source files use `.mts` extension and `.mjs` import specifiers (NodeNext module 
 
 ## 3. Package exports
 
-`package.json` enumerates 143 explicit subpath exports — no barrel, no root entry. Consumers import deep paths:
+`package.json` enumerates 146 explicit subpath exports — no barrel, no root entry. Consumers import deep paths:
 
 ```ts
 import { authenticatedResourceHandler } from '@axiumine/koa-utils/koa/middleware/authenticatedResourceHandler'

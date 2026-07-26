@@ -84,7 +84,6 @@ describe('createVerifyEmailFlow', () => {
 		wrongHash = sinon.stub(SocketLabsLib.prototype, 'wrongHash').resolves()
 		tooMuchVerifyRequests = sinon.stub(SocketLabsLib.prototype, 'tooMuchVerifyRequests').resolves()
 		hashReqTooOld = sinon.stub(SocketLabsLib.prototype, 'hashReqTooOld').resolves()
-		sinon.stub(SocketLabsLib.prototype, 'emailAlreadyValid').resolves()
 	})
 
 	afterEach(() => sinon.restore())
@@ -225,6 +224,89 @@ describe('createVerifyEmailFlow', () => {
 			const [, update] = model.updateOne.firstCall.args
 			expect(update).to.deep.equal({ $inc: { 'verification.requestTimes': 1 } })
 			expect(wrongHash.calledOnceWithExactly(EMAIL, 1)).to.equal(true)
+		})
+	})
+
+	describe('onAbandon', () => {
+		// The two abandonment guards used to hard-code deleteOne. For a row other collections hang off,
+		// that is data loss with no cascade to undo it — and the returned flow member could not change it,
+		// because the guards had already closed over the internal writer.
+		const staleDoc = () => makeDoc({ verification: { hash: HASH, dateLastReq: new Date(), requestTimes: 5 } })
+
+		it("defaults to 'delete', unchanged from before the option existed", async () => {
+			const model = makeModel(staleDoc())
+			const flow = createVerifyEmailFlow({ model, paths: PATHS })
+
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(model.deleteOne.calledOnceWithExactly({ mail: EMAIL })).to.equal(true)
+		})
+
+		it("'soft-delete' writes the deleted path and never calls deleteOne", async () => {
+			const model = makeModel(staleDoc())
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, onAbandon: 'soft-delete' })
+			const { ctx, redirects } = makeCtx()
+
+			await flow.routerVerifyEmail()(ctx)
+
+			expect(model.deleteOne.called).to.equal(false)
+			expect(model.updateOne.calledOnce).to.equal(true)
+			expect(model.updateOne.firstCall.args[1]).to.deep.equal({ $set: { 'flags.deleted': true } })
+			// disposal policy never decides whether the link is honoured
+			expect(redirects).to.deep.equal(['/x/email-check'])
+		})
+
+		it("'soft-delete' with a deletedValue factory stores a timestamp rather than a boolean", async () => {
+			const model = makeModel(staleDoc())
+			const stamp = new Date('2026-03-03T00:00:00.000Z')
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, onAbandon: 'soft-delete', deletedValue: () => stamp })
+
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(model.updateOne.firstCall.args[1]).to.deep.equal({ $set: { 'flags.deleted': stamp } })
+		})
+
+		it("'keep' disposes of nothing but still refuses the link", async () => {
+			const model = makeModel(staleDoc())
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, onAbandon: 'keep' })
+			const { ctx, redirects } = makeCtx()
+
+			await flow.routerVerifyEmail()(ctx)
+
+			expect(model.deleteOne.called).to.equal(false)
+			expect(model.updateOne.called).to.equal(false)
+			expect(redirects).to.deep.equal(['/x/email-check'])
+		})
+
+		it('an explicit deleteUserByEmail wins over onAbandon, and is what the guards actually call', async () => {
+			const model = makeModel(staleDoc())
+			const custom = sinon.stub().resolves()
+			const flow = createVerifyEmailFlow({
+				model,
+				paths: PATHS,
+				onAbandon: 'soft-delete',
+				deleteUserByEmail: custom as never
+			})
+
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(custom.calledOnceWithExactly(EMAIL)).to.equal(true)
+			expect(model.deleteOne.called).to.equal(false)
+			expect(model.updateOne.called).to.equal(false)
+			// The returned member is the same writer the guards hold, so it reports the policy in force
+			// instead of being a second, ignored copy.
+			expect(flow.deleteUserByEmail).to.equal(custom)
+		})
+
+		it('the returned deleteUserByEmail is the writer the guards run, not a separate default', async () => {
+			const model = makeModel(staleDoc())
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, onAbandon: 'soft-delete' })
+
+			await flow.deleteUserByEmail(EMAIL)
+
+			// soft-delete, exactly like the guard path above — not the hard delete of the old internal writer
+			expect(model.deleteOne.called).to.equal(false)
+			expect(model.updateOne.calledOnceWith({ mail: EMAIL })).to.equal(true)
 		})
 	})
 

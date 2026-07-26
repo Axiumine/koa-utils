@@ -98,11 +98,18 @@ const { resetPwd, updatePassword } = createResetPwdFlow({
 	}
 })
 
-const verify = createVerifyEmailFlow({ model: Account, paths: { email: 'mail', valid: 'verified' } })
+const verify = createVerifyEmailFlow({
+	model: Account,
+	paths: { email: 'mail', valid: 'verified' },
+	onAbandon: 'soft-delete', // 'delete' (default) | 'soft-delete' | 'keep'
+	deletedValue: () => new Date() // what 'soft-delete' writes; default true
+})
 router.get('/check/verify-email/:email/:hash', verify.routerVerifyEmail())
 ```
 
 Every `paths` key is optional and falls back to the `UserBase` layout, so the package-level exports are exactly these factories with no overrides. See [docs/code/lib-access.md](./docs/code/lib-access.md).
+
+`onAbandon` decides what the two disposal guards — the fifth wrong hash and a link older than 3 days — do to a pending registration. The default `'delete'` removes the row; use `'soft-delete'` or `'keep'` when other collections depend on it, since mongo has no cascade, or pass `deleteUserByEmail` to replace the writer outright. The link is rejected either way.
 
 ### GraphQL error helpers
 
