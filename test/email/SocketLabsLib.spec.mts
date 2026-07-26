@@ -20,14 +20,14 @@ function makeSendStubReject(err: Error) {
 	return sinon.stub().rejects(err)
 }
 
-/** Read back the BasicMessage handed to client.send() — subject/textBody/htmlBody as actually built */
+/** Read back the BasicMessage handed to client.send() — subject/textBody/htmlBody as built */
 function sentMessage(sendStub: sinon.SinonStub) {
 	const [msg] = sendStub.firstCall.args
 	return msg as { subject: string; textBody: string; htmlBody: string }
 }
 
 // ---------------------------------------------------------------------------
-// Environment setup — minimal values so the constructor doesn't blow up
+// Env setup — minimal values → constructor not blow up
 // ---------------------------------------------------------------------------
 
 const ORIG_ENV: Record<string, string | undefined> = {}
@@ -69,7 +69,7 @@ after(() => {
 describe('SocketLabsLib — constructor', () => {
 	it('uses provided htmlHeader1, htmlHeader2, htmlFooter when non-empty', () => {
 		const lib = new SocketLabsLib('<h1>', '</h1>', '<footer/>')
-		// Just verify construction succeeds and methods are callable
+		// Construction succeed + methods callable
 		expect(lib).to.be.instanceOf(SocketLabsLib)
 	})
 
@@ -523,7 +523,7 @@ describe('SocketLabsLib — sendResetPwdConfirmationHash', () => {
 	})
 
 	it('returns false when sendEmail reports failure via the inner rejection handler', async () => {
-		// sendEmail resolves false when send() rejects — the inner error handler swallows it
+		// sendEmail resolve false when send() reject — the inner error handler swallow it
 		sendStub = makeSendStubReject(new Error('internal'))
 		injectClient(lib, sendStub)
 		const result = await lib.sendResetPwdConfirmationHash('r@x.com', 'Mario', 'hash1')
@@ -531,8 +531,7 @@ describe('SocketLabsLib — sendResetPwdConfirmationHash', () => {
 	})
 
 	it('returns false when sendEmail throws synchronously (catch branch, Sentry path)', async () => {
-		// Make send() throw synchronously so the Promise returned from sendEmail rejects
-		// and the try/catch in sendResetPwdConfirmationHash catches it
+		// send() throw synchronously → sendEmail Promise reject → try/catch in sendResetPwdConfirmationHash catch it
 		const throwingClient = {
 			send: () => {
 				throw new Error('sync throw')
@@ -717,10 +716,9 @@ describe('SocketLabsLib — getHtmlHeader / getHtmlFooter / htmlFooter', () => {
 })
 
 // ---------------------------------------------------------------------------
-// sendEmail error path — sendResetPwdConfirmationHash wraps via try/catch
-// so the sendEmail rejection handler returning false → null is tested above.
-// sendOTP similarly.
-// Verify the sendEmail success resolve path returns true (via any public method).
+// sendEmail error path — sendResetPwdConfirmationHash wrap via try/catch → the rejection handler returning
+// false → null already tested above. sendOTP same. Here: sendEmail success resolve path return true
+// (via any public method).
 // ---------------------------------------------------------------------------
 
 describe('SocketLabsLib — sendEmail success resolve path', () => {

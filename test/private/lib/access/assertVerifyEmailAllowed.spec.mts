@@ -1,13 +1,13 @@
 /**
  * Tests for private/lib/access/assertVerifyEmailAllowed.mts
  *
- * These pin the ORDER and ARGUMENTS of the email-verification guard chain — the part
- * that lived inline in routerVerifyEmail, where no test could reach it. Each individual
- * handleIf* guard already had thorough unit tests; what was missing was proof that the
- * chain calls them, with the account's real values, before granting access.
+ * Pin the ORDER and ARGUMENTS of the email-verification guard chain — the part that
+ * lived inline in routerVerifyEmail, unreachable by any test. Each handleIf* guard was
+ * already unit-tested; missing was proof the chain call them, with the account's real
+ * values, before granting access.
  *
- * Mutation testing found six ways to break this while the whole suite stayed green.
- * Every test below corresponds to one of them.
+ * Mutation testing found 6 ways to break this with the suite green. Every test below
+ * = 1 of them.
  */
 import {
 	assertVerifyEmailAllowed,
@@ -56,8 +56,8 @@ async function expectRejects(fn: () => Promise<unknown>) {
 }
 
 describe('assertVerifyEmailAllowed', () => {
-	// The guards send mail and touch the DB on their rejection paths. Stub both, or each
-	// rejecting test waits on a real SocketLabs call until it times out.
+	// Guards send mail + touch the DB on their rejection paths. Stub both, else each
+	// rejecting test wait on a real SocketLabs call until it times out.
 	beforeEach(() => {
 		for (const m of [
 			'wrongHash',
@@ -87,13 +87,13 @@ describe('assertVerifyEmailAllowed', () => {
 	})
 
 	it('rejects a DISABLED account', async () => {
-		// Mutation: the handleIfAccountDisabled call was deleted outright.
+		// Mutation: handleIfAccountDisabled call deleted outright.
 		await expectRejects(() => assertVerifyEmailAllowed(makeUser({ disabled: true }), EMAIL, GOOD_HASH))
 	})
 
 	it('rejects a DELETED account, and passes the flag un-negated', async () => {
-		// Mutation: handleIfAccountDeleted(email, !deleted). Negation blocks healthy
-		// accounts and lets deleted ones through, so both directions are asserted.
+		// Mutation: handleIfAccountDeleted(email, !deleted). Negation block healthy accounts,
+		// let deleted ones through → both directions asserted.
 		await expectRejects(() => assertVerifyEmailAllowed(makeUser({ deleted: true }), EMAIL, GOOD_HASH))
 
 		const uId = await assertVerifyEmailAllowed(makeUser({ deleted: false }), EMAIL, GOOD_HASH)
@@ -101,21 +101,21 @@ describe('assertVerifyEmailAllowed', () => {
 	})
 
 	it('compares the supplied hash against the STORED hash, not against itself', async () => {
-		// Mutation: dbHash: hash instead of dbHash: userAccountEmail.hash, which makes
-		// the comparison trivially true so ANY hash in the URL validates the account.
+		// Mutation: dbHash: hash instead of dbHash: userAccountEmail.hash → comparison
+		// trivially true → ANY hash in the URL validate the account.
 		await expectRejects(() => assertVerifyEmailAllowed(makeUser(), EMAIL, 'attacker-supplied-hash'))
 	})
 
 	it('halts the chain on a bad hash — the guard must be awaited', async () => {
-		// Mutation: the `await` was dropped, detaching the rejection from the caller so
-		// execution fell through the remaining guards and on to enableEmailAccess.
-		// A floating rejection would let this resolve instead of throwing.
+		// Mutation: the `await` dropped → rejection detached from the caller → execution fall
+		// through the remaining guards on to enableEmailAccess. A floating rejection would
+		// let this resolve instead of throw.
 		await expectRejects(() => assertVerifyEmailAllowed(makeUser(), EMAIL, 'wrong-hash'))
 	})
 
 	it('forwards the account real requestTimes to the throttle guard', async () => {
-		// Mutation: handleIfTooMuchRequestsTimes(email, 0) — hard-coding 0 reports "no
-		// prior attempts" every time and permanently disables the >= 5 lockout.
+		// Mutation: handleIfTooMuchRequestsTimes(email, 0) — hard-coded 0 report "no prior
+		// attempts" every time → >= 5 lockout permanently disabled.
 		await expectRejects(() =>
 			assertVerifyEmailAllowed(makeUser({ emailOverrides: { requestTimes: 5 } }), EMAIL, GOOD_HASH)
 		)
@@ -135,11 +135,11 @@ describe('assertVerifyEmailAllowed', () => {
 	})
 
 	it('runs the injected guards, in order, on the values it read from the document', async () => {
-		// All six guards are dependencies now. They used to be four injected + three hard-imported, and the
-		// hard-imported ones each constructed their own SocketLabs client, so no caller could reach those
-		// branches without mailing for real. This also pins the order, which nothing else does: the
-		// already-valid check has to precede the strike counter, and the account flags have to be read
-		// before anything is granted.
+		// All 6 guards are deps now. Were 4 injected + 3 hard-imported, and each hard-imported
+		// one built its own SocketLabs client → no caller reach those branches without mailing
+		// for real. Also pin the order, which nothing else does: the already-valid check has to
+		// precede the strike counter, and the account flags have to be read before anything is
+		// granted.
 		const calls: string[] = []
 		const spy = (name: string) => sinon.stub().callsFake(async () => void calls.push(name))
 		const guards = {
@@ -165,10 +165,10 @@ describe('assertVerifyEmailAllowed', () => {
 	})
 
 	it('does not enable the account itself — that stays with the caller', async () => {
-		// Mutation: enableEmailAccess was moved ahead of the remaining guards, granting
-		// access even when a later guard would still have thrown. Keeping the
-		// irreversible side effect outside this function makes that reordering
-		// impossible rather than merely untested: all this can do is return an id.
+		// Mutation: enableEmailAccess moved ahead of the remaining guards → access granted
+		// even when a later guard would still have thrown. Keeping the irreversible side
+		// effect outside this fn makes that reordering impossible, not merely untested: all
+		// this can do is return an id.
 		const uId = await assertVerifyEmailAllowed(makeUser(), EMAIL, GOOD_HASH)
 		expect(uId).to.be.instanceOf(Types.ObjectId)
 	})

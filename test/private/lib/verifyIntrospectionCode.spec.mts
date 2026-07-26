@@ -1,12 +1,12 @@
 /**
  * Tests for private/lib/verifyIntrospectionCode.mts
  *
- * Chain: verifyIntrospectionCode(headerValue) → reads process.env.INTROSPECTION_CODE →
- *        fails closed when unset/empty → constant-time byte compare via timingSafeEqual
+ * Chain: verifyIntrospectionCode(headerValue) → read process.env.INTROSPECTION_CODE →
+ * fail closed when unset/empty → constant-time byte compare via timingSafeEqual
  *
- * The regression under test: the call sites used to compare against
- * `${process.env.INTROSPECTION_CODE}`, which coerces an unset variable to the string
- * 'undefined'. A client sending `x-introspectioncode: undefined` matched it with no secret.
+ * Regression under test: call sites compared against `${process.env.INTROSPECTION_CODE}`,
+ * which coerce an unset var to string 'undefined'. A client sending
+ * `x-introspectioncode: undefined` matched it with no secret.
  */
 import { verifyIntrospectionCode } from '@private/lib/verifyIntrospectionCode.mjs'
 import { expect } from 'chai'
@@ -67,9 +67,9 @@ describe('verifyIntrospectionCode', () => {
 	})
 
 	it('returns false without throwing when a multi-byte header matches the code in characters', () => {
-		// 'é' is one character but two UTF-8 bytes: comparing character length instead of byte
-		// length would hand timingSafeEqual two unequal buffers and raise a RangeError, turning
-		// the guard into a crash an unauthenticated caller could trigger at will.
+		// 'é' = 1 char, 2 UTF-8 bytes: compare char length instead of byte length →
+		// timingSafeEqual get 2 unequal buffers → RangeError → the guard become a crash any
+		// unauthenticated caller trigger at will.
 		process.env.INTROSPECTION_CODE = 'secret'
 
 		expect(() => verifyIntrospectionCode('sécret')).to.not.throw()

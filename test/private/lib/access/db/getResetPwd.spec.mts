@@ -4,18 +4,17 @@
  * Chain: UserBase.findOne().select().session().lean()
  *
  * Branches:
- *   - queryRet === null (no reset request found) → returns null
- *   - queryRet !== null + account.deleted truthy → returns null
- *   - queryRet !== null + account.deleted falsy + account.disabled truthy → returns null
- *   - queryRet !== null + resetDateReq !== undefined + resetHash is a string → resetHash = that hash
- *   - queryRet !== null + resetDateReq !== undefined + resetHash absent → resetHash stays null
- *   - queryRet !== null + resetDateReq === undefined → resetHash stays null
- *   - queryRet.personalData?.name defined (truthy) → name used as-is
- *   - queryRet.personalData is undefined → name falls back to ''
+ * - queryRet === null (no reset request) → return null
+ * - queryRet !== null + account.deleted truthy → return null
+ * - queryRet !== null + account.deleted falsy + account.disabled truthy → return null
+ * - queryRet !== null + resetDateReq !== undefined + resetHash a string → resetHash = that hash
+ * - queryRet !== null + resetDateReq !== undefined + resetHash absent → resetHash stay null
+ * - queryRet !== null + resetDateReq === undefined → resetHash stay null
+ * - queryRet.personalData?.name truthy → name used as-is
+ * - queryRet.personalData undefined → name fall back to ''
  *
- * The token lives in account.resetHash, NOT account.email.hash. Reading the verification slot is
- * what let a hash minted by signUp / emailChange authenticate a password reset, so the projection
- * itself is pinned below.
+ * Token lives in account.resetHash, NOT account.email.hash. Reading the verification slot is what let a
+ * hash minted by signUp / emailChange authenticate a password reset → the projection itself is pinned below.
  */
 import { getResetPwd } from '@private/lib/access/db/getResetPwd.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
@@ -77,9 +76,8 @@ describe('getResetPwd', () => {
 	})
 
 	it('projects every field it reads, account state flags included', async () => {
-		// This is a .lean() read: a field left out of the projection is simply absent on the returned
-		// object, with no error. A missing account.disabled would therefore read as "not disabled" and
-		// the gate below would never fire, silently, under a green coverage gate.
+		// `.lean()` read: a field left out of the projection is simply absent on the returned object, no error.
+		// Missing account.disabled → read as "not disabled" → the gate below never fire, silently, gate still green.
 		findOneStub.returns(makeFindOneChain(null))
 
 		await getResetPwd(fakeSession, 'user@test.com')
@@ -95,8 +93,7 @@ describe('getResetPwd', () => {
 	})
 
 	it('SECURITY: a deleted account is not a reset target → null, exactly like an unknown address', async () => {
-		// Without this the flow mailed a live reset link to a tombstoned address, and updatePassword
-		// went on to overwrite its bcrypt hash.
+		// No gate → flow mailed a live reset link to a tombstoned address → updatePassword overwrote its bcrypt hash.
 		findOneStub.returns(
 			makeFindOneChain({
 				_id: new Types.ObjectId(),
@@ -111,7 +108,7 @@ describe('getResetPwd', () => {
 	})
 
 	it('SECURITY: a disabled account is not a reset target either → null', async () => {
-		// deleted explicitly falsy, so only the disabled flag can be the reason
+		// deleted explicitly falsy → only the disabled flag can be the reason
 		findOneStub.returns(
 			makeFindOneChain({
 				_id: new Types.ObjectId(),
@@ -163,9 +160,9 @@ describe('getResetPwd', () => {
 	})
 
 	it('SECURITY: resetDateReq defined but hash cleared → resetHash null, never the string "undefined"', async () => {
-		// Orphan state: account.resetDateReq survives a write that dropped account.resetHash.
-		// The previous '' + hash produced the literal "undefined", which updatePassword accepted
-		// as a match against a caller sending that same literal — a takeover needing no secret.
+		// Orphan state: account.resetDateReq survive a write that dropped account.resetHash. The old '' + hash
+		// produced the literal "undefined", which updatePassword accepted against a caller sending that same
+		// literal — a takeover needing no secret.
 		const id = new Types.ObjectId()
 		const resetDateReq = new Date()
 		findOneStub.returns(
@@ -188,9 +185,9 @@ describe('getResetPwd', () => {
 	})
 
 	it('SECURITY: a live account.email.hash never stands in for a missing account.resetHash', async () => {
-		// The verification slot is filled by signUp and by the email-change flow. Falling back to it
-		// would let a hash the user already received in an activation link reset their password —
-		// and, worse, let a pending email-change hash do the same. Reset must fail closed instead.
+		// Verification slot is filled by signUp and by the email-change flow. Falling back to it would let a hash
+		// the user already got in an activation link reset their password — and a pending email-change hash do the
+		// same. Reset must fail closed instead.
 		const id = new Types.ObjectId()
 		const resetDateReq = new Date()
 		findOneStub.returns(
@@ -207,8 +204,8 @@ describe('getResetPwd', () => {
 	})
 
 	it('resetDateReq defined but resetHash is a non-string value → resetHash null (fails closed)', async () => {
-		// The schema types resetHash as String, so a non-string can only come from a write that
-		// bypassed Mongoose. Coercing it would mint a reset token from whatever landed there.
+		// Schema type resetHash as String → a non-string can only come from a write that bypassed Mongoose.
+		// Coerce it → mint a reset token from whatever landed there.
 		const id = new Types.ObjectId()
 		const resetDateReq = new Date()
 		findOneStub.returns(

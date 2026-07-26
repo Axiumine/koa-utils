@@ -4,9 +4,9 @@
  * Chain: checkUserAdminLoginAuthorization → infoUserAdminForLogin (UserAdminKoaUtils.findOne)
  *        → _finalizeLoginCheck (bcrypt.compare + SocketLabsLib.accountDisabled)
  *
- * Exercised directly here (not only transitively through loginAdmin.spec.mts) so an inverted
- * branch inside infoUserAdminForLogin or _finalizeLoginCheck cannot hide behind the full
- * mutation's session/redis/token wiring.
+ * Exercised directly here, not only transitively via loginAdmin.spec.mts → an inverted branch inside
+ * infoUserAdminForLogin or _finalizeLoginCheck cannot hide behind the full mutation's session/redis/token
+ * wiring.
  */
 import { checkUserAdminLoginAuthorization } from '@private/graphQL/schema/mutations/checkUserAdminLoginAuthorization.mjs'
 import UserAdminKoaUtils from '@private/graphQL/models/MongoDB/private/UserAdminKoaUtils.mjs'

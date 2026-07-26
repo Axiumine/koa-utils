@@ -1,12 +1,12 @@
 /**
  * Tests for lib/access/verifyEmailMailer.mts
  *
- * Three things are pinned here:
- *   - socketLabsVerifyEmailMailer forwards each of the six methods to the matching SocketLabs template,
- *     with the arguments untouched. A wrong mapping here sends the wrong copy from every guard at once.
- *   - throttleMailer debounces per template AND per address, and passes the delivery result through.
- *   - sendWelcome is never debounced: it fires once per account, on the one path that already required a
- *     valid hash, and suppressing it would cost a real user their welcome mail.
+ * 3 things pinned:
+ * - socketLabsVerifyEmailMailer forward each of the 6 methods to the matching SocketLabs
+ * template, args untouched. Wrong mapping → wrong copy from every guard at once.
+ * - throttleMailer debounce per template AND per address, pass the delivery result through.
+ * - sendWelcome never debounced: fire once per account, on the one path already requiring
+ * a valid hash → suppress it = a real user lose their welcome mail.
  */
 import { ALWAYS_MAIL, createMailThrottle } from '@lib/access/createMailThrottle.mjs'
 import {
@@ -167,8 +167,8 @@ describe('defaultVerifyEmailMailer', () => {
 
 	it('is debounced: a second identical send in the same window never reaches SocketLabs', async () => {
 		const stub = sinon.stub(SocketLabsLib.prototype, 'emailAlreadyValid').resolves()
-		// Address used by this test only. The default binding is module-level, so its window is shared by
-		// every spec in the run — which is exactly why guard specs inject their own mailer instead.
+		// Address used by this test only. Default binding is module-level → window shared by
+		// every spec in the run — why guard specs inject their own mailer instead.
 		const email = 'default-mailer-probe@test.com'
 		const mailer: IVerifyEmailMailer = defaultVerifyEmailMailer
 

@@ -4,8 +4,8 @@
  * Chain: UserBase.findOne().select().lean()
  *
  * Branches:
- *   - user found (non-null) → returns the lean user document as-is
- *   - user === null → Sentry.captureMessage (no-op, non-stubbable in ESM) + throws Error(EMAIL_CHECK_LINK)
+ * - user found → return the lean doc as-is
+ * - user === null → Sentry.captureMessage (no-op, non-stubbable in ESM) → throw Error(EMAIL_CHECK_LINK)
  */
 import { userData4VerifyEmail } from '@private/lib/access/db/userData4VerifyEmail.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'

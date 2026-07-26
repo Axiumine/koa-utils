@@ -36,11 +36,11 @@ describe('StringLib', () => {
 		})
 
 		it('does not draw from Math.random — reset and email hashes depend on this', () => {
-			// randomString backs every password-reset hash and email-confirmation hash in
-			// the package. Math.random() is V8's xorshift128+: its state is recoverable
-			// from observed outputs, after which the next hash is predictable — request a
-			// reset for your own account, read your hash, predict the victim's. Length
-			// gives no protection; entropy is bounded by the generator.
+			// randomString back every password-reset hash + email-confirmation hash in the
+			// package. Math.random() is V8 xorshift128+: state recoverable from observed
+			// outputs → next hash predictable. Attack: request a reset for your own account,
+			// read your hash, predict the victim's. Length give no protection — entropy is
+			// bounded by the generator.
 			const spy = sinon.spy(Math, 'random')
 			try {
 				s.randomString(50)
@@ -75,7 +75,7 @@ describe('StringLib', () => {
 			for (let i = 0; i < 500; i++) {
 				seen.add(s.getRandomArbitrary(0, 10))
 			}
-			// every bucket must appear — a biased or constant generator would not fill them
+			// every bucket must appear — biased or constant generator would not fill them
 			expect(seen.size).to.equal(10)
 		})
 
@@ -91,7 +91,7 @@ describe('StringLib', () => {
 
 	describe('getRandomOTP — must not be predictable', () => {
 		it('does not draw from Math.random', () => {
-			// A predictable one-time password defeats the point of one.
+			// Predictable one-time password defeat the point.
 			const spy = sinon.spy(Math, 'random')
 			try {
 				s.getRandomOTP()
@@ -133,9 +133,9 @@ describe('StringLib', () => {
 			expect(out).to.match(/:0\d:0\d$/)
 		})
 		it('does not zero-pad minutes and seconds >= 10 (covers "" branch)', () => {
-			// use a fixed ISO string: 2024-01-15T14:25:45.000Z
+			// fixed ISO string: 2024-01-15T14:25:45.000Z
 			const out = s.isoFormatDateTime('2024-01-15T14:25:45.000Z')
-			// minutes=25 and seconds=45 — no leading zero
+			// minutes=25, seconds=45 → no leading zero
 			expect(out).to.match(/:\d{2}:\d{2}$/)
 			expect(out).not.to.match(/:0\d/)
 		})

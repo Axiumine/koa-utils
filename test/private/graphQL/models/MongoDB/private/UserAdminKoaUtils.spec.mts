@@ -1,9 +1,8 @@
 /**
  * Tests for private/graphQL/models/MongoDB/private/UserAdminKoaUtils.mts
  *
- * Only the schema shape is asserted here — the model has no behaviour of its own. The flag types
- * matter because infoUserAdminForLogin reads with .exec(), so Mongoose casting decides what
- * _finalizeLoginCheck sees.
+ * Only the schema shape asserted — the model has no behaviour of its own. Flag types matter:
+ * infoUserAdminForLogin read with .exec() → Mongoose casting decide what _finalizeLoginCheck see.
  */
 import UserAdminKoaUtils from '@private/graphQL/models/MongoDB/private/UserAdminKoaUtils.mjs'
 import { expect } from 'chai'
@@ -18,9 +17,9 @@ describe('private/graphQL/models/MongoDB/private/UserAdminKoaUtils', () => {
 	})
 
 	it('account.disabled and account.deleted are Boolean, matching IUserAdminKoaUtilsSchema', () => {
-		// Same defect as UserBase: declared `type: String` while the interface said boolean, so a
-		// stored `false` hydrated to the truthy string 'false' and locked out admins who were not
-		// disabled. Existing rows are repaired by scripts/migrate-account-disabled-to-boolean.mjs.
+		// Same defect as UserBase: declared `type: String` while the interface said boolean → a stored `false`
+		// hydrated to the truthy string 'false' and locked out admins who were not disabled. Existing rows are
+		// repaired by scripts/migrate-account-disabled-to-boolean.mjs.
 		expect(UserAdminKoaUtils.schema.path('account.disabled').instance).to.equal('Boolean')
 		expect(UserAdminKoaUtils.schema.path('account.deleted').instance).to.equal('Boolean')
 	})

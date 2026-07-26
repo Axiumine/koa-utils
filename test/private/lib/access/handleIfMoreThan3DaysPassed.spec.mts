@@ -2,12 +2,12 @@
  * Tests for private/lib/access/handleIfMoreThan3DaysPassed.mts
  *
  * Chain: createHandleIfMoreThan3DaysPassed(disposeFn, mailer)(uEmail, dateLastReq)
- *          → StringLib.isoToTimestamp (compares dateLastReq vs "3 days ago")
- *          → if too old: mailer.hashReqTooOld(uEmail) → disposeFn(uEmail) → throw new Error(EMAIL_CHECK_LINK)
- *          → otherwise: resolves with no return value
+ * → StringLib.isoToTimestamp (compare dateLastReq vs "3 days ago")
+ * → too old → mailer.hashReqTooOld(uEmail) → disposeFn(uEmail) → throw new Error(EMAIL_CHECK_LINK)
+ * → else → resolve, no return value
  *
- * The disposal writer is injected, so what it does is the caller's policy (delete, tombstone, nothing).
- * The guard must throw either way — that is asserted here, not left to the flow factory.
+ * Disposal writer injected → what it does is the caller's policy (delete, tombstone, nothing).
+ * Guard must throw either way — asserted here, not left to the flow factory.
  */
 import { createHandleIfMoreThan3DaysPassed, handleIfMoreThan3DaysPassed } from '@private/lib/access/handleIfMoreThan3DaysPassed.mjs'
 import { EMAIL_CHECK_LINK } from '@private/lib/access/Constants.mjs'
@@ -85,9 +85,8 @@ describe('handleIfMoreThan3DaysPassed', () => {
 	})
 
 	it('dateLastReq just under the 3-day threshold (2.5 days ago) → resolves without throwing', async () => {
-		// Kept comfortably below the 3-day boundary (12h margin) so the comparison
-		// is deterministic regardless of the few ms elapsed between building this
-		// date and the function computing its own "now" internally.
+		// 12h below the 3-day boundary → comparison deterministic whatever the few ms between
+		// building this date and the fn computing its own "now" internally.
 		const twoAndHalfDaysAgo = new Date(Date.now() - 2.5 * 24 * 60 * 60 * 1000)
 
 		const result = await guard('boundary@test.com', twoAndHalfDaysAgo)
@@ -100,7 +99,7 @@ describe('handleIfMoreThan3DaysPassed', () => {
 		const deleteOneStub = sinon.stub(UserBase, 'deleteOne').resolves({ acknowledged: true, deletedCount: 1 } as never)
 		const hashReqTooOldStub = sinon.stub(SocketLabsLib.prototype, 'hashReqTooOld').resolves()
 		const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000)
-		// Address used by this test only — the default binding debounces per address + template.
+		// Address used by this test only — default binding debounce per address + template.
 		const email = 'bound-too-old@test.com'
 
 		let thrown: Error | undefined

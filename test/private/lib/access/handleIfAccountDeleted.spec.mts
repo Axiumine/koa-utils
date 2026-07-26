@@ -4,12 +4,12 @@
  * Chain: createHandleIfAccountDeleted(mailer) → (if deleted) mailer.accountDisabled(email) → throw Error(EMAIL_CHECK_LINK)
  *
  * Branches:
- *   - deleted === true  → sends accountDisabled email, then throws Error(EMAIL_CHECK_LINK)
- *   - deleted === false → no email sent, resolves without throwing
- *   - deleted omitted (default parameter = false) → no email sent, resolves without throwing
+ * - deleted === true → mail accountDisabled → throw Error(EMAIL_CHECK_LINK)
+ * - deleted === false → no mail, resolve
+ * - deleted omitted (default false) → no mail, resolve
  *
- * The template really is accountDisabled: SocketLabsLib has none for a deleted account, so this guard
- * borrows the disabled one. Asserted, not assumed — a future accountDeleted template must update both.
+ * Template really is accountDisabled: SocketLabsLib have none for a deleted account → this guard borrow
+ * the disabled one. Asserted, not assumed — a future accountDeleted template must update both.
  */
 import { createHandleIfAccountDeleted, handleIfAccountDeleted } from '@private/lib/access/handleIfAccountDeleted.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
@@ -63,7 +63,7 @@ describe('handleIfAccountDeleted', () => {
 
 	it('the bound default reaches SocketLabs accountDisabled', async () => {
 		const stub = sinon.stub(SocketLabsLib.prototype, 'accountDisabled').resolves()
-		// Address used by this test only — the default binding debounces per address + template.
+		// Address used by this test only — default binding debounce per address + template.
 		const email = 'bound-deleted@test.com'
 
 		let thrown: Error | undefined

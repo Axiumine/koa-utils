@@ -1,10 +1,10 @@
 /**
  * Tests for graphQL/schema/mutations/signUp.mts
  *
- * signUp imports: userExist (via UserBase.findOne), registerNewUser (via UserBase.create +
+ * signUp import: userExist (via UserBase.findOne), registerNewUser (via UserBase.create +
  * encryptPassword/bcrypt.hash), SocketLabsLib, mongoose.startSession.
- * Since local ESM named exports are non-stubbable, we stub the underlying Mongoose model
- * methods and bcrypt default import.
+ * Local ESM named exports non-stubbable → stub the underlying Mongoose model methods + the
+ * bcrypt default import.
  */
 import { signUp } from '../../../../dist/graphQL/schema/mutations/signUp.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
@@ -19,7 +19,7 @@ import { expectGraphQLErrorAsync } from '../../../helpers/assertGraphQLError.mjs
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Returns a minimal mongoose-session-like double */
+/** Return a minimal mongoose-session-like double */
 function makeSession() {
 	const session = {
 		withTransaction: async (fn: () => Promise<void>) => { await fn() },
@@ -28,7 +28,7 @@ function makeSession() {
 	return session
 }
 
-/** Returns a chainable query double that resolves to `value` */
+/** Return a chainable query double resolving to `value` */
 function makeQuery(value: unknown) {
 	const q = {
 		select: () => q,
@@ -67,7 +67,7 @@ describe('signUp — resolve (deep stubs)', () => {
 	})
 
 	it('happy path: new user → returns true, creates user, sends verify email', async () => {
-		// userExist: findOne returns null → uExist = false
+		// userExist: findOne return null → uExist = false
 		findOneStub.returns(makeQuery(null))
 
 		const result = await signUp.resolve(null, { email: 'New@Test.com', password: 'validpass12' })
@@ -75,19 +75,18 @@ describe('signUp — resolve (deep stubs)', () => {
 		expect(result).to.equal(true)
 		expect(createStub.calledOnce).to.equal(true)
 		expect(sendEmailVerifyStub.calledOnce).to.equal(true)
-		// email should be lowercased + trimmed
+		// email lowercased + trimmed
 		expect(sendEmailVerifyStub.firstCall.args[0]).to.equal('new@test.com')
 		expect(emailAlreadyValidStub.called).to.equal(false)
-		// The session must be closed on the SUCCESS path too, not only when the
-		// transaction throws. Moving endSession() out of `finally` into `catch` leaves
-		// every successful call leaking a mongoose ClientSession, and the error-path
-		// test still passes because tryCatchRethrow always throws.
+		// Session must be closed on the SUCCESS path too, not only when the transaction throws.
+		// Moving endSession() out of `finally` into `catch` leak a mongoose ClientSession on every
+		// successful call, and the error-path test still pass because tryCatchRethrow always throws.
 		const session = (await startSessionStub.returnValues[0]) as { endSession: sinon.SinonStub }
 		expect(session.endSession.called, 'session must be ended on the success path').to.equal(true)
 	})
 
 	it('existing user → throws 409 Conflict and sends emailAlreadyValid email', async () => {
-		// userExist: findOne returns a doc → uExist = true
+		// userExist: findOne return a doc → uExist = true
 		findOneStub.returns(makeQuery({ _id: 'uid1' }))
 
 		await expectGraphQLErrorAsync(

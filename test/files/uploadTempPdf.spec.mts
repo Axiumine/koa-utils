@@ -74,7 +74,7 @@ describe('uploadTempPdf', () => {
 	})
 
 	it('throws "Error storing pdf" when MIME type is invalid (non-pdf content)', async () => {
-		// .pdf extension but content is plain text → file-type won't detect application/pdf
+		// .pdf ext, plain-text content → file-type detect no application/pdf
 		const src = makeSrcFile(Buffer.from('this is not a pdf'), `src-pdf-badmime-${Date.now()}.tmp`)
 		const upload = makeUploadFromFile(src, 'fakepdf.pdf')
 

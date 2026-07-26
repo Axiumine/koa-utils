@@ -1,10 +1,10 @@
 /**
  * Tests for private/lib/access/db/abandonUser.mts
  *
- * What abandonment means is the caller's policy, not the package's. A pending registration at the head of
- * a chain of dependent collections cannot be `deleteOne`d — mongo has no cascade — so `'delete'` (the
- * historical behaviour, still the default), `'soft-delete'` and `'keep'` all have to be reachable, and all
- * three have to share one signature so the guards stay unaware of which one they run.
+ * What abandonment mean = caller's policy, not the package's. A pending registration at the head of a
+ * chain of dependent collections cannot be `deleteOne`d — mongo has no cascade → `'delete'` (historical,
+ * still the default), `'soft-delete'` and `'keep'` must all be reachable, and all 3 share 1 signature so
+ * the guards stay unaware which one they run.
  */
 import { createAbandonUser } from '@private/lib/access/db/abandonUser.mjs'
 import { resolveVerifyEmailPaths } from '@lib/access/accessPaths.mjs'
@@ -84,8 +84,8 @@ describe('createAbandonUser', () => {
 
 			await abandon('kept@test.com')
 
-			// Deriving an $unset list from the leaf paths would break any layout storing the verification
-			// state as one required-members subdocument. That list is verifyClear's job, and its caller's.
+			// Derive an $unset list from the leaf paths → break any layout storing the verification state as 1
+			// required-members subdocument. That list is verifyClear's job, and its caller's.
 			expect(Object.keys(updateOne.firstCall.args[1])).to.deep.equal(['$set'])
 		})
 	})

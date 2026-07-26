@@ -3,9 +3,8 @@
  *
  * Chain: confirmNewEmail(_id, email) → UserBase.updateOne({ _id }, { $set: ..., $unset: ... }).exec()
  *
- * No branches in this module — a single straight-line path. One test verifying
- * the collaborator call (filter + update shape) plus the resolved return value
- * is sufficient for 100% statements/branches/functions/lines.
+ * No branches — 1 straight-line path. 1 test on the collaborator call (filter + update shape) + the
+ * resolved return value = 100% statements/branches/functions/lines.
  */
 import confirmNewEmail from '@private/lib/access/db/confirmNewEmail.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'

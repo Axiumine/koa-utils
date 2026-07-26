@@ -2,7 +2,7 @@
  * Tests for private/graphQL/schema/mutations/setLastLoginSQL.mts
  *
  * Chain: setLastLoginSQL → sequelize.query (UPDATE user SET lastlogin ...)
- *        on failure: Sentry.captureException, function resolves false instead of throwing
+ * fail → Sentry.captureException → resolve false, no throw
  */
 import { setLastLoginSQL } from '@private/graphQL/schema/mutations/setLastLoginSQL.mjs'
 import { sequelize } from '@dataSources/MariaDB.mjs'
@@ -27,10 +27,9 @@ describe('setLastLoginSQL', () => {
 		expect(options.replacements.timestamp).to.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)
 	})
 
-	// Sentry.captureException cannot be stubbed — '@sentry/node' is a sealed ES module namespace
-	// ("ES Modules cannot be stubbed"), the same limitation documented in tryCatchRethrow.spec.mts.
-	// Sentry is never init'd in the suite, so the real call is a safe no-op; the observable
-	// contract of the catch block is that it swallows the error and returns false.
+	// Sentry.captureException not stubbable — '@sentry/node' is a sealed ES module namespace ("ES Modules
+	// cannot be stubbed"), same limitation documented in tryCatchRethrow.spec.mts. Sentry never init'd in the
+	// suite → the real call is a safe no-op. Catch block contract: swallow the error, return false.
 	it('query rejection: swallows the error and resolves false', async () => {
 		sinon.stub(sequelize, 'query').rejects(new Error('sql down'))
 

@@ -1,8 +1,8 @@
 /**
  * Tests for private/graphQL/schema/mutations/_buildLoginStatsUpdate.mts
  *
- * Pure helper — no collaborators to stub. Builds the $set / $unset payloads
- * used by the login mutations to record login stats + rememberMe flag.
+ * Pure helper, no collaborators to stub. Build the $set / $unset payloads used by the login mutations
+ * to record login stats + rememberMe flag.
  */
 import { _buildLoginStatsUpdate } from '@private/graphQL/schema/mutations/_buildLoginStatsUpdate.mjs'
 import { expect } from 'chai'

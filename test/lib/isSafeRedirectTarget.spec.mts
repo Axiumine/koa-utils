@@ -14,9 +14,8 @@ describe('isSafeRedirectTarget', () => {
 		expect(isSafeRedirectTarget('/x/a/b/c')).to.equal(true)
 	})
 
-	// The cases below are the reason this function exists. A guard weakened to
-	// `startsWith('/')` was verified to pass both the semgrep scan and the whole test
-	// suite while admitting the first of them.
+	// Cases below = reason this fn exist. Guard weakened to `startsWith('/')` verified to
+	// pass both the semgrep scan and the whole suite while admitting the first of them.
 	it('rejects a protocol-relative URL — the startsWith("/") trap', () => {
 		expect(isSafeRedirectTarget('//evil.com')).to.equal(false)
 	})

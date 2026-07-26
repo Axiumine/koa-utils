@@ -7,8 +7,8 @@ import * as RedisMod from '../../../dist/dataSources/Redis.mjs'
 import { expectGraphQLErrorAsync } from '../../helpers/assertGraphQLError.mjs'
 import { restoreIntrospectionCode, saveIntrospectionCode } from '../../helpers/introspectionCode.mjs'
 
-// Real Keygrip instance — used to produce valid signed cookies so
-// verifySignedRefreshToken (non-stubbable ESM export) passes.
+// Real Keygrip → valid signed cookies → verifySignedRefreshToken
+// (non-stubbable ESM export) pass for real.
 const keys = new Keygrip(['k1'])
 const TOKEN = 'test-refresh-uuid'
 const SIG = keys.sign(`refresh_token=${TOKEN}`)
@@ -81,9 +81,9 @@ describe('authenticatedAuthorizationHandler', () => {
 	})
 
 	it('sets ctx.state.user.id to the ObjectId of the session actually found in Redis', async () => {
-		// refresh's resolver uses ctx.state.user.id as the userId for the new session.
-		// Nothing asserted this, so the id could be detached from the real session
-		// entirely (e.g. a freshly generated ObjectId) without any test noticing.
+		// refresh resolver use ctx.state.user.id as userId of the new session.
+		// Nothing asserted it → id could detach from the real session entirely
+		// (fresh ObjectId) with no test noticing.
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({ id: '507f1f77bcf86cd799439011', email: 'u@test.com' })
 		const mw = authenticatedAuthorizationHandler(keys)
 		const ctx = { request: { header: { cookie: VALID_COOKIE } }, state: {} } as never
@@ -144,8 +144,8 @@ describe('authenticatedAuthorizationHandler', () => {
 	})
 
 	it('throws 498 for header "undefined" when INTROSPECTION_CODE is unset', async () => {
-		// `${process.env.INTROSPECTION_CODE}` used to coerce an unset variable to the string
-		// 'undefined', letting a stale-but-signed cookie skip the expired-session rejection.
+		// `${process.env.INTROSPECTION_CODE}` coerced an unset var to string
+		// 'undefined' → stale-but-signed cookie skip the expired-session rejection.
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
 		const savedCode = saveIntrospectionCode()
 		delete process.env.INTROSPECTION_CODE

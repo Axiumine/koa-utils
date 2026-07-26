@@ -1,7 +1,7 @@
 /**
  * Tests for graphQL/schema/mutations/login4Ever.mts
  *
- * Identical chain to loginRememberme but no rememberMe flag and uses updateLoginStats4ever.
+ * Same chain as loginRememberme, no rememberMe flag, use updateLoginStats4ever.
  */
 import { login4Ever } from '../../../../dist/graphQL/schema/mutations/login4Ever.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
@@ -88,10 +88,9 @@ describe('login4Ever — resolve (deep stubs)', () => {
 		expect(result).to.have.property('accessToken').that.is.a('string').and.not.equal('')
 		expect(hSetStub.called).to.equal(true)
 		expect((ctx.cookies.set as sinon.SinonStub).calledWith('refresh_token')).to.equal(true)
-		// The session must be closed on the SUCCESS path too, not only when the
-		// transaction throws. Moving endSession() out of `finally` into `catch` leaves
-		// every successful call leaking a mongoose ClientSession, and the error-path
-		// test still passes because tryCatchRethrow always throws.
+		// Session must be closed on the SUCCESS path too, not only when the transaction throws.
+		// Moving endSession() out of `finally` into `catch` leak a mongoose ClientSession on every
+		// successful call, and the error-path test still pass because tryCatchRethrow always throws.
 		const session = (await startSessionStub.returnValues[0]) as { endSession: sinon.SinonStub }
 		expect(session.endSession.called, 'session must be ended on the success path').to.equal(true)
 	})

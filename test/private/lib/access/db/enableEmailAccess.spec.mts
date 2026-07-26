@@ -5,9 +5,8 @@
  *   → UserBase.updateOne({ _id }, { $set: ..., $unset: ... }, { runValidators: true })
  *   → new SocketLabsLib().sendWelcome(email)
  *
- * No branches in this module — a single straight-line path. One test verifying
- * both collaborator calls (with argument shapes) plus the resolved return value
- * is sufficient for 100% statements/branches/functions/lines.
+ * No branches — 1 straight-line path. 1 test on both collaborator calls (arg shapes) + the resolved
+ * return value = 100% statements/branches/functions/lines.
  */
 import { createEnableEmailAccess, enableEmailAccess } from '@private/lib/access/db/enableEmailAccess.mjs'
 import { DEFAULT_VERIFY_EMAIL_PATHS } from '@lib/access/accessPaths.mjs'

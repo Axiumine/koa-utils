@@ -32,8 +32,8 @@ function makeSession() {
 }
 
 /**
- * mongoose's session.withTransaction re-runs its callback on a transient error. Anything with a
- * side effect outside the database must therefore sit outside the callback.
+ * mongoose session.withTransaction re-run its callback on a transient error. Anything with a side
+ * effect outside the DB must therefore sit outside the callback.
  */
 function makeRetryingSession() {
 	return {
@@ -52,7 +52,7 @@ function makeQuery(value: unknown) {
 	return q
 }
 
-/** A minimal UserBase row as getResetPwd would return */
+/** Minimal UserBase row as getResetPwd would return */
 function fakeResetPwdVal(resetDateReq?: Date) {
 	return {
 		_id: new Types.ObjectId(),
@@ -130,10 +130,9 @@ describe('resetPwd — resolve', () => {
 		expect(result).to.equal(true)
 		expect(updateOneStub.calledOnce).to.equal(true)
 		expect(sendEmailResetStub.calledOnce).to.equal(true)
-		// The session must be closed on the SUCCESS path too, not only when the
-		// transaction throws. Moving endSession() out of `finally` into `catch` leaves
-		// every successful call leaking a mongoose ClientSession, and the error-path
-		// test still passes because tryCatchRethrow always throws.
+		// Session must be closed on the SUCCESS path too, not only when the transaction throws.
+		// Moving endSession() out of `finally` into `catch` leak a mongoose ClientSession on every
+		// successful call, and the error-path test still pass because tryCatchRethrow always throws.
 		const session = (await startSessionStub.returnValues[0]) as { endSession: sinon.SinonStub }
 		expect(session.endSession.called, 'session must be ended on the success path').to.equal(true)
 	})
@@ -206,8 +205,8 @@ describe('resetPwd — resolve', () => {
 	})
 
 	it('a synchronous throw from the send path is swallowed too', async () => {
-		// Covers the guard around the SocketLabsLib construction: anything that throws before a
-		// promise exists would otherwise escape the resolver unwrapped, past tryCatchRethrow.
+		// Cover the guard around SocketLabsLib construction: anything throwing before a promise exist
+		// would otherwise escape the resolver unwrapped, past tryCatchRethrow.
 		findOneStub.returns(makeQuery(fakeResetPwdVal(undefined)))
 		sendEmailResetStub.throws(new Error('bad config'))
 
@@ -252,8 +251,8 @@ describe('resetPwd — resolve', () => {
 
 		await resetPwd.resolve(null, { email: 'UPPER@TEST.COM' })
 
-		// getResetPwd calls findOne with lowercased email
-		// The query arg [0] is the filter object
+		// getResetPwd call findOne with lowercased email
+		// query arg [0] = filter object
 		const filterArg = findOneStub.firstCall.args[0] as Record<string, string>
 		expect(filterArg['login.email']).to.equal('upper@test.com')
 	})

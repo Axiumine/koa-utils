@@ -1,8 +1,8 @@
 import { expect } from 'chai'
 import sinon from 'sinon'
 
-// Sentry.captureException is non-stubbable in ESM.
-// We stub instance methods on redisClient (mutable object properties).
+// Sentry.captureException non-stubbable in ESM.
+// Stub instance methods on redisClient (mutable object properties).
 
 describe('Redis', () => {
 	afterEach(() => {

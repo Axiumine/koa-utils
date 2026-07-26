@@ -39,9 +39,8 @@ describe('validateMimeType (magic-number)', () => {
 	})
 
 	it('validateJpgPngMimeType rejects a real PDF (allowlist must stay narrow)', async () => {
-		// The only pre-existing "invalid MIME" fixture anywhere fed undetectable plaintext,
-		// which file-type cannot classify at all — so it passed no matter how wide the
-		// allowlist was. A real-but-disallowed type is what proves the list is narrow.
+		// The only pre-existing "invalid MIME" fixture fed undetectable plaintext, unclassifiable by file-type →
+		// it passed however wide the allowlist was. A real-but-disallowed type is what prove the list narrow.
 		let caught: unknown
 		try {
 			await validateJpgPngMimeType(pdfFile)
@@ -52,8 +51,8 @@ describe('validateMimeType (magic-number)', () => {
 	})
 
 	it('validateMimeTypePdf rejects every real non-PDF type (allowlist must stay narrow)', async () => {
-		// Asserting only PNG was too narrow: widening the list with 'image/jpeg'
-		// specifically still passed. Cover each real type the guard must exclude.
+		// Assert only PNG = too narrow: widening the list with 'image/jpeg' still passed. Cover each real type
+		// the guard must exclude.
 		for (const [label, file] of [
 			['PNG', pngFile],
 			['JPEG', jpegFile]

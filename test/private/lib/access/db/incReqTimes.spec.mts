@@ -3,9 +3,8 @@
  *
  * Chain: incReqTimes(_id) → UserBase.updateOne({ _id }, { $inc: ... }, { runValidators: true })
  *
- * No branches in this module — a single straight-line path. One test verifying
- * the collaborator call (filter + update + options) plus the returned value
- * is sufficient for 100% statements/branches/functions/lines.
+ * No branches — 1 straight-line path. 1 test on the collaborator call (filter + update + options) + the
+ * returned value = 100% statements/branches/functions/lines.
  */
 import { incReqTimes } from '@private/lib/access/db/incReqTimes.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'

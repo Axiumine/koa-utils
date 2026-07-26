@@ -1,12 +1,12 @@
 /**
  * Tests for lib/access/createMailThrottle.mts
  *
- * What this protects: every notification the verify-email chain sends is reachable from an unauthenticated
- * GET, and three of the guards have no strike counter behind them. Without a debounce, one address plus a
- * loop is a mail bomb sent by the platform's own SocketLabs account. The window is asserted from both
- * sides — a throttle that never opens again would silently mute real notifications.
+ * Protects: every notification the verify-email chain send is reachable from an
+ * unauthenticated GET, 3 guards carry no strike counter. No debounce → 1 address +
+ * a loop = mail bomb from the platform's own SocketLabs account. Window asserted
+ * both sides — a throttle that never reopen would silently mute real notifications.
  *
- * Clock is faked: the module reads Date.now(), so the window is driven rather than waited on.
+ * Clock faked: module read Date.now() → window driven, not waited on.
  */
 import { ALWAYS_MAIL, createMailThrottle } from '@lib/access/createMailThrottle.mjs'
 import { expect } from 'chai'
@@ -49,7 +49,7 @@ describe('createMailThrottle', () => {
 		clock.tick(999)
 		expect(maySend('k')).to.equal(false)
 		clock.tick(1)
-		// exactly at the boundary: now - previous === windowMs is no longer "inside"
+		// at the boundary: now - previous === windowMs no longer "inside"
 		expect(maySend('k')).to.equal(true)
 	})
 
@@ -73,7 +73,7 @@ describe('createMailThrottle', () => {
 
 		expect(maySend('c')).to.equal(true)
 
-		// b survived the sweep, so it is still blocked; a was swept, so it is sendable again
+		// b survived the sweep → still blocked; a swept → sendable again
 		expect(maySend('b')).to.equal(false)
 		expect(maySend('a')).to.equal(true)
 	})
@@ -85,12 +85,12 @@ describe('createMailThrottle', () => {
 		clock.tick(100)
 		expect(maySend('recent')).to.equal(true)
 
-		// Map is full and nothing is expired. A flood of new addresses must not be able to mute a real
-		// one by refusing sends, so the oldest window is dropped instead.
+		// Map full, nothing expired. A flood of new addresses must not mute a real one by
+		// refusing sends → oldest window dropped instead.
 		expect(maySend('flood')).to.equal(true)
 		// the newer window survived...
 		expect(maySend('recent')).to.equal(false)
-		// ...and the evicted one is sendable again
+		// ...evicted one sendable again
 		expect(maySend('old')).to.equal(true)
 	})
 
@@ -106,11 +106,11 @@ describe('createMailThrottle', () => {
 
 		expect(maySend('a')).to.equal(true)
 		clock.tick(1001)
-		// a is re-inserted, so it is now the NEWEST entry, not the oldest
+		// a re-inserted → now the NEWEST entry, not the oldest
 		expect(maySend('a')).to.equal(true)
 		expect(maySend('b')).to.equal(true)
 
-		// full and fresh → the oldest (a, re-inserted before b) goes
+		// full + fresh → the oldest (a, re-inserted before b) goes
 		expect(maySend('c')).to.equal(true)
 		expect(maySend('b')).to.equal(false)
 	})

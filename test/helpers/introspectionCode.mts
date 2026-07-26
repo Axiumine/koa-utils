@@ -1,10 +1,10 @@
 /**
  * Save/restore helpers for process.env.INTROSPECTION_CODE.
  *
- * `process.env.X = undefined` stores the literal string 'undefined' rather than clearing the
- * variable — the same coercion the introspection bypass was built on. A test that saved an
- * originally-unset value and restored it naively would leave INTROSPECTION_CODE='undefined'
- * behind, and any later test sending that header value would then match it.
+ * `process.env.X = undefined` store the literal string 'undefined', it never clear the variable —
+ * same coercion the introspection bypass was built on. A test saving an originally-unset value then
+ * restoring it naively leave INTROSPECTION_CODE='undefined' behind, and any later test sending that
+ * header value then match it.
  */
 export const saveIntrospectionCode = (): string | undefined => process.env.INTROSPECTION_CODE
 

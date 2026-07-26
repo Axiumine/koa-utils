@@ -4,10 +4,9 @@
  * Chain: removeResetReq(session, email)
  *   → UserBase.updateOne({ 'login.email': email }, { $unset: ... }).session(session).exec()
  *
- * The call used to pass { upsert: true }, which meant a `email` matching no document did not no-op —
- * MongoDB inserted a row keyed by login.email, and because updateOne skips validators that row
- * carried none of the schema's required fields. The option is gone; the tests below pin its absence
- * and the no-op result, so it cannot come back unnoticed.
+ * Call used to pass { upsert: true } → an `email` matching no document did not no-op: MongoDB inserted a
+ * row keyed by login.email, and updateOne skip validators → that row carried none of the schema's required
+ * fields. Option gone; tests below pin its absence and the no-op result → it cannot come back unnoticed.
  */
 import removeResetReq from '@private/lib/access/db/removeResetReq.mjs'
 import { saveResetReq } from '@private/lib/access/db/saveResetReq.mjs'
@@ -23,7 +22,7 @@ function makeSessionExecChain(execResult: unknown) {
 	return {
 		session: (s: unknown) => ({
 			exec: () => Promise.resolve(execResult),
-			// exposed so callers can assert what session was passed through the chain
+			// exposed → callers assert what session passed through the chain
 			__session: s
 		})
 	}
@@ -51,15 +50,15 @@ describe('removeResetReq', () => {
 		expect(updateOneStub.firstCall.args[1]).to.deep.equal({
 			$unset: { 'account.resetDateReq': '', 'account.resetHash': '' }
 		})
-		// No third argument at all. Asserting the whole args list, not just args[2], so that
-		// reintroducing any option object — upsert or otherwise — fails here.
+		// No 3rd argument at all. Assert the whole args list, not just args[2] → reintroducing any option object
+		// — upsert or otherwise — fail here.
 		expect(updateOneStub.firstCall.args).to.have.lengthOf(2)
 	})
 
 	it('unsets exactly the paths saveResetReq sets — no orphaned reset hash left behind', async () => {
-		// Regression guard, twice over: the two paths must stay in lockstep (an unset that misses one
-		// leaves either a live token or an orphan resetDateReq), and neither may be account.email.hash
-		// — clearing the verification slot here killed a concurrent activation or email-change link.
+		// Regression guard, twice over: both paths must stay in lockstep (an unset missing one leaves either a live
+		// token or an orphan resetDateReq), and neither may be account.email.hash — clearing the verification slot
+		// here killed a concurrent activation or email-change link.
 		updateOneStub = sinon
 			.stub(UserBase, 'updateOne')
 			.returns(makeSessionExecChain({ acknowledged: true, matchedCount: 1, modifiedCount: 1 }) as never)
@@ -86,10 +85,9 @@ describe('removeResetReq', () => {
 	})
 
 	it('REGRESSION: a non-matching email no-ops instead of creating a document', async () => {
-		// With { upsert: true } this same call answered matchedCount 0 + upsertedCount 1 + upsertedId,
-		// i.e. MongoDB inserted a row for 'ghost@test.com' carrying nothing but login.email —
-		// updateOne runs no validators, so none of the schema's required fields applied. Without the
-		// option the write matches nothing and nothing is created.
+		// With { upsert: true } this same call answered matchedCount 0 + upsertedCount 1 + upsertedId: MongoDB
+		// inserted a row for 'ghost@test.com' carrying nothing but login.email — updateOne run no validators → none
+		// of the schema's required fields applied. No option → the write match nothing, nothing created.
 		const execResult = {
 			acknowledged: true,
 			matchedCount: 0,
@@ -101,7 +99,7 @@ describe('removeResetReq', () => {
 
 		const result = await removeResetReq(fakeSession, 'ghost@test.com')
 
-		// The option is what made an insert possible, so its absence is the assertion that matters.
+		// Option is what made an insert possible → its absence is the assertion that matter.
 		expect(updateOneStub.firstCall.args).to.have.lengthOf(2)
 		expect(result).to.deep.equal(execResult)
 		expect((result as typeof execResult).matchedCount).to.equal(0)

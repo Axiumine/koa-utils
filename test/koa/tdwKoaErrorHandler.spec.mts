@@ -3,8 +3,8 @@ import { expect } from 'chai'
 import { EventEmitter } from 'events'
 import { GraphQLError } from 'graphql'
 
-// NOTE: Sentry.captureException is non-stubbable in ESM. Without init, it's a no-op.
-// We exercise the development-mode branches and only assert observable side effects.
+// NOTE: Sentry.captureException non-stubbable in ESM. No init → no-op.
+// Drive dev-mode branches, assert observable side effects only.
 
 interface CtxBody { message?: string; description?: string }
 
@@ -111,7 +111,7 @@ describe('tdwKoaErrorHandler', () => {
 			ctx.app.on('error', (e: unknown) => emitted.push(e))
 			const err = new Error('dev error')
 			await tdwKoaErrorHandler(ctx, async () => { throw err })
-			// Sentry.captureException is non-stubbable — we assert the observable effects
+			// Sentry.captureException non-stubbable → assert observable effects
 			expect(ctx.status).to.equal(500)
 			expect(ctx.body).to.deep.equal({ message: 'dev error' })
 			expect(emitted).to.have.lengthOf(1)

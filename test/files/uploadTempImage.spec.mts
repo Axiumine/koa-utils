@@ -5,7 +5,7 @@ import NodeClam from 'clamscan'
 import os from 'os'
 import path from 'path'
 
-// Minimal valid 1x1 JPEG (base64 encoded)
+// Minimal valid 1x1 JPEG (base64)
 const MINIMAL_JPEG_B64 = '/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAABgj/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABykX//Z'
 
 const createdFiles: string[] = []
@@ -40,11 +40,11 @@ describe('uploadTemp (uploadTempImage)', () => {
 	})
 
 	it('returns { ext: webp, tempFile } on happy path with valid JPEG', async () => {
-		// Provide a real 1x1 JPEG so sharp can process it
+		// real 1x1 JPEG → sharp can process it
 		const jpegBuf = Buffer.from(MINIMAL_JPEG_B64, 'base64')
 		const src = makeSrcFile(jpegBuf, `src-happy-${Date.now()}.jpg`)
 
-		// Mock clamscan so scanVirus doesn't need a real clamd socket
+		// Mock clamscan → scanVirus need no real clamd socket
 		const fakeScanner = { scanFile: sinon.stub().resolves({ isInfected: false, viruses: [] }) }
 		sinon.stub(NodeClam.prototype, 'init').resolves(fakeScanner as unknown as NodeClam)
 
@@ -81,7 +81,7 @@ describe('uploadTemp (uploadTempImage)', () => {
 	})
 
 	it('throws "Error storing image" when MIME type is invalid (non-image content)', async () => {
-		// .jpg extension but content is plain text → file-type won't detect image/jpeg
+		// .jpg ext, plain-text content → file-type detect no image/jpeg
 		const src = makeSrcFile(Buffer.from('this is not an image'), `src-badmime-${Date.now()}.tmp`)
 		const upload = makeUploadFromFile(src, 'fakephoto.jpg')
 
@@ -97,8 +97,7 @@ describe('uploadTemp (uploadTempImage)', () => {
 	})
 
 	it('throws "Error storing image" when file size exceeds limit', async () => {
-		// We can't easily override maxFileSize via uploadTemp's public API,
-		// but we can confirm the error wrapping works via extension failure
+		// maxFileSize not overridable via uploadTemp's public API → confirm the error wrapping via ext failure
 		const src = makeSrcFile(Buffer.from('x'), `src-size-${Date.now()}.tmp`)
 		const upload = makeUploadFromFile(src, 'too-big.gif') // .gif not allowed
 

@@ -1,9 +1,9 @@
 /**
  * Tests for private/lib/access/pathTools.mts
  *
- * Three one-liners that every access flow depends on. readPath must answer "absent" rather than throw
- * on a broken path, because the callers' guards are all `typeof x === 'undefined'` checks; buildUnset
- * must pass the caller's list through untouched; buildProjection must never drop _id.
+ * 3 one-liners every access flow depend on. readPath must answer "absent", not throw, on a broken path —
+ * callers' guards are all `typeof x === 'undefined'` checks. buildUnset must pass the caller's list
+ * through untouched. buildProjection must never drop _id.
  */
 import { buildProjection, buildUnset, readPath } from '../../../../dist/private/lib/access/pathTools.mjs'
 import { expect } from 'chai'

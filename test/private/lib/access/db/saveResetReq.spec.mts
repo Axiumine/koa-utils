@@ -45,10 +45,10 @@ describe('saveResetReq', () => {
 	})
 
 	it('SECURITY: never writes account.email.hash — a reset must not kill a pending verification', async () => {
-		// Regression guard for the shared-slot era: saveResetReq wrote the reset token into
-		// account.email.hash, so one unauthenticated resetPwd call overwrote a pending activation
-		// or email-change hash. Every click on the now-dead link then bumped
-		// account.email.requestTimes, and at 5 handleIfTooMuchRequestsTimes deleted the account.
+		// Regression guard for the shared-slot era: saveResetReq wrote the reset token into account.email.hash → 1
+		// unauthenticated resetPwd call overwrote a pending activation or email-change hash. Every click on the
+		// now-dead link then bumped account.email.requestTimes, and at 5 handleIfTooMuchRequestsTimes deleted the
+		// account.
 		updateOneStub = sinon.stub(UserBase, 'updateOne').resolves({ acknowledged: true, modifiedCount: 1 } as never)
 
 		await saveResetReq(session, _id, now, hash)

@@ -4,8 +4,8 @@
  * updatePassword uses getResetPwd (→ UserBase.findOne), updatePasswordDb (→ UserBase.updateOne + real bcrypt.hash),
  * removeResetReq (→ UserBase.updateOne.session.exec), SocketLabsLib.sendResetPwdConfirmation.
  *
- * NOTE: updatePasswordDb calls `import { hash } from '@node-rs/bcrypt'` which is a captured named
- * binding — not stubbable via sinon. The happy-path test lets real bcrypt run (salt=14, ~1-2s).
+ * NOTE: updatePasswordDb call `import { hash } from '@node-rs/bcrypt'` — captured named binding, not
+ * stubbable via sinon. Happy-path test let real bcrypt run (salt=14, ~1-2s).
  *
  * Branches:
  *   - email not in DB → 403 Forbidden
@@ -42,8 +42,8 @@ function makeSession() {
 }
 
 /**
- * mongoose's session.withTransaction re-runs its callback on a transient error. Anything with a
- * side effect outside the database must therefore sit outside the callback.
+ * mongoose session.withTransaction re-run its callback on a transient error. Anything with a side
+ * effect outside the DB must therefore sit outside the callback.
  */
 function makeRetryingSession() {
 	return {
@@ -119,9 +119,9 @@ describe('updatePassword — resolve', () => {
 	})
 
 	it('resetHash is null (no resetDateReq in DB) → throws 403 Forbidden', async () => {
-		// When account.resetDateReq is undefined in the raw doc, getResetPwd sets resetHash = null.
-		// We cannot use rawDbDoc() here because `?? new Date()` fills in undefined.
-		// Build the raw doc manually with resetDateReq literally absent from the object.
+		// account.resetDateReq undefined in the raw doc → getResetPwd set resetHash = null.
+		// rawDbDoc() unusable here: `?? new Date()` fill in undefined. Build the raw doc by hand, with
+		// resetDateReq literally absent from the object.
 		const docWithNoResetDate = {
 			_id: new Types.ObjectId(),
 			personalData: { name: 'Test User' },
@@ -199,23 +199,11 @@ describe('updatePassword — resolve', () => {
 	})
 
 	it('resetDateReq is null (no resetDateReq in result) → throws 403 Forbidden', async () => {
-		// getResetPwd returns resetDateReq = undefined when account.resetDateReq is undefined
-		// To get resetDateReq = null: override it explicitly after getResetPwd processes
-		// Actually we need to stub UserBase.findOne so that getResetPwd returns { resetDateReq: null, resetHash: 'x' }
-		// getResetPwd only sets resetHash non-null when resetDateReq is defined, so
-		// we need resetHash !== null AND resetDateReq === null: impossible via normal DB doc.
-		// Use a spy approach: stub findOne to return a doc where resetDateReq IS defined
-		// but account.resetHash is set — then getResetPwd sets resetHash = hash, resetDateReq = date.
-		// The only way to trigger the `resetDateReq === null` branch in updatePassword.mts line 50
-		// is if getResetPwd returns an object with resetHash !== null but resetDateReq === null.
-		// That can't happen naturally — but we can make findOne return a doc with a defined but
-		// falsy-as-null-in-code resetDateReq.
-		// Per getResetPwd logic: resetDateReq = queryRet.account.resetDateReq (could be undefined)
-		// resetHash is non-null only when resetDateReq !== undefined.
-		// So if resetDateReq is defined but then set to null explicitly in the returned object...
-		// This branch is unreachable via normal flow. Skip dedicated test; covered by
-		// the 403 branch for resetHash=null above.
-		// Mark this as a known unreachable branch.
+		// getResetPwd return resetDateReq = undefined when account.resetDateReq is undefined, and set
+		// resetHash non-null only when resetDateReq is defined. The `resetDateReq === null` branch in
+		// updatePassword.mts line 50 need resetHash !== null AND resetDateReq === null at once → no DB
+		// doc produce that, the branch is unreachable via normal flow.
+		// No dedicated test: the 403 branch for resetHash=null above cover the observable behaviour.
 		expect(true).to.equal(true) // placeholder — branch is unreachable via getResetPwd
 	})
 
@@ -283,7 +271,7 @@ describe('updatePassword — resolve', () => {
 
 	it('updatePasswordDb returns falsy → throws 500 Internal Server Error', async () => {
 		findOneStub.returns(makeSelectSessionLeanQuery(rawDbDoc()))
-		// updatePasswordDb returns await UserBase.updateOne(...) — make it return null (falsy)
+		// updatePasswordDb return await UserBase.updateOne(...) — make it return null (falsy)
 		updateOneStub = sinon.stub(UserBase, 'updateOne').returns(null as never)
 
 		await expectGraphQLErrorAsync(
@@ -300,8 +288,8 @@ describe('updatePassword — resolve', () => {
 
 	it('happy path: valid hash within 60 min → returns true and sends confirmation email', async () => {
 		findOneStub.returns(makeSelectSessionLeanQuery(rawDbDoc()))
-		// First call: updatePasswordDb uses updateOne → return a truthy value
-		// Second call: removeResetReq uses updateOne().session().exec() chain
+		// First call: updatePasswordDb use updateOne → return truthy
+		// Second call: removeResetReq use the updateOne().session().exec() chain
 		updateOneStub = sinon.stub(UserBase, 'updateOne')
 			.onFirstCall().resolves({ modifiedCount: 1 } as never)
 			.onSecondCall().returns(makeSessionExecChain() as never)
@@ -315,9 +303,9 @@ describe('updatePassword — resolve', () => {
 		expect(result).to.equal(true)
 		expect(sendResetConfirmationStub.calledOnce).to.equal(true)
 		expect(sendResetConfirmationStub.firstCall.args[0]).to.equal('user@test.com')
-		// The session must be closed on the SUCCESS path too. The existing
-		// 'endSession always called in finally' test only drives the 403 branch, where
-		// endSession still runs even if it is moved out of `finally` into `catch`.
+		// Session must be closed on the SUCCESS path too. The existing 'endSession always called in
+		// finally' test only drive the 403 branch, where endSession still run even when moved out of
+		// `finally` into `catch`.
 		const session = (await startSessionStub.returnValues[0]) as { endSession: sinon.SinonStub }
 		expect(session.endSession.called, 'session must be ended on the success path').to.equal(true)
 	})
