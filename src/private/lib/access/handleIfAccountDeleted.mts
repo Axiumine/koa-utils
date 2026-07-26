@@ -9,8 +9,8 @@ import { EMAIL_CHECK_LINK } from './Constants.mjs'
  * deleted account is told it is disabled. That is the shipped copy, left as it is here on purpose — this is
  * the guard, not the place to invent a message.
  *
- * Like every other counter-less branch it mails on each request, which is why the mailer is injected rather
- * than constructed here.
+ * Like every other counter-less branch it mails on each request, which is why the mailer is injected and the
+ * default one is debounced. See `createMailThrottle`.
  */
 export const createHandleIfAccountDeleted = (mailer: IVerifyEmailMailer) =>
 	async function handleIfAccountDeleted(email: string, deleted: boolean = false) {

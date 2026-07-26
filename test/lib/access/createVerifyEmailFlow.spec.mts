@@ -8,6 +8,7 @@
  * not `user`.
  */
 import { createVerifyEmailFlow } from '../../../dist/lib/access/createVerifyEmailFlow.mjs'
+import { ALWAYS_MAIL } from '@lib/access/createMailThrottle.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { expect } from 'chai'
 import { Types } from 'mongoose'
@@ -326,7 +327,7 @@ describe('createVerifyEmailFlow', () => {
 		})
 	})
 
-	describe('mailer', () => {
+	describe('mailer and mailThrottle', () => {
 		it('routes every guard notification through an injected mailer', async () => {
 			const mailer = fakeVerifyEmailMailer()
 			const model = makeModel(makeDoc({ verified: true }))
@@ -336,17 +337,39 @@ describe('createVerifyEmailFlow', () => {
 
 			expect(mailer.emailAlreadyValid.calledOnceWithExactly(EMAIL)).to.equal(true)
 			// nothing reached the real client
-			expect(alreadyValid.called).to.equal(false)
 			expect(sendWelcome.called).to.equal(false)
 		})
 
-		it('falls back to SocketLabs when none is supplied', async () => {
+		it('debounces a repeated notification by default', async () => {
 			const model = makeModel(makeDoc({ verified: true }))
 			const flow = createVerifyEmailFlow({ model, paths: PATHS })
 
 			await flow.routerVerifyEmail()(makeCtx().ctx)
+			await flow.routerVerifyEmail()(makeCtx().ctx)
 
-			expect(alreadyValid.calledOnceWithExactly(EMAIL)).to.equal(true)
+			// Same address, same template, same window: the second GET must not mail the account owner
+			// again. Unauthenticated callers used to get one mail per request, unbounded.
+			expect(alreadyValid.calledOnce).to.equal(true)
+		})
+
+		it('a per-flow throttle is not shared between flows', async () => {
+			const first = createVerifyEmailFlow({ model: makeModel(makeDoc({ verified: true })), paths: PATHS })
+			const second = createVerifyEmailFlow({ model: makeModel(makeDoc({ verified: true })), paths: PATHS })
+
+			await first.routerVerifyEmail()(makeCtx().ctx)
+			await second.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(alreadyValid.calledTwice).to.equal(true)
+		})
+
+		it('mailThrottle: ALWAYS_MAIL restores one mail per request', async () => {
+			const model = makeModel(makeDoc({ verified: true }))
+			const flow = createVerifyEmailFlow({ model, paths: PATHS, mailThrottle: ALWAYS_MAIL })
+
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+			await flow.routerVerifyEmail()(makeCtx().ctx)
+
+			expect(alreadyValid.calledTwice).to.equal(true)
 		})
 	})
 

@@ -53,9 +53,10 @@ src/
 │   ├── makeOnboardingData.mts
 │   ├── access/                 # model-agnostic access flows (5.3.0+)
 │   │   ├── accessPaths.mts     # TAccessModel, TOnAbandon, IResetPwdPaths/IVerifyEmailPaths + frozen defaults + resolve*
+│   │   ├── createMailThrottle.mts     # TMailThrottle, in-process per-key debounce, ALWAYS_MAIL opt-out
 │   │   ├── createResetPwdFlow.mts     # { resetPwd, updatePassword } bound to any model/layout
 │   │   ├── createVerifyEmailFlow.mts  # whole verify-email chain bound to any model/layout
-│   │   └── verifyEmailMailer.mts      # IVerifyEmailMailer + socketLabs / default implementations
+│   │   └── verifyEmailMailer.mts      # IVerifyEmailMailer, socketLabs*/throttleMailer/default*
 │   ├── MariaDB/                # IMariaDBErr, MariaDBErrType, throwSqlErrors
 │   ├── MongoDB/                # IMongoDBError, MongoDBErrType, throwIfMongoErr, throwMongoErrors, IOnboarding
 │   ├── PostgreSQL/             # IPostgresError, IPostgresErrorCodes, makePostgreSqlLogError
@@ -120,7 +121,7 @@ Source files use `.mts` extension and `.mjs` import specifiers (NodeNext module 
 
 ## 3. Package exports
 
-`package.json` enumerates 147 explicit subpath exports — no barrel, no root entry. Consumers import deep paths:
+`package.json` enumerates 148 explicit subpath exports — no barrel, no root entry. Consumers import deep paths:
 
 ```ts
 import { authenticatedResourceHandler } from '@axiumine/koa-utils/koa/middleware/authenticatedResourceHandler'

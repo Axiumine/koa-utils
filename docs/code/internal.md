@@ -471,7 +471,7 @@ Reads walk the configured dotted paths out of the `.lean()` documents with `read
 
 `routerVerifyEmail` no longer calls these guards directly. It fetches the user via `userData4VerifyEmail`, then delegates the whole check to `assertVerifyEmailAllowed(user, email, hash)` (`src/private/lib/access/assertVerifyEmailAllowed.mts`), which is the function that actually calls the guards below in sequence — `handleIfEmailAlreadyValid`, `handleBadDB`, `handleIfTooMuchRequestsTimes`, `handleIfHashBad`, `handleIfMoreThan3DaysPassed`, `handleIfAccountDeleted`, `handleIfAccountDisabled` — and returns the user's `_id` once every guard has passed. The router then calls `enableEmailAccess` on that id. On failure the guards all throw a plain `Error` whose `.message` is a redirect path (`EMAIL_CHECK_LINK = '/x/email-check'` for every guard except `handleBadDB`, see below) rather than a `GraphQLError`; the router is expected to catch it and redirect using `e.message`. Maintainers adding a new guard must preserve this convention.
 
-Every guard that mails does so through an injected `IVerifyEmailMailer` ([`verifyEmailMailer`](./lib-access.md#verifyemailmailer)) rather than constructing `SocketLabsLib` inline, and the bound defaults pass `defaultVerifyEmailMailer` — SocketLabs, same copy as before. A consumer whose transactional mail lives elsewhere replaces all six notices at once through [`createVerifyEmailFlow`](./lib-access.md)'s `mailer` key; a spec drives them with a fake and asserts what would have been sent.
+Every guard that mails does so through an injected `IVerifyEmailMailer` ([`verifyEmailMailer`](./lib-access.md#verifyemailmailer)) rather than constructing `SocketLabsLib` inline, and the bound defaults pass `defaultVerifyEmailMailer` — SocketLabs behind a **15-minute per-address, per-template debounce**. Three of these guards (`handleIfEmailAlreadyValid`, `handleIfAccountDeleted`, `handleIfAccountDisabled`) have no counter of their own and are reachable from an unauthenticated GET, so through 5.6.1 they mailed the address once per request.
 
 ### `assertVerifyEmailAllowed`
 
@@ -549,7 +549,7 @@ Since 5.3.0 the document is read through `paths` with `readPath` rather than by 
 
 `handleIfMoreThan3DaysPassed` and `handleIfTooMuchRequestsTimes` dispose of the account as a side effect of the guard failing, and with the default `onAbandon: 'delete'` there is no recovery path once either fires. Since that writer is whatever [`createVerifyEmailFlow`](./lib-access.md#abandonment-policy--onabandon-deletedvalue-deleteuserbyemail) was given, the guards cannot tell a delete from a tombstone from a no-op — and must not: both still throw regardless, so disposal never decides whether the link is honoured. Do not add a branch here that inspects the policy.
 
-`mailer` is a **required** parameter on all six factories, not optional with a default. These modules are internal, every call site is in this repository, and an optional mailer would let a new guard fall back to a live SocketLabs client by omission — which is exactly the state the seam was added to end.
+`mailer` is a **required** parameter on all six factories, not optional with a default. These modules are internal, every call site is in this repository, and an optional mailer would let a new caller silently fall back to the process-wide throttle it did not ask for.
 
 `handleBadDB`'s hardcoded `/x/error` (vs. every sibling's `EMAIL_CHECK_LINK`) is a real inconsistency in this file, not a typo introduced here — preserve it unless the owner asks for a fix.
 

@@ -8,7 +8,8 @@ import mongoose from 'mongoose'
  * Mark the address verified, clear the pending-verification fields, welcome the user.
  *
  * The welcome mail goes through an injected mailer so the success path is drivable from an integration suite
- * without a real send. It fires once per account, on the one path that already required a valid hash.
+ * without a real send. It is never debounced: it fires once per account, on the one path that already required
+ * a valid hash. See `throttleMailer`.
  */
 export const createEnableEmailAccess = (model: TAccessModel, paths: IVerifyEmailPaths, mailer: IVerifyEmailMailer) =>
 	async function enableEmailAccess(_id: mongoose.Types.ObjectId, email: string) {

@@ -19,7 +19,8 @@ import {
 } from '../../graphQL/schema/mutations/emailChangeHashVerify.mjs'
 import { createVerifyEmailRouter, TVerifyEmailRouter } from '../../koa/router/verifyEmail.mjs'
 import { IVerifyEmailPaths, resolveVerifyEmailPaths, TAccessModel, TOnAbandon } from './accessPaths.mjs'
-import { IVerifyEmailMailer, socketLabsVerifyEmailMailer } from './verifyEmailMailer.mjs'
+import { createMailThrottle, TMailThrottle } from './createMailThrottle.mjs'
+import { IVerifyEmailMailer, socketLabsVerifyEmailMailer, throttleMailer } from './verifyEmailMailer.mjs'
 
 /** What the factory needs: the account model, plus any path or policy that differs from the default. */
 export interface ICreateVerifyEmailFlowArgs {
@@ -35,8 +36,15 @@ export interface ICreateVerifyEmailFlowArgs {
 	deletedValue?: unknown
 	/** Full override of the disposal writer; wins over `onAbandon` and `deletedValue`. */
 	deleteUserByEmail?: TDeleteUserByEmail
-	/** Who sends the verify-email notifications. Default: SocketLabs. */
+	/** Who sends the verify-email notifications. Default: SocketLabs, debounced by `mailThrottle`. */
 	mailer?: IVerifyEmailMailer
+	/**
+	 * Debounce applied to every notification an unauthenticated request can trigger. Default: a 15 minute
+	 * per-address, per-template window. Pass `ALWAYS_MAIL` for the send-every-time behaviour of 5.6.1 and earlier, or a
+	 * Redis-backed one to share the window across instances. Ignored when `mailer` is supplied — wrap it
+	 * yourself with `throttleMailer` if you want both.
+	 */
+	mailThrottle?: TMailThrottle
 }
 
 /** Everything the verify-email chain exposes, bound to the model and paths passed in. */
@@ -90,10 +98,11 @@ export const createVerifyEmailFlow = ({
 	onAbandon = 'delete',
 	deletedValue,
 	deleteUserByEmail,
-	mailer
+	mailer,
+	mailThrottle
 }: ICreateVerifyEmailFlowArgs): IVerifyEmailFlow => {
 	const resolved = resolveVerifyEmailPaths(paths)
-	const resolvedMailer = mailer ?? socketLabsVerifyEmailMailer
+	const resolvedMailer = mailer ?? throttleMailer(socketLabsVerifyEmailMailer, mailThrottle ?? createMailThrottle())
 
 	const userData4VerifyEmail = createUserData4VerifyEmail(model, resolved)
 	const enableEmailAccess = createEnableEmailAccess(model, resolved, resolvedMailer)

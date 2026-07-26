@@ -8,8 +8,8 @@ import { EMAIL_CHECK_LINK } from './Constants.mjs'
  * Byte-identical to `handleIfAccountDeleted` apart from the flag it reads, because there is only one
  * template for both states. Kept as two guards so the chain reads as the two distinct conditions it checks.
  *
- * Counter-less like the rest: it mails on every request, so the mailer is injected rather than constructed
- * here, and a caller can substitute its own.
+ * Counter-less like the rest, so the mailer is injected and the default one is debounced. See
+ * `createMailThrottle`.
  */
 export const createHandleIfAccountDisabled = (mailer: IVerifyEmailMailer) =>
 	async function handleIfAccountDisabled(email: string, disabled: boolean = false) {
