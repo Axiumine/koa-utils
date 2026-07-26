@@ -3,8 +3,8 @@
  *
  * Chain: updateAdminLoginStats → _buildLoginStatsUpdate(lastLogin, rememberMe) → UserAdminKoaUtils.updateOne
  *
- * _buildLoginStatsUpdate's own branches are covered in _buildLoginStatsUpdate.spec.mts; here we
- * only assert that this module wires its $set / $unset output, filter and options into updateOne.
+ * _buildLoginStatsUpdate branches covered in _buildLoginStatsUpdate.spec.mts. Here: only that this module
+ * wire its $set / $unset output, filter and options into updateOne.
  */
 import { updateAdminLoginStats } from '@private/graphQL/schema/mutations/updateAdminLoginStats.mjs'
 import UserAdminKoaUtils from '@private/graphQL/models/MongoDB/private/UserAdminKoaUtils.mjs'

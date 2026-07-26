@@ -1,8 +1,8 @@
 /**
  * Tests for graphQL/schema/mutations/logout.mts
  *
- * logout imports redisClient directly (module-level singleton). Stub its del method.
- * ctx is IContextLogout — carries state.user.refreshToken + optional accessToken.
+ * logout import redisClient direct (module-level singleton). Stub its del method.
+ * ctx is IContextLogout — carry state.user.refreshToken + optional accessToken.
  */
 import { logout } from '../../../../dist/graphQL/schema/mutations/logout.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
@@ -37,12 +37,11 @@ describe('logout — resolve', () => {
 	})
 
 	it('clears the refresh_token cookie when accessToken is absent (not just empty string)', async () => {
-		// Every fixture passed an explicit '' for accessToken, so the `|| ''` fallback was
-		// never exercised. authenticatedLogoutHandler leaves accessToken genuinely
-		// undefined when the access session has expired — the common logout case. Without
-		// the fallback, undefined !== '' enters the access branch, buildPrefixedRedisKey
-		// throws on undefined.startsWith, the throw is swallowed by the outer catch, and
-		// the cookie-clearing line below it never runs.
+		// Every fixture passed an explicit '' for accessToken → the `|| ''` fallback never exercised.
+		// authenticatedLogoutHandler leave accessToken genuinely undefined when the access session
+		// expired — the common logout case. Without the fallback, undefined !== '' enter the access
+		// branch, buildPrefixedRedisKey throw on undefined.startsWith, the outer catch swallow that
+		// throw, and the cookie-clearing line below it never runs.
 		const ctx = {
 			state: { user: { refreshToken: 'myRefreshToken' } },
 			cookies: { set: sinon.stub() }
@@ -82,8 +81,8 @@ describe('logout — resolve', () => {
 	})
 
 	it('does not double-prefix a refresh token that already carries "refresh:"', async () => {
-		// authenticatedLogoutHandler populates ctx.state.user.refreshToken already prefixed:
-		// re-adding the prefix here deleted refresh:refresh:<uuid> and left the session alive.
+		// authenticatedLogoutHandler populate ctx.state.user.refreshToken already prefixed: re-adding the
+		// prefix here deleted refresh:refresh:<uuid> and left the session alive.
 		const ctx = makeCtx('refresh:myRefreshToken')
 		await logout.resolve(null, {}, ctx)
 

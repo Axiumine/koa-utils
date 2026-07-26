@@ -2,17 +2,16 @@
  * Tests for private/files/reEncode.mts
  *
  * Chain: reEncode → sharp(filePath).{jpeg,png,webp,avif}(...).withMetadata({}).withExif({}).toFile(finalFilepath)
- *        on sharp failure: Sentry.captureException(err) → throw new Error('Error processing the image')
- *        when the original extension differs from the target one: fs.promises.unlink(filePath)
- *        on unlink failure: Sentry.captureException(e) → throw throwInternalError() (GraphQLError 500)
+ * sharp fail → Sentry.captureException(err) → throw new Error('Error processing the image')
+ * original ext ≠ target ext → fs.promises.unlink(filePath)
+ * unlink fail → Sentry.captureException(e) → throw throwInternalError() (GraphQLError 500)
  *
- * `sharp` and `@sentry/node` are real ES module namespaces (sealed, non-configurable exports) —
- * sinon refuses to stub them ("ES Modules cannot be stubbed"), the same limitation already
- * documented in test/koa/router/verifyEmail.spec.mts. So this spec drives the real `sharp`
- * library against a tiny, valid, hand-written 1x1 JPEG fixture (same fixture used by
- * test/files/uploadTempImage.spec.mts) to exercise every re-encode branch for real, and lets
- * the real (uninitialized) Sentry.captureException run as a safe no-op. Only `fs.promises.unlink`
- * is stubbed — it is a plain mutable object property (not a sealed namespace), so sinon can
+ * `sharp` and `@sentry/node` are real ES module namespaces (sealed, non-configurable exports) — sinon
+ * refuse to stub them ("ES Modules cannot be stubbed"), same limitation documented in
+ * test/koa/router/verifyEmail.spec.mts. So this spec drive the real `sharp` lib against a tiny valid
+ * hand-written 1x1 JPEG fixture (same fixture as test/files/uploadTempImage.spec.mts) → every re-encode
+ * branch exercised for real, and the real (uninit'd) Sentry.captureException run as a safe no-op.
+ * Only `fs.promises.unlink` is stubbed — a plain mutable object property, not a sealed namespace → sinon
  * control the unlink-failure branch deterministically.
  */
 import { reEncode } from '@private/files/reEncode.mjs'
@@ -24,7 +23,7 @@ import path from 'path'
 
 import { expectGraphQLErrorAsync } from '../../helpers/assertGraphQLError.mjs'
 
-// Minimal valid 1x1 JPEG (base64 encoded) — real bytes so sharp can decode & re-encode it
+// Minimal valid 1x1 JPEG (base64) — real bytes → sharp decode + re-encode it
 const MINIMAL_JPEG_B64 =
 	'/9j/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAABgj/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABykX//Z'
 
@@ -54,8 +53,8 @@ describe('reEncode', () => {
 	})
 
 	it('jpeg → jpeg (same extension): re-encodes in place, skips the unlink, uses default quality=100', async () => {
-		// The bytes are read into a Buffer before encoding, so writing back to the very same path
-		// is fine. This is also the only way to reach the `finalFilepath !== filePath` false arm.
+		// Bytes read into a Buffer before encoding → writing back to the very same path is fine. Also the only
+		// way to reach the `finalFilepath !== filePath` false arm.
 		const src = makeSrcJpeg(`reencode-${Date.now()}-same.jpeg`)
 
 		const result = await reEncode(src, 'jpeg')
@@ -65,8 +64,8 @@ describe('reEncode', () => {
 	})
 
 	it('.JPEG → jpeg (case differs): writes the lowercase path and removes the original', async () => {
-		// The two paths differ only by case, so this really is a new file and the original must go —
-		// otherwise the caller is left holding a stale duplicate of the same image.
+		// Paths differ only by case → really a new file, the original must go — else the caller hold a stale
+		// duplicate of the same image.
 		const src = makeSrcJpeg(`reencode-${Date.now()}-upper.JPEG`)
 		const expectedOut = src.replace(/\.[^.]+$/, '.jpeg')
 		createdPaths.push(expectedOut)
@@ -87,7 +86,7 @@ describe('reEncode', () => {
 
 		expect(result).to.equal(expectedOut)
 		expect(existsSync(result)).to.equal(true)
-		expect(existsSync(src)).to.equal(false) // original was unlinked (extension changed)
+		expect(existsSync(src)).to.equal(false) // original unlinked (ext changed)
 	})
 
 	it('jpg → webp: covers the webp branch', async () => {
@@ -121,8 +120,8 @@ describe('reEncode', () => {
 		const result = await reEncode(src, 'gif')
 
 		expect(result).to.equal(expectedOut)
-		expect(existsSync(result)).to.equal(false) // sharp never ran, nothing was written there
-		expect(existsSync(src)).to.equal(false) // extension mismatch still triggers unlink
+		expect(existsSync(result)).to.equal(false) // sharp never ran, nothing written there
+		expect(existsSync(src)).to.equal(false) // ext mismatch still trigger unlink
 	})
 
 	it('sharp failure (missing input file): reports to Sentry and throws "Error processing the image"', async () => {
@@ -144,9 +143,9 @@ describe('reEncode', () => {
 		writeFileSync(src, Buffer.from(MINIMAL_JPEG_B64, 'base64'))
 		createdPaths.push(src)
 
-		// No dot in filePath → the `\.[^.]+$` regex cannot match, so finalFilepath === filePath.
-		// Comparing paths (rather than extensions) is what keeps the unlink from deleting the
-		// very file just written: '' !== 'png' would have been true and wiped it out.
+		// No dot in filePath → the `\.[^.]+$` regex cannot match → finalFilepath === filePath. Comparing paths,
+		// not extensions, is what keep the unlink from deleting the very file just written: '' !== 'png' would
+		// have been true and wiped it out.
 		const result = await reEncode(src, 'png')
 
 		expect(result).to.equal(src)
@@ -162,7 +161,7 @@ describe('reEncode', () => {
 
 		await expectGraphQLErrorAsync(() => reEncode(src, 'png'), 500, 'Internal Server Error')
 
-		// the source was never actually removed since unlink was stubbed to fail
+		// source never removed — unlink stubbed to fail
 		expect(existsSync(src)).to.equal(true)
 	})
 })

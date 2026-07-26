@@ -1,8 +1,8 @@
 /**
  * Tests for graphQL/schema/mutations/loginAdmin.mts
  *
- * Uses UserAdminKoaUtils (private model) instead of UserBase.
- * Import the model at module level to avoid OverwriteModelError.
+ * Use UserAdminKoaUtils (private model), not UserBase.
+ * Import the model at module level → avoid OverwriteModelError.
  */
 import { loginAdmin } from '../../../../dist/graphQL/schema/mutations/loginAdmin.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
@@ -91,10 +91,9 @@ describe('loginAdmin — resolve (deep stubs)', () => {
 		expect(result).to.have.property('accessToken').that.is.a('string').and.not.equal('')
 		expect(hSetStub.called).to.equal(true)
 		expect((ctx.cookies.set as sinon.SinonStub).calledWith('refresh_token')).to.equal(true)
-		// The session must be closed on the SUCCESS path too, not only when the
-		// transaction throws. Moving endSession() out of `finally` into `catch` leaves
-		// every successful call leaking a mongoose ClientSession, and the error-path
-		// test still passes because tryCatchRethrow always throws.
+		// Session must be closed on the SUCCESS path too, not only when the transaction throws.
+		// Moving endSession() out of `finally` into `catch` leak a mongoose ClientSession on every
+		// successful call, and the error-path test still pass because tryCatchRethrow always throws.
 		const session = (await startSessionStub.returnValues[0]) as { endSession: sinon.SinonStub }
 		expect(session.endSession.called, 'session must be ended on the success path').to.equal(true)
 	})

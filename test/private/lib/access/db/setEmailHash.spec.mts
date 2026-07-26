@@ -3,7 +3,7 @@
  *
  * Chain: setEmailHash(session, userId) → emailHash() (StringLib.randomString, sync, no I/O)
  *        → UserBase.updateOne({ _id: userId }, { $set: {...} }, { session, runValidators: true })
- *        returns the generated hash string
+ * return the generated hash string
  */
 import { setEmailHash } from '@private/lib/access/db/setEmailHash.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'

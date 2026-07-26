@@ -2,7 +2,7 @@
  * Tests for private/graphQL/schema/mutations/setRedisLoginSession.mts
  *
  * Chain: setRedisLoginSession → redisClient.hSet / redisClient.expire / redisClient.del
- *        on failure: Sentry.captureException → throwInternalError → throwGraphQLError
+ * fail → Sentry.captureException → throwInternalError → throwGraphQLError
  */
 import { setRedisLoginSession } from '@private/graphQL/schema/mutations/setRedisLoginSession.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
@@ -12,8 +12,8 @@ import { Types } from 'mongoose'
 
 import { expectGraphQLErrorAsync } from '../../../../helpers/assertGraphQLError.mjs'
 
-// NOTE: Sentry.captureException cannot be stubbed (ESM non-writable export).
-// Without init, it is a no-op, so we only assert the observable rethrow + Redis cleanup.
+// NOTE: Sentry.captureException not stubbable (ESM non-writable export). No init → no-op → assert the
+// observable rethrow + Redis cleanup only.
 
 // ---------------------------------------------------------------------------
 

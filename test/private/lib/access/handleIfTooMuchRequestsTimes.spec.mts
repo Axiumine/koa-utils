@@ -5,9 +5,9 @@
  *          → mailer.tooMuchVerifyRequests → disposeFn(uEmail) → throw Error(EMAIL_CHECK_LINK)
  *
  * Branches:
- *   - requestTimes < 5 → no-op, returns undefined, no email sent, no disposal
- *   - requestTimes >= 5 → sends "too much requests" email, disposes of the user, throws EMAIL_CHECK_LINK
- *   - requestTimes omitted → defaults to 99 (>= 5) → same throw path
+ * - requestTimes < 5 → no-op, return undefined, no mail, no disposal
+ * - requestTimes >= 5 → mail "too much requests" → dispose the user → throw EMAIL_CHECK_LINK
+ * - requestTimes omitted → default 99 (>= 5) → same throw path
  */
 import { createHandleIfTooMuchRequestsTimes, handleIfTooMuchRequestsTimes } from '@private/lib/access/handleIfTooMuchRequestsTimes.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
@@ -106,7 +106,7 @@ describe('handleIfTooMuchRequestsTimes', () => {
 	it('the bound default deletes through UserBase and reaches SocketLabs tooMuchVerifyRequests', async () => {
 		const deleteOneStub = sinon.stub(UserBase, 'deleteOne').resolves({ deletedCount: 1 } as never)
 		const tooMuchStub = sinon.stub(SocketLabsLib.prototype, 'tooMuchVerifyRequests').resolves(null)
-		// Address used by this test only — the default binding debounces per address + template.
+		// Address used by this test only — default binding debounce per address + template.
 		const email = 'bound-too-much@test.com'
 
 		let thrown: Error | undefined

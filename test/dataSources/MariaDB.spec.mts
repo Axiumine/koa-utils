@@ -1,7 +1,6 @@
-// MariaDB.mts instantiates `new Sequelize(...)` at module load, which requires the
-// `mariadb` dialect package. That package is absent from this dev environment, so
-// the module cannot be imported and its lines cannot be covered here.
-// All tests gracefully skip when the import fails.
+// MariaDB.mts instantiate `new Sequelize(...)` at module load → need the `mariadb` dialect package.
+// Absent from this dev env → module not importable, its lines not coverable here.
+// All tests skip when the import fail.
 
 import { expect } from 'chai'
 import sinon from 'sinon'

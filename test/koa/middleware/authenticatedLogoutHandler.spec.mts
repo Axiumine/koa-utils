@@ -7,8 +7,8 @@ import * as RedisMod from '../../../dist/dataSources/Redis.mjs'
 import { expectGraphQLErrorAsync } from '../../helpers/assertGraphQLError.mjs'
 import { restoreIntrospectionCode, saveIntrospectionCode } from '../../helpers/introspectionCode.mjs'
 
-// Real Keygrip instance — verifySignedRefreshToken is a non-stubbable ESM export,
-// so we provide a properly signed cookie to pass it for real.
+// Real Keygrip: verifySignedRefreshToken is a non-stubbable ESM export →
+// supply a properly signed cookie, pass it for real.
 const keys = new Keygrip(['k1'])
 const TOKEN = 'logout-test-uuid'
 const SIG = keys.sign(`refresh_token=${TOKEN}`)
@@ -82,9 +82,9 @@ describe('authenticatedLogoutHandler', () => {
 	})
 
 	it('throws 412 for header "undefined" when INTROSPECTION_CODE is unset', async () => {
-		// requireIntrospectionOrThrow compared against `${process.env.INTROSPECTION_CODE}`, so an
-		// unset variable turned the header value 'undefined' into a valid introspection bypass:
-		// the caller skipped the whole logout body and still got a success response.
+		// requireIntrospectionOrThrow compared against `${process.env.INTROSPECTION_CODE}`.
+		// Unset var → header value 'undefined' became a valid introspection bypass: caller
+		// skipped the whole logout body and still got a success response.
 		const savedCode = saveIntrospectionCode()
 		delete process.env.INTROSPECTION_CODE
 		try {
@@ -137,8 +137,8 @@ describe('authenticatedLogoutHandler', () => {
 	})
 
 	it('ignores an authorization header that is not prefixed "Bearer access:"', async () => {
-		// Without the prefix check, the client would pick the entire Redis key
-		// and could read refresh: entries by going through the access branch.
+		// No prefix check → client pick the whole Redis key → read refresh:
+		// entries through the access branch.
 		const hGet = sinon.stub(RedisMod.redisClient, 'hGet').resolves('uid')
 		const mw = authenticatedLogoutHandler(keys)
 		const ctx = {
@@ -149,18 +149,16 @@ describe('authenticatedLogoutHandler', () => {
 		const state = (ctx as never as { state: { user: { refreshToken: string; accessToken?: string } } }).state
 		expect(state.user.refreshToken).to.equal(REDIS_REFRESH_KEY)
 		expect(state.user.accessToken).to.be.undefined
-		// only the refresh lookup: the malformed token never reaches Redis
+		// only refresh lookup: malformed token never reach Redis
 		expect(hGet.callCount).to.equal(1)
 	})
 
 	it('ignores "Bearer refresh:<valid uuid>" — the prefix check, not the uuid check, must reject it', async () => {
-		// The test above uses TOKEN = 'logout-test-uuid', which is not a v4 uuid, so the
-		// uuid check rejects it whether or not the prefix check exists — it cannot
-		// actually demonstrate the property its comment claims. Real refresh tokens ARE
-		// v4 uuids (generateRefreshToken), so this is the shape that matters: removing
-		// the 'Bearer access:' prefix check lets a client hand over a refresh: key and
-		// read refresh entries through the access branch. Verified to fail if that check
-		// is dropped.
+		// Test above use TOKEN = 'logout-test-uuid', not a v4 uuid → uuid check reject it
+		// with or without the prefix check → it cannot demonstrate what its comment claim.
+		// Real refresh tokens ARE v4 uuids (generateRefreshToken) → this shape matter: drop
+		// the 'Bearer access:' prefix check → client hand over a refresh: key and read
+		// refresh entries through the access branch. Verified to fail if that check dropped.
 		const uuidToken = '22222222-2222-4222-8222-222222222222'
 		const sig = keys.sign(`refresh_token=${uuidToken}`)
 		const cookie = `refresh_token=${uuidToken}; refresh_token.sig=${sig}`
@@ -174,12 +172,12 @@ describe('authenticatedLogoutHandler', () => {
 		const state = (ctx as never as { state: { user: { refreshToken: string; accessToken?: string } } }).state
 		expect(state.user.refreshToken).to.equal(`refresh:${uuidToken}`)
 		expect(state.user.accessToken).to.be.undefined
-		// only the refresh lookup: the refresh-prefixed value never reaches the access branch
+		// only refresh lookup: refresh-prefixed value never reach the access branch
 		expect(hGet.callCount).to.equal(1)
 	})
 
 	it('ignores a well-prefixed access token whose suffix is not a v4 uuid', async () => {
-		// The prefix alone still leaves the rest of the Redis key client-controlled.
+		// Prefix alone → rest of the Redis key still client-controlled.
 		const hGet = sinon.stub(RedisMod.redisClient, 'hGet').resolves('uid')
 		const mw = authenticatedLogoutHandler(keys)
 		const ctx = {
@@ -190,7 +188,7 @@ describe('authenticatedLogoutHandler', () => {
 		const state = (ctx as never as { state: { user: { refreshToken: string; accessToken?: string } } }).state
 		expect(state.user.refreshToken).to.equal(REDIS_REFRESH_KEY)
 		expect(state.user.accessToken).to.be.undefined
-		// only the refresh lookup: the malformed token never reaches Redis
+		// only refresh lookup: malformed token never reach Redis
 		expect(hGet.callCount).to.equal(1)
 	})
 

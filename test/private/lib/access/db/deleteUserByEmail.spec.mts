@@ -3,10 +3,9 @@
  *
  * Chain: deleteUserByEmail(email) → UserBase.deleteOne({ 'login.email': email })
  *
- * `deletedCount === 0` goes to Sentry as a warning and the call still resolves — a guard's redirect must not
- * depend on the delete having matched. Sentry is never initialised in the suite, so `captureMessage` is a
- * no-op and the third test asserts the resolve rather than the report (`@sentry/node` is a sealed namespace
- * sinon cannot stub).
+ * `deletedCount === 0` → Sentry warning, call still resolve — a guard's redirect must not depend on the
+ * delete having matched. Sentry never init'd in the suite → `captureMessage` no-op → 3rd test assert the
+ * resolve, not the report (`@sentry/node` = sealed namespace sinon cannot stub).
  */
 import deleteUserByEmail from '@private/lib/access/db/deleteUserByEmail.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'

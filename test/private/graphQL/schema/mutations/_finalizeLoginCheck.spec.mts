@@ -2,12 +2,11 @@
  * Tests for private/graphQL/schema/mutations/_finalizeLoginCheck.mts
  *
  * Chain: _finalizeLoginCheck → compareHashAsync (bcrypt.compare) → throwForbiddenError on any of
- *        {invalid email, wrong password, deleted, disabled}. On disabled it also sends the
- *        accountDisabled email via SocketLabsLib before throwing.
+ * {invalid email, wrong password, deleted, disabled}. disabled → accountDisabled mail via SocketLabsLib
+ * before throwing.
  *
- * bcrypt.compare is stubbed via the `@node-rs/bcrypt` default export (same technique as
- * login4Ever.spec.mts) — compareHashAsync itself is a plain function export and cannot be
- * stubbed directly.
+ * bcrypt.compare stubbed via the `@node-rs/bcrypt` default export (same technique as login4Ever.spec.mts)
+ * — compareHashAsync itself is a plain fn export, not stubbable directly.
  */
 import { _finalizeLoginCheck, ILoginUserShape } from '@private/graphQL/schema/mutations/_finalizeLoginCheck.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'

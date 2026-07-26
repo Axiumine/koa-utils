@@ -3,7 +3,7 @@ import { compareHashAsync } from '@lib/hash.mjs'
 import { expect } from 'chai'
 
 describe('hash', () => {
-	// hashed via encryptPassword purely as a fixture: compareHashAsync needs a real bcrypt hash to compare against.
+	// fixture only: compareHashAsync need a real bcrypt hash → mint via encryptPassword
 	let hashed: string
 
 	before(async function () {
@@ -24,7 +24,7 @@ describe('hash', () => {
 	})
 
 	it('compareHashAsync re-throws when bcrypt throws (covers catch branch)', async () => {
-		// Force an error by passing null as the hash — bcrypt will throw
+		// null hash → bcrypt throw
 		let thrown: unknown
 		try {
 			await compareHashAsync('pwd', null as unknown as string)

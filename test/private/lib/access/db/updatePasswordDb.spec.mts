@@ -1,15 +1,14 @@
 /**
  * Tests for private/lib/access/db/updatePasswordDb.mts
  *
- * Default export is a function literally named `updatePassword` (file name and export name differ).
+ * Default export is a fn literally named `updatePassword` (file name ≠ export name).
  *
  * Chain: updatePassword(session, _id, password)
- *   → hash(password, SALT_ROUNDS) (real @node-rs/bcrypt call — `hash` is a captured named binding,
- *     not stubbable via sinon, same constraint documented in
- *     test/graphQL/schema/mutations/updatePassword.spec.mts)
+ * → hash(password, SALT_ROUNDS) (real @node-rs/bcrypt call — `hash` is a captured named binding, not
+ * stubbable via sinon, same constraint documented in test/graphQL/schema/mutations/updatePassword.spec.mts)
  *   → UserBase.updateOne({ _id }, { $set: { 'login.password': hashVal } }, { session, runValidators: true })
  *
- * No branches in this module — a single straight-line path.
+ * No branches — 1 straight-line path.
  */
 import updatePassword from '@private/lib/access/db/updatePasswordDb.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
@@ -48,7 +47,7 @@ describe('updatePasswordDb (default export: updatePassword)', () => {
 		const hashVal = update.$set['login.password']
 		expect(hashVal).to.be.a('string').and.not.equal('newpassword1')
 
-		// Prove it is a genuine bcrypt hash of the supplied password, not a stub or passthrough.
+		// Prove a genuine bcrypt hash of the supplied password, not a stub or passthrough.
 		const matches = await compareHashAsync('newpassword1', hashVal)
 		expect(matches).to.equal(true)
 	})

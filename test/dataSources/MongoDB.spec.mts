@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 
-// mongoose.connect / mongoose.disconnect are non-stubbable in ESM (live bindings are non-configurable).
-// We test module shape + expected exported members, and exercise error paths against a bad URI.
+// mongoose.connect / mongoose.disconnect non-stubbable in ESM (live bindings non-configurable) → test
+// module shape + exported members, drive error paths against a bad URI.
 
 describe('MongoDB', () => {
 	it('exports MongoDBConnect as an async function', async () => {
@@ -16,20 +16,20 @@ describe('MongoDB', () => {
 
 	it('MongoDBConnect rejects when MONGODB_URI is invalid', async () => {
 		const { MongoDBConnect } = await import('../../dist/dataSources/MongoDB.mjs')
-		// mongoose will throw/reject when URI is missing or invalid
+		// URI missing or invalid → mongoose throw/reject
 		let caught: unknown
 		try {
 			await MongoDBConnect()
 		} catch (e) {
 			caught = e
 		}
-		// We only assert that it threw — exact message varies by mongoose version
+		// assert it threw only — exact message vary by mongoose version
 		expect(caught).to.exist
 	})
 
 	it('MongoDBDisconnect runs without a live connection (idempotent)', async () => {
 		const { MongoDBDisconnect } = await import('../../dist/dataSources/MongoDB.mjs')
-		// mongoose.disconnect() is safe to call when no connection is open; it resolves silently
+		// mongoose.disconnect() safe with no open conn → resolve silently
 		await MongoDBDisconnect()
 	})
 })

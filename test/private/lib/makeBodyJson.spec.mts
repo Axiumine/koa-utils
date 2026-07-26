@@ -3,8 +3,8 @@
  *
  * Chain: makeBodyJson(message, description) → JSON.stringify({ message, description })
  *
- * Pure function, no collaborators, no branches. Coverage goal is simply to invoke it
- * and assert the returned JSON string shape for a handful of representative inputs.
+ * Pure fn, no collaborators, no branches. Coverage = invoke it, assert the returned
+ * JSON string shape for representative inputs.
  */
 import { makeBodyJson } from '@private/lib/makeBodyJson.mjs'
 import { expect } from 'chai'

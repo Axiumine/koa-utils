@@ -1,8 +1,8 @@
 /**
  * Tests for graphQL/schema/mutations/refresh.mts
  *
- * refresh uses redisClient directly (hSet, expire, del) and setLoginCookies.
- * ctx.state.user carries id, refreshToken, and other access-token data.
+ * refresh use redisClient direct (hSet, expire, del) + setLoginCookies.
+ * ctx.state.user carry id, refreshToken, other access-token data.
  */
 import { refresh } from '../../../../dist/graphQL/schema/mutations/refresh.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
@@ -73,9 +73,8 @@ describe('refresh — resolve', () => {
 	})
 
 	it('gives the access key the short jittered TTL and the refresh key the 90-day TTL', async () => {
-		// Asserting only callCount lets the two TTLs be swapped: the access token would
-		// live 90 days and the refresh token under 90 minutes. Match each TTL to its own
-		// key, by key, so argument order cannot mask the swap either.
+		// Assert only callCount → the two TTLs swappable: access token live 90 days, refresh token under
+		// 90 minutes. Match each TTL to its own key, by key → argument order cannot mask the swap either.
 		const ctx = makeCtx()
 		await refresh.resolve(null, {}, ctx)
 
@@ -83,7 +82,7 @@ describe('refresh — resolve', () => {
 		const refreshCall = expireStub.getCalls().find((c) => (c.args[0] as string).includes('refresh:'))
 		expect(accessCall, 'access key must get an expiry').to.exist
 		expect(refreshCall, 'refresh key must get an expiry').to.exist
-		// accessTokenExpiry() jitters over 30-90 minutes, in seconds
+		// accessTokenExpiry() jitter 30-90 min, in seconds
 		expect(accessCall?.args[1]).to.be.within(30 * 60, 91 * 60)
 		expect(refreshCall?.args[1]).to.equal(REFRESH_TOKEN_EXPIRY)
 	})
@@ -92,7 +91,7 @@ describe('refresh — resolve', () => {
 		const ctx = makeCtx({ refreshToken: 'refresh:oldToken' })
 		await refresh.resolve(null, {}, ctx)
 
-		// del should be called with a key containing the old refresh token value
+		// del called with a key holding the old refresh token value
 		const delCall = delStub.getCalls().find((c) =>
 			(c.args[0] as string).includes('refresh:oldToken')
 		)
@@ -108,9 +107,8 @@ describe('refresh — resolve', () => {
 	})
 
 	it('sends the NEW refresh token in the cookie, not the rotated-out one', async () => {
-		// sinon's calledWith matches on an argument prefix, so asserting
-		// calledWith('refresh_token') alone never inspects the value. Handing back
-		// oldRefresh would give the client a cookie that can never satisfy Redis again.
+		// sinon calledWith match on an argument prefix → calledWith('refresh_token') alone never inspect
+		// the value. Handing back oldRefresh give the client a cookie that can never satisfy Redis again.
 		const ctx = makeCtx({ refreshToken: 'refresh:oldRefreshUUID' })
 		await refresh.resolve(null, {}, ctx)
 
@@ -125,11 +123,11 @@ describe('refresh — resolve', () => {
 	})
 
 	it('surfaces a failure to delete the rotated-out refresh key', async () => {
-		// 'deletes old refresh token key' only checks that a matching del call happened.
-		// Sinon records the call synchronously, so dropping the `await` still passes it —
-		// but the rejection then escapes the try/catch instead of triggering the rollback,
-		// and the old refresh key stays alive in Redis. That is session fixation: an
-		// attacker holding the stale token keeps it after the legitimate client rotates.
+		// 'deletes old refresh token key' only check that a matching del call happened. Sinon record the
+		// call synchronously, so dropping the `await` still pass it — but the rejection then escape the
+		// try/catch instead of triggering the rollback, and the old refresh key stay alive in Redis.
+		// That is session fixation: an attacker holding the stale token keep it after the legitimate
+		// client rotates.
 		delStub.callsFake((key: string) =>
 			key.includes('refresh:oldToken') ? Promise.reject(new Error('Redis down')) : Promise.resolve(1)
 		)

@@ -1,13 +1,13 @@
 /**
  * Tests for lib/access/createResetPwdFlow.mts
  *
- * The point of the factory is that NOTHING about the account layout is baked in. So the whole flow is
- * driven here against a model that shares no field path with UserBase, and every read and write is
- * asserted against the supplied map.
+ * Factory point: NOTHING about the account layout baked in → whole flow driven against a
+ * model sharing no field path with UserBase, every read + write asserted against the
+ * supplied map.
  *
- * The `resetClear` case is the one that motivated the design: this layout stores the request as one
- * all-or-nothing subdocument, so the only legal cleanup is `$unset: { resetPwd: '' }` — the container,
- * not its two members.
+ * `resetClear` motivated the design: this layout store the request as 1 all-or-nothing
+ * subdocument → only legal cleanup is `$unset: { resetPwd: '' }` — the container, not
+ * its 2 members.
  */
 import { createResetPwdFlow } from '../../../dist/lib/access/createResetPwdFlow.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
@@ -19,7 +19,7 @@ const EMAIL = 'user@example.com'
 const HASH = 'the-stored-reset-hash'
 const PASSWORD = 'aStrongPassword1!'
 
-/** A layout with no field in common with UserBase, and a required-members reset subdocument. */
+/** Layout with no field in common with UserBase + a required-members reset subdocument. */
 const PATHS = {
 	email: 'mail',
 	password: 'pwd',
@@ -62,7 +62,7 @@ function makeModel(doc: unknown) {
 	} as never
 }
 
-/** The stored document, in the custom layout. */
+/** Stored doc, custom layout. */
 function makeDoc(resetDateReq?: Date) {
 	return {
 		_id: new Types.ObjectId(),
@@ -114,18 +114,18 @@ describe('createResetPwdFlow', () => {
 			const ret = await flow.resetPwd.resolve(null, { email: 'USER@Example.com ' })
 
 			expect(ret).to.equal(true)
-			// lookup and projection follow the map, not UserBase
+			// lookup + projection follow the map, not UserBase
 			expect(model.findOne.calledOnceWithExactly({ mail: EMAIL })).to.equal(true)
 			expect(model.query.selected).to.equal(
 				'_id profile.fullName resetPwd.resetDateReq resetPwd.resetHash state.gone state.locked'
 			)
 
-			// the write sets the two leaf paths
+			// write set the 2 leaf paths
 			const [, update] = model.updateOne.firstCall.args
 			expect(Object.keys(update.$set)).to.deep.equal(['resetPwd.resetDateReq', 'resetPwd.resetHash'])
 			expect(update.$set['resetPwd.resetHash']).to.be.a('string')
 
-			// the name reaches the email from the custom path
+			// name reach the email from the custom path
 			expect(sendEmailReset.calledOnce).to.equal(true)
 			expect(sendEmailReset.firstCall.args[0]).to.equal(EMAIL)
 			expect(sendEmailReset.firstCall.args[2]).to.equal('Test User')
@@ -150,7 +150,7 @@ describe('createResetPwdFlow', () => {
 		})
 
 		it('mints no link for a deleted account, and is indistinguishable from an unknown address', async () => {
-			// no pending request, so the only thing stopping the link is the flag read from state.gone
+			// no pending request → only thing stopping the link is the flag read from state.gone
 			const model = makeModel({ ...makeDoc(), state: { gone: true } })
 			const flow = createResetPwdFlow({ model, paths: PATHS })
 
@@ -183,8 +183,8 @@ describe('createResetPwdFlow', () => {
 			expect(Object.keys(pwdUpdate.$set)).to.deep.equal(['pwd'])
 			expect(pwdUpdate.$set.pwd).to.not.equal(PASSWORD) // bcrypt hash, never the plaintext
 
-			// the cleanup unsets the container, NOT the two leaves it read: unsetting a member of a
-			// required-members subdocument leaves an invalid document and the write is rejected
+			// cleanup unset the container, NOT the 2 leaves it read: unset a member of a
+			// required-members subdocument → invalid doc → write rejected
 			const [clearFilter, clearUpdate] = model.updateOne.secondCall.args
 			expect(clearFilter).to.deep.equal({ mail: EMAIL })
 			expect(clearUpdate).to.deep.equal({ $unset: { resetPwd: '' } })
@@ -208,9 +208,9 @@ describe('createResetPwdFlow', () => {
 		})
 
 		it('refuses a deleted or disabled account holding a valid, unexpired hash', async () => {
-			// The hash is genuine and in date — only the account state stops the write. Without the gate
-			// the bcrypt slot of a tombstoned account was overwritten, so re-enabling it later handed the
-			// account back with a password the requester chose.
+			// Hash genuine + in date → only the account state stop the write. No gate → bcrypt
+			// slot of a tombstoned account overwritten → re-enable it later hand the account
+			// back with a password the requester chose.
 			for (const state of [{ gone: true }, { locked: true }]) {
 				const model = makeModel({ ...makeDoc(new Date()), state })
 				const flow = createResetPwdFlow({ model, paths: PATHS })

@@ -1,10 +1,10 @@
 /**
  * Tests for koa/router/verifyEmail.mts
  *
- * The handler used to be untestable: its first statement was an ESM live binding sinon cannot stub,
- * so every call rejected on the DB read and only the catch branch was ever reached — the try-body sat
- * under a `c8 ignore`. Now the reader, the guard chain and the writer are injected, so the happy path
- * and both catch branches are exercised for real, and the ignore block is gone.
+ * Handler was untestable: first statement an ESM live binding sinon cannot stub → every
+ * call rejected on the DB read → only the catch branch reached, try-body under `c8 ignore`.
+ * Now reader, guard chain, writer injected → happy path + both catch branches exercised
+ * for real, ignore block gone.
  */
 import { createVerifyEmailRouter, routerVerifyEmail } from '../../../dist/koa/router/verifyEmail.mjs'
 import { expect } from 'chai'
@@ -36,7 +36,7 @@ describe('createVerifyEmailRouter', () => {
 		const { ctx, redirects } = makeCtx()
 		await mw(ctx)
 
-		// the lookup is lowercased, the guards get the raw url values, the enable gets the returned id
+		// lookup lowercased, guards get raw url values, enable get the returned id
 		expect(userData4VerifyEmail.calledOnceWithExactly('user@example.com')).to.equal(true)
 		expect(assertVerifyEmailAllowed.calledOnceWithExactly(user, EMAIL, HASH)).to.equal(true)
 		expect(enableEmailAccess.calledOnceWithExactly(uId, EMAIL)).to.equal(true)
@@ -90,7 +90,7 @@ describe('routerVerifyEmail (UserBase-bound default)', () => {
 	it('redirects to /x/error when the DB is unavailable', async () => {
 		const mw = routerVerifyEmail()
 		const { ctx, redirects } = makeCtx()
-		// No DB connection — userData4VerifyEmail rejects; catch block redirects to /x/error
+		// No DB conn → userData4VerifyEmail reject → catch redirect to /x/error
 		await mw(ctx)
 		expect(redirects).to.deep.equal(['/x/error'])
 	})

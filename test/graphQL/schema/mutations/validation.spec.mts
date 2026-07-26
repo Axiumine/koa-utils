@@ -7,8 +7,8 @@ import { updatePassword } from '../../../../dist/graphQL/schema/mutations/update
 
 import { expectGraphQLErrorAsync } from '../../../helpers/assertGraphQLError.mjs'
 
-// All these resolvers run `checkEmailLen` / `checkPwdLen` BEFORE startSession,
-// so we can drive them with a stub ctx and assert the synchronous validation throw.
+// All these resolvers run `checkEmailLen` / `checkPwdLen` BEFORE startSession → drive them with a
+// stub ctx, assert the synchronous validation throw.
 const stubCtx = { cookies: { set: () => undefined } } as never
 
 describe('mutations — early input validation (before mongoose.startSession)', () => {

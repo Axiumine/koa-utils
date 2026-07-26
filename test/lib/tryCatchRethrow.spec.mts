@@ -3,8 +3,8 @@ import { GraphQLError } from 'graphql'
 
 import { expectGraphQLError } from '../helpers/assertGraphQLError.mjs'
 
-// NOTE: Sentry.captureException cannot be stubbed (ESM non-writable export).
-// Without init, captureException is a no-op, so we only assert the rethrow.
+// NOTE: Sentry.captureException not stubbable (ESM non-writable export).
+// No init → no-op → assert the rethrow only.
 
 describe('tryCatchRethrow', () => {
 	it('forwards DuplicateKey to throwIfMongoErr (409)', () => {

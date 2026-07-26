@@ -2,19 +2,19 @@
  * Tests for private/lib/access/handleBadDB.mts
  *
  * Chain: handleBadDB(requestTimes?, dateLastReq?)
- *          → if requestTimes === undefined OR dateLastReq === undefined:
- *              Sentry.captureMessage('[handleBadDB] DB ERROR', 'error') → throw Error(EMAIL_CHECK_LINK)
- *          → otherwise: resolves with no return value
+ * → requestTimes === undefined OR dateLastReq === undefined:
+ * Sentry.captureMessage('[handleBadDB] DB ERROR', 'error') → throw Error(EMAIL_CHECK_LINK)
+ * → else: resolve, no return value
  *
- * The redirect target is EMAIL_CHECK_LINK, the same one an unknown address, a wrong hash and an expired
- * link get. It used to be '/x/error', which made this branch tell an unauthenticated caller that the
- * address exists — and on data predating the verification fields, every real account answered '/x/error'
- * while every unknown one answered EMAIL_CHECK_LINK. Asserting the shared target is what keeps the
- * responses indistinguishable; the distinction lives in Sentry.
+ * Redirect target is EMAIL_CHECK_LINK — the same one an unknown address, a wrong hash and
+ * an expired link get. It used to be '/x/error', so this branch told an unauthenticated
+ * caller that the address exists — and on data predating the verification fields, every
+ * real account answered '/x/error' while every unknown one answered EMAIL_CHECK_LINK.
+ * Asserting the shared target keeps them indistinguishable; the distinction lives in Sentry.
  *
- * NOTE: Sentry.captureMessage is a non-configurable ESM live binding and cannot be
- * stubbed/spied on directly (see test/lib/tryCatchRethrow.spec.mts, test/dataSources/Redis.spec.mts).
- * Without Sentry.init() it is a no-op, so we assert the observable throw/no-throw behavior only.
+ * NOTE: Sentry.captureMessage is a non-configurable ESM live binding → not stubbable or
+ * spyable (see test/lib/tryCatchRethrow.spec.mts). No Sentry.init() → no-op → assert the
+ * observable throw/no-throw behaviour only.
  */
 import { handleBadDB } from '@private/lib/access/handleBadDB.mjs'
 import { EMAIL_CHECK_LINK } from '@private/lib/access/Constants.mjs'

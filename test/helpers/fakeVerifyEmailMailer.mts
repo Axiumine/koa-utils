@@ -12,12 +12,12 @@ export interface IFakeVerifyEmailMailer extends IVerifyEmailMailer {
 }
 
 /**
- * A mailer whose six methods are stubs resolving `undefined`.
+ * Mailer whose six methods are stubs resolving `undefined`.
  *
- * Prefer this over stubbing `SocketLabsLib.prototype`. The prototype route reaches whatever the guard's
- * module-level default binding is, and that binding is debounced per address and template for the whole
- * process — so two specs asserting a send to the same address are order-dependent, and the second one to run
- * sees no send at all. An injected fake has no window and no shared state.
+ * Prefer this over stubbing `SocketLabsLib.prototype`. The prototype route reach whatever the guard's
+ * module-level default binding is, and that binding is debounced per address + template for the whole
+ * process → two specs asserting a send to the same address are order-dependent, and the second to run
+ * see no send at all. An injected fake carry no window, no shared state.
  */
 export const fakeVerifyEmailMailer = (): IFakeVerifyEmailMailer => ({
 	emailAlreadyValid: sinon.stub().resolves(),

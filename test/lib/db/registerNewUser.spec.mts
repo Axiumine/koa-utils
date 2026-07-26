@@ -8,7 +8,7 @@ describe('registerNewUser', () => {
 	let createStub: sinon.SinonStub
 
 	before(function () {
-		// bcrypt hash runs once in the suite — allow generous timeout
+		// bcrypt hash run once in the suite → generous timeout
 		this.timeout(30000)
 	})
 

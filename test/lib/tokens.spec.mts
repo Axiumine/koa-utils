@@ -48,11 +48,10 @@ describe('tokens', () => {
 	})
 
 	it('does not draw token material from Math.random', () => {
-		// Format + pairwise-inequality assertions cannot tell a crypto RNG from a
-		// hand-rolled Math.random() v4: the latter can satisfy both. Math.random is a
-		// plain object property (unlike the sealed ESM namespaces), so it can be spied.
-		// accessTokenExpiry() legitimately uses Math.random for jitter — only the token
-		// generators are asserted here.
+		// Format + pairwise-inequality assertions cannot tell a crypto RNG from a hand-rolled
+		// Math.random() v4 — latter satisfy both. Math.random is a plain object property
+		// (unlike the sealed ESM namespaces) → spyable. accessTokenExpiry() legitimately use
+		// Math.random for jitter → only the token generators asserted here.
 		const spy = sinon.spy(Math, 'random')
 		try {
 			generateAccessToken()

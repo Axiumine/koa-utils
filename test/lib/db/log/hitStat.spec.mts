@@ -11,7 +11,7 @@ describe('hitStat', () => {
 
 	const fakeId = new Types.ObjectId()
 
-	// Helper: builds a chainable stub for find().select().sort().limit().lean()
+	// Helper: chainable stub for find().select().sort().limit().lean()
 	function makeChain(result: unknown) {
 		const chain = {
 			select: sinon.stub().returnsThis(),

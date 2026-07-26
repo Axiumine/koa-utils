@@ -2,7 +2,7 @@ import { ArrayLib } from '@lib/ArrayLib.mjs'
 import { expect } from 'chai'
 
 describe('ArrayLib', () => {
-	// instantiate via `new` to cover the constructor body line
+	// `new` → cover the constructor body line
 	it('can be instantiated with new', () => {
 		const instance = new ArrayLib()
 		expect(instance).to.be.instanceOf(ArrayLib)

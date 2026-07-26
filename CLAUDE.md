@@ -20,8 +20,8 @@ Before you create or edit **any** `CLAUDE.md` in this repo, root or nested:
 
 3. **Ultra means:** abbreviate prose words (DB, auth, config, req, res, fn, impl), strip conjunctions, `X → Y` for causality, one word wherever one word carries it. **Never abbreviate or reword code symbols, function names, API names, error strings, env vars, file paths, or command lines.** They are quoted verbatim or they are wrong.
 4. **Auto-Clarity overrides ultra, and it is not optional here.** Write full, unambiguous sentences for: security invariants, destructive or irreversible steps, and ordered multi-step sequences where a dropped conjunction flips the meaning. A security rule compressed into ambiguity is a defect, not a style win. The "Security invariants" section below is the worked example.
-5. **Scope is `CLAUDE.md` only.** `README.md`, `REPO.md`, `docs/code/*.md`, `CHANGELOG.md` and every source comment stay normal prose — those are consumer-facing.
-6. **This rule is machine-enforced, so step 1 is not optional.** Two `PreToolUse` hooks in `.claude/settings.json` run `scripts/caveman-claudemd-gate.sh`. The `Skill` matcher records that `caveman:caveman` was invoked in this session; the `Write|Edit` matcher denies any write whose target is named `CLAUDE.md` when either the skill is not installed or it has not been invoked. The gate fails closed — a prerequisite it cannot verify is a deny, never a warn-and-continue, same standing as the coverage and Qodana gates. The escape hatch is `SKIP_CAVEMAN_GATE=1`, owner only. Do not delete the hooks or the script to unblock a write; invoke the skill instead.
+5. **Scope is `CLAUDE.md` plus comments in `test/**/*.mts`.** Test comments carry their own rules — see `test/CLAUDE.md`. `README.md`, `REPO.md`, `docs/code/*.md`, `CHANGELOG.md` and every comment under `src/` stay normal prose: those are consumer-facing.
+6. **This rule is machine-enforced, so step 1 is not optional.** Two `PreToolUse` hooks in `.claude/settings.json` run `scripts/caveman-gate.sh`. The `Skill` matcher records that `caveman:caveman` was invoked in this session; the `Write|Edit` matcher denies any write whose target is named `CLAUDE.md`, or sits under `test/` with a `.mts` extension, when either the skill is not installed or it has not been invoked. The gate fails closed — a prerequisite it cannot verify is a deny, never a warn-and-continue, same standing as the coverage and Qodana gates. The escape hatch is `SKIP_CAVEMAN_GATE=1`, owner only. Do not delete the hooks or the script to unblock a write; invoke the skill instead.
 
 ## What this is
 
@@ -110,7 +110,8 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - No `git commit --no-verify`, no `SKIP_QODANA=1`, no suggesting either to user as fix. Owner emergency only — CI block anyway.
 - No softening hook Qodana prereqs into warnings. No `docker pull` inside hook.
 - No disable/delete/edit of `.githooks/pre-commit` or `.githooks/commit-msg` unasked. Widening allowed commit types to pass a message = same violation → rewrite message.
-- No deleting the `PreToolUse` hooks in `.claude/settings.json` or `scripts/caveman-claudemd-gate.sh` to land a `CLAUDE.md` write. Blocked write → invoke the skill, not remove the gate. Rule 0 §6.
+- No deleting the `PreToolUse` hooks in `.claude/settings.json` or `scripts/caveman-gate.sh` to land a `CLAUDE.md` or `test/**/*.mts` write. Blocked write → invoke the skill, not remove the gate. Rule 0 §6.
+- No normal-prose comment in `test/**/*.mts` — caveman ultra, see `test/CLAUDE.md`. `describe` / `it` description strings not comments → stay prose. `src/` comments stay prose.
 
 ## Build / lint
 

@@ -3,8 +3,8 @@
  *
  * Chain: updateLoginStats4ever → UserBase.updateOne({$set: {login.lastLogin, [login.firstLogin]}})
  *
- * Unlike updateAdminLoginStats/updateLoginStatsRememberme, this module builds its own $set
- * inline (no _buildLoginStatsUpdate) and owns the `lastLogin === null` branch directly.
+ * Unlike updateAdminLoginStats/updateLoginStatsRememberme, this module build its own $set inline
+ * (no _buildLoginStatsUpdate) and own the `lastLogin === null` branch directly.
  */
 import { updateLoginStats4ever } from '@private/graphQL/schema/mutations/updateLoginStats4ever.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'

@@ -1,9 +1,9 @@
 /**
  * Tests for lib/access/accessPaths.mts
  *
- * The defaults are a published contract: they are exactly what the flows did before they took a
- * `paths` map, so a change here silently repoints every consumer that did not override the key.
- * They are asserted literally, not derived, on purpose.
+ * Defaults = published contract: exactly what the flows did before they took a `paths`
+ * map → a change here silently repoint every consumer not overriding the key.
+ * Asserted literally, not derived, on purpose.
  */
 import {
 	DEFAULT_RESET_PWD_PATHS,
@@ -28,8 +28,8 @@ describe('DEFAULT_RESET_PWD_PATHS', () => {
 	})
 
 	it('points the account-state flags at the same slots the verification flow guards', () => {
-		// The two flows must agree on what "this account is gone / locked out" means. Pointing them at
-		// different fields would let a reset succeed on an account the verify-email chain refuses.
+		// Both flows must agree on what "account gone / locked out" mean. Different fields →
+		// a reset succeed on an account the verify-email chain refuse.
 		expect(DEFAULT_RESET_PWD_PATHS.deleted).to.equal(DEFAULT_VERIFY_EMAIL_PATHS.deleted)
 		expect(DEFAULT_RESET_PWD_PATHS.disabled).to.equal(DEFAULT_VERIFY_EMAIL_PATHS.disabled)
 	})
@@ -58,7 +58,7 @@ describe('resolveResetPwdPaths', () => {
 	})
 
 	it('takes resetClear as given — it is never derived from the leaf paths', () => {
-		// the strict-subdocument layout: one container path to unset, two leaves to read
+		// strict-subdocument layout: 1 container path to unset, 2 leaves to read
 		const resolved = resolveResetPwdPaths({
 			resetDateReq: 'resetPwd.resetDateReq',
 			resetHash: 'resetPwd.resetHash',

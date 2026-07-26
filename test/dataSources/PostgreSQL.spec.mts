@@ -1,8 +1,8 @@
 import { expect } from 'chai'
 import sinon from 'sinon'
 
-// Sentry.captureException is non-stubbable in ESM (non-configurable live binding).
-// We stub instance methods on pgClient/pgPool (mutable object properties).
+// Sentry.captureException non-stubbable in ESM (non-configurable live binding).
+// Stub instance methods on pgClient/pgPool (mutable object properties).
 
 describe('PostgreSQL', () => {
 	afterEach(() => {
@@ -18,7 +18,7 @@ describe('PostgreSQL', () => {
 	it('PostgreSQLClientConnect succeeds and attaches listeners', async () => {
 		const { pgClient, PostgreSQLClientConnect } = await import('../../dist/dataSources/PostgreSQL.mjs')
 		const connectStub = sinon.stub(pgClient, 'connect').resolves()
-		// reset listeners so they attach fresh
+		// reset listeners → attach fresh
 		pgClient.removeAllListeners('error')
 		pgClient.removeAllListeners('notification')
 		pgClient.removeAllListeners('notice')
@@ -54,7 +54,7 @@ describe('PostgreSQL', () => {
 		pgClient.removeAllListeners('error')
 		sinon.stub(pgClient, 'connect').resolves()
 		await PostgreSQLClientConnect()
-		// Sentry.captureException is non-stubbable; just verify it does not throw
+		// Sentry.captureException non-stubbable → verify no throw
 		const err = new Error('pg error')
 		pgClient.emit('error', err)
 	})

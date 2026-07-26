@@ -4,9 +4,9 @@
  * Chain: incReqTimes (injected writer) → mailer.wrongHash → throw Error(EMAIL_CHECK_LINK)
  *
  * Branches:
- *   - hash !== dbHash → incReqTimes + wrongHash(uEmail, requestTimes + 1) → throws Error(EMAIL_CHECK_LINK)
- *   - hash !== dbHash with default requestTimes (param omitted) → wrongHash called with 1
- *   - hash === dbHash → resolves, no side effects
+ * - hash !== dbHash → incReqTimes + wrongHash(uEmail, requestTimes + 1) → throw Error(EMAIL_CHECK_LINK)
+ * - hash !== dbHash, requestTimes omitted → wrongHash called with 1
+ * - hash === dbHash → resolve, no side effects
  */
 import { createHandleIfHashBad, handleIfHashBad } from '@private/lib/access/handleIfHashBad.mjs'
 import { EMAIL_CHECK_LINK } from '@private/lib/access/Constants.mjs'
@@ -95,7 +95,7 @@ describe('handleIfHashBad', () => {
 		const updateOneStub = sinon.stub(UserBase, 'updateOne').resolves({ modifiedCount: 1 } as never)
 		const wrongHashStub = sinon.stub(SocketLabsLib.prototype, 'wrongHash').resolves()
 		const uId = new Types.ObjectId()
-		// Address used by this test only — the default binding debounces per address + template.
+		// Address used by this test only — default binding debounce per address + template.
 		const email = 'bound-wrong-hash@test.com'
 
 		let caught: unknown

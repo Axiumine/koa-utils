@@ -2,8 +2,8 @@
  * Tests for private/lib/access/handleIfAccountDisabled.mts
  *
  * Chain: createHandleIfAccountDisabled(mailer)
- *          → if disabled: mailer.accountDisabled(email) → throw Error(EMAIL_CHECK_LINK)
- *          → if not disabled (or omitted, default = false): resolves with no return value
+ * → disabled → mailer.accountDisabled(email) → throw Error(EMAIL_CHECK_LINK)
+ * → not disabled (or omitted, default false) → resolve, no return value
  */
 import { createHandleIfAccountDisabled, handleIfAccountDisabled } from '@private/lib/access/handleIfAccountDisabled.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
@@ -58,7 +58,7 @@ describe('handleIfAccountDisabled', () => {
 
 	it('the bound default reaches SocketLabs accountDisabled', async () => {
 		const stub = sinon.stub(SocketLabsLib.prototype, 'accountDisabled').resolves()
-		// Address used by this test only — the default binding debounces per address + template.
+		// Address used by this test only — default binding debounce per address + template.
 		const email = 'bound-disabled@test.com'
 
 		let caught: unknown

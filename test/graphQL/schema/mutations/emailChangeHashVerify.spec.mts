@@ -2,18 +2,18 @@
  * Tests for graphQL/schema/mutations/emailChangeHashVerify.mts
  *
  * Branches:
- *   - user === null (email not found) → returns false
- *   - hash matches + dateLastReq undefined → throws 500
- *   - hash matches + link too old (> 3 days) → returns false, sends hashReqTooOld email
- *   - hash matches + link fresh + account.deleted → returns false
- *   - hash matches + link fresh + account.disabled → returns false, sends accountDisabled email
- *   - hash matches + link fresh + valid + qty > 0 (email taken) → returns false
- *   - hash matches + link fresh + valid + qty = 0 → confirmNewEmail → returns true
- *   - hash mismatch + requestTimes undefined → throws 500
- *   - hash mismatch + requestTimes defined → incReqTimes + sends wrongHash → returns false
- *   - projection covers every field resolve() reads (regression: requestTimes was missing)
+ * - user === null (email not found) → return false
+ * - hash match + dateLastReq undefined → throw 500
+ * - hash match + link too old (> 3 days) → return false, mail hashReqTooOld
+ * - hash match + link fresh + account.deleted → return false
+ * - hash match + link fresh + account.disabled → return false, mail accountDisabled
+ * - hash match + link fresh + valid + qty > 0 (email taken) → return false
+ * - hash match + link fresh + valid + qty = 0 → confirmNewEmail → return true
+ * - hash mismatch + requestTimes undefined → throw 500
+ * - hash mismatch + requestTimes defined → incReqTimes + mail wrongHash → return false
+ * - projection cover every field resolve() read (regression: requestTimes was missing)
  *
- * emailChangeHashVerify does NOT use mongoose.startSession — it uses direct model calls.
+ * emailChangeHashVerify use NO mongoose.startSession — direct model calls.
  */
 import {
 	createEmailChangeHashVerifyMutation,
@@ -56,9 +56,9 @@ let selectedFields = ''
  * Note: The chain is findOne().select().lean(), so we need:
  *   findOneStub.returns({ select() { return { lean() { return Promise.resolve(doc) } } } })
  *
- * The projection argument is recorded rather than discarded. A stub that hands back a hand-built doc
- * regardless of what was selected cannot see a field missing from the projection — which is exactly
- * how the requestTimes omission survived a green 100% gate.
+ * Projection arg recorded, not discarded. A stub handing back a hand-built doc whatever was selected
+ * cannot see a field missing from the projection — exactly how the requestTimes omission survived a
+ * green 100% gate.
  */
 function makeFindOneChain(value: unknown) {
 	return {
@@ -224,14 +224,14 @@ describe('emailChangeHashVerify — resolve', () => {
 	// -------------------------------------------------------------------------
 
 	it('REGRESSION: projects every field resolve() reads, requestTimes included', async () => {
-		// The projection omitted account.email.requestTimes. On a .lean() read the key is then simply
-		// absent, so handleHashMismatch hit `typeof requestTimes === 'undefined'` and threw 500 on
-		// EVERY wrong hash — the 5-strike counter never advanced and the account owner was never
-		// warned. It also made a wrong hash (500) distinguishable from an unknown address (false),
-		// an oracle for "this address has an email change pending".
+		// Projection omitted account.email.requestTimes. On a .lean() read the key is then simply absent →
+		// handleHashMismatch hit `typeof requestTimes === 'undefined'` and threw 500 on EVERY wrong hash — the
+		// 5-strike counter never advanced, the account owner never warned. It also made a wrong hash (500)
+		// distinguishable from an unknown address (false): an oracle for "this address has an email change
+		// pending".
 		//
-		// Asserting the projection, not just the stubbed document, is the only thing that catches
-		// this: the stub decides what the document contains, so the document can never disagree.
+		// Asserting the projection, not just the stubbed doc, is the only thing catching this: the stub decide
+		// what the doc contain → the doc can never disagree.
 		findOneStub.returns(makeFindOneChain(fakeUser({ hash: 'correctHash' })))
 		countDocumentsStub.returns(makeCountQuery(0))
 

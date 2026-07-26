@@ -1,11 +1,11 @@
 /**
  * Tests for lib/access/createVerifyEmailFlow.mts
  *
- * Same contract as createResetPwdFlow: the whole chain is driven against a model whose layout shares
- * no field path with UserBase, and every read, projection and write is asserted against the map.
+ * Same contract as createResetPwdFlow: whole chain driven against a model sharing no
+ * field path with UserBase, every read, projection, write asserted against the map.
  *
- * The guards are wired to the same model too — a five-strike delete must hit the caller's collection,
- * not `user`.
+ * Guards wired to the same model too — a 5-strike delete must hit the caller's
+ * collection, not `user`.
  */
 import { createVerifyEmailFlow } from '../../../dist/lib/access/createVerifyEmailFlow.mjs'
 import { ALWAYS_MAIL } from '@lib/access/createMailThrottle.mjs'
@@ -19,7 +19,7 @@ import { fakeVerifyEmailMailer } from '../../helpers/fakeVerifyEmailMailer.mjs'
 const EMAIL = 'user@example.com'
 const HASH = 'the-stored-verify-hash'
 
-/** A layout with no field in common with UserBase, and one container path to clear. */
+/** Layout with no field in common with UserBase + 1 container path to clear. */
 const PATHS = {
 	email: 'mail',
 	valid: 'verified',
@@ -57,7 +57,7 @@ function makeModel(doc: unknown, qty = 0) {
 	} as never
 }
 
-/** The stored document, in the custom layout. */
+/** Stored doc, custom layout. */
 function makeDoc(overrides: Record<string, unknown> = {}) {
 	return {
 		_id: new Types.ObjectId(),
@@ -137,7 +137,7 @@ describe('createVerifyEmailFlow', () => {
 			)
 
 			const [, update] = model.updateOne.firstCall.args
-			// the container is unset, not its members
+			// container unset, not its members
 			expect(update).to.deep.equal({ $set: { verified: true }, $unset: { verification: '' } })
 			expect(sendWelcome.calledOnceWithExactly(EMAIL)).to.equal(true)
 			expect(redirects).to.deep.equal(['/x/registration-done'])
@@ -190,7 +190,7 @@ describe('createVerifyEmailFlow', () => {
 			await flow.routerVerifyEmail()(ctx)
 
 			expect(model.updateOne.called).to.equal(false)
-			// same answer as every other rejection — the router never says which one it was
+			// same answer as every other rejection — router never say which one
 			expect(redirects).to.deep.equal(['/x/email-check'])
 		})
 	})
@@ -233,9 +233,9 @@ describe('createVerifyEmailFlow', () => {
 	})
 
 	describe('onAbandon', () => {
-		// The two abandonment guards used to hard-code deleteOne. For a row other collections hang off,
-		// that is data loss with no cascade to undo it — and the returned flow member could not change it,
-		// because the guards had already closed over the internal writer.
+		// Both abandonment guards hard-coded deleteOne. For a row other collections hang off
+		// that is data loss, no cascade to undo it — and the returned flow member could not
+		// change it: the guards had already closed over the internal writer.
 		const staleDoc = () => makeDoc({ verification: { hash: HASH, dateLastReq: new Date(), requestTimes: 5 } })
 
 		it("defaults to 'delete', unchanged from before the option existed", async () => {
@@ -262,7 +262,7 @@ describe('createVerifyEmailFlow', () => {
 			expect(model.deleteOne.called).to.equal(false)
 			expect(model.updateOne.calledOnce).to.equal(true)
 			expect(model.updateOne.firstCall.args[1]).to.deep.equal({ $set: { 'flags.deleted': true } })
-			// disposal policy never decides whether the link is honoured
+			// disposal policy never decide whether the link is honoured
 			expect(redirects).to.deep.equal(['/x/email-check'])
 		})
 
@@ -310,8 +310,8 @@ describe('createVerifyEmailFlow', () => {
 			expect(custom.calledOnceWithExactly(EMAIL)).to.equal(true)
 			expect(model.deleteOne.called).to.equal(false)
 			expect(model.updateOne.called).to.equal(false)
-			// The returned member is the same writer the guards hold, so it reports the policy in force
-			// instead of being a second, ignored copy.
+			// Returned member = the same writer the guards hold → report the policy in force,
+			// not a second ignored copy.
 			expect(flow.deleteUserByEmail).to.equal(custom)
 		})
 
@@ -321,7 +321,7 @@ describe('createVerifyEmailFlow', () => {
 
 			await flow.deleteUserByEmail(EMAIL)
 
-			// soft-delete, exactly like the guard path above — not the hard delete of the old internal writer
+			// soft-delete, like the guard path above — not the hard delete of the old internal writer
 			expect(model.deleteOne.called).to.equal(false)
 			expect(model.updateOne.calledOnceWith({ mail: EMAIL })).to.equal(true)
 		})
@@ -336,7 +336,7 @@ describe('createVerifyEmailFlow', () => {
 			await flow.routerVerifyEmail()(makeCtx().ctx)
 
 			expect(mailer.emailAlreadyValid.calledOnceWithExactly(EMAIL)).to.equal(true)
-			// nothing reached the real client
+			// nothing reach the real client
 			expect(sendWelcome.called).to.equal(false)
 		})
 
@@ -347,8 +347,8 @@ describe('createVerifyEmailFlow', () => {
 			await flow.routerVerifyEmail()(makeCtx().ctx)
 			await flow.routerVerifyEmail()(makeCtx().ctx)
 
-			// Same address, same template, same window: the second GET must not mail the account owner
-			// again. Unauthenticated callers used to get one mail per request, unbounded.
+			// Same address, same template, same window: the 2nd GET must not mail the owner
+			// again. Unauthenticated callers used to get 1 mail per request, unbounded.
 			expect(alreadyValid.calledOnce).to.equal(true)
 		})
 

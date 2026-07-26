@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
 #
-# Rule 0 enforcement — every CLAUDE.md in this repo is written in caveman ultra
-# style, and that spec lives in the `caveman:caveman` skill. This script is the
-# machine half of the rule: the documented version in CLAUDE.md is advisory,
-# this one blocks.
+# Caveman ultra enforcement. Two kinds of file in this repo are written in
+# caveman ultra style, and that spec lives in the `caveman:caveman` skill:
+#
+#   - every CLAUDE.md, root and nested            (root CLAUDE.md, Rule 0)
+#   - every comment inside test/**/*.mts          (test/CLAUDE.md, comment style)
+#
+# This script is the machine half of both rules: the documented versions are
+# advisory, this one blocks.
 #
 # Wired as two PreToolUse hooks in .claude/settings.json:
 #
 #   mark   <- matcher "Skill"        records that caveman:caveman was invoked
-#   check  <- matcher "Write|Edit"   blocks CLAUDE.md writes without that record
+#   check  <- matcher "Write|Edit"   blocks writes to either target without
+#                                    that record
 #
 # Reads the hook payload as JSON on stdin, writes a PreToolUse decision as JSON
 # on stdout. Fails closed: any prerequisite it cannot verify is a deny, never a
@@ -70,7 +75,19 @@ esac
 
 file_path="$(json_get '.tool_input.file_path')"
 [ -n "$file_path" ] || exit 0
-[ "$(basename -- "$file_path")" = 'CLAUDE.md' ] || exit 0
+
+# Which rule covers this path? Anything else is none of our business.
+if [ "$(basename -- "$file_path")" = 'CLAUDE.md' ]; then
+	target='CLAUDE.md'
+	rule='Rule 0 (root CLAUDE.md): every CLAUDE.md in this repo is written in caveman ultra style'
+	retry_hint='read the level table and the Auto-Clarity section out of the skill, then retry this write'
+elif printf '%s' "$file_path" | grep -qE '(^|/)test/.*\.mts$'; then
+	target='test file'
+	rule='the comment style rule (test/CLAUDE.md): every comment inside test/**/*.mts is written in caveman ultra style'
+	retry_hint="read the level table and the Auto-Clarity section out of the skill, then retry this write. Comments only — describe()/it() description strings stay normal prose, and directive comments (eslint-disable, @ts-expect-error, c8 ignore, prettier, istanbul) are copied verbatim"
+else
+	exit 0
+fi
 
 # Owner escape hatch. Narrower than disabling the hook: it leaves the mark half
 # and every other gate in place.
@@ -89,17 +106,17 @@ done
 
 if [ "$skill_installed" -eq 0 ]; then
 	deny \
-		"Blocked by Rule 0: the caveman:caveman skill is not installed. Every CLAUDE.md in this repo must be written in caveman ultra style, and that spec lives in the skill — do not approximate it from memory. Tell the developer to install it with:
+		"Blocked by $rule. The caveman:caveman skill is not installed, and that spec lives in the skill — do not approximate it from memory. Tell the developer to install it with:
     /plugin marketplace add JuliusBrussee/caveman
     /plugin install caveman@caveman
 Nothing was written." \
-		"Blocked: caveman:caveman skill missing, CLAUDE.md not written. Install: /plugin marketplace add JuliusBrussee/caveman then /plugin install caveman@caveman"
+		"Blocked: caveman:caveman skill missing, $target not written. Install: /plugin marketplace add JuliusBrussee/caveman then /plugin install caveman@caveman"
 fi
 
 if [ ! -f "$marker" ]; then
 	deny \
-		"Blocked by Rule 0: caveman:caveman has not been invoked in this session. Run Skill(skill: \"caveman:caveman\", args: \"ultra\") first, read the level table and the Auto-Clarity section out of the skill, then retry this write. Nothing was written." \
-		"Blocked: CLAUDE.md write without invoking the caveman:caveman skill first (Rule 0)."
+		"Blocked by $rule. caveman:caveman has not been invoked in this session. Run Skill(skill: \"caveman:caveman\", args: \"ultra\") first, $retry_hint. Nothing was written." \
+		"Blocked: $target written without invoking the caveman:caveman skill first."
 fi
 
 exit 0

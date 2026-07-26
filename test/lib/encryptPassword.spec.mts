@@ -16,10 +16,10 @@ describe('encryptPassword', () => {
 	})
 
 	it('uses the configured cost factor of 14', () => {
-		// Asserting only the $2b$ prefix leaves the work factor unchecked: dropping
-		// SALT_ROUNDS to bcrypt's floor of 4 keeps the format valid and round-tripping
-		// correct, while making offline cracking of leaked hashes orders of magnitude
-		// cheaper. The cost is encoded in the hash itself, so assert it there.
+		// Assert the $2b$ prefix only → work factor unchecked: SALT_ROUNDS dropped to
+		// bcrypt floor 4 keep format valid + round-trip correct, while making offline
+		// cracking of leaked hashes orders of magnitude cheaper. Cost is encoded in the
+		// hash itself → assert it there.
 		expect(hashed.split('$')[2]).to.equal('14')
 		expect(SALT_ROUNDS).to.equal(14)
 	})

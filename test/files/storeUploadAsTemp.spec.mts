@@ -5,13 +5,13 @@ import { writeFileSync } from 'node:fs'
 import os from 'os'
 import path from 'path'
 
-// storeUploadAsTemp writes to /tmp (UPLOAD_TEMP_DIRECTORY_URL = '/tmp').
-// We use real streams and real /tmp — clean up in afterEach.
+// storeUploadAsTemp write to /tmp (UPLOAD_TEMP_DIRECTORY_URL = '/tmp'). Real streams + real /tmp →
+// cleanup in afterEach.
 
 const createdFiles: string[] = []
 
 function makeUploadFromBuffer(buf: Buffer, filename: string) {
-	// Write to a real temp file so createReadStream works
+	// real temp file → createReadStream work
 	const srcPath = path.join(os.tmpdir(), `test-src-${Date.now()}.bin`)
 	writeFileSync(srcPath, buf)
 	createdFiles.push(srcPath)
@@ -62,11 +62,9 @@ describe('storeUploadAsTemp', () => {
 	})
 
 	it('rejects an oversize upload and removes the partial file', async () => {
-		// Previously this test documented the opposite: destroy() emits 'close', which
-		// resolved the Promise before the unlink callback's reject() could run, so an
-		// oversize upload reported SUCCESS while returning a path that had just been
-		// deleted. The rejection is now issued from the 'close' handler itself, after
-		// cleanup, so there is no race to lose.
+		// This test used to document the opposite: destroy() emit 'close' → Promise resolved before the unlink
+		// callback's reject() could run → an oversize upload reported SUCCESS while returning a path just deleted.
+		// Rejection now issued from the 'close' handler itself, after cleanup → no race to lose.
 		const { storeUploadAsTemp } = await import('../../dist/files/storeUploadAsTemp.mjs')
 		const bigBuf = Buffer.alloc(1024 * 100) // 100 KB against a 1-byte limit
 		const upload = makeUploadFromBuffer(bigBuf, 'big.jpg')
@@ -85,12 +83,10 @@ describe('storeUploadAsTemp', () => {
 	})
 
 	it('rejects with the underlying error when the read stream fails', async () => {
-		// Same defect as the size-limit path: writeStream.on('error') unlinked and then
-		// rejected from the unlink callback, but 'close' had already resolved the
-		// Promise — so a FAILED upload reported success. The error is now recorded and
-		// the single settle point in 'close' rejects with it. The old code also rejected
-		// with 'File size exceeds the limit.' regardless of cause; the real error is
-		// propagated now.
+		// Same defect as the size-limit path: writeStream.on('error') unlinked then rejected from the unlink
+		// callback, but 'close' had already resolved the Promise → a FAILED upload reported success. Error now
+		// recorded, and the single settle point in 'close' reject with it. Old code also rejected with
+		// 'File size exceeds the limit.' whatever the cause; the real error propagate now.
 		const { storeUploadAsTemp } = await import('../../dist/files/storeUploadAsTemp.mjs')
 		const { Readable } = await import('node:stream')
 		const errStream = new Readable({

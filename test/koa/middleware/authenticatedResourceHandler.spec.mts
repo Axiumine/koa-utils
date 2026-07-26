@@ -43,7 +43,7 @@ describe('authenticatedResourceHandler', () => {
 	})
 
 	it('throws 499 Missing/malformed when the "access:" suffix is not a v4 uuid', async () => {
-		// The prefix check alone leaves the rest of the Redis key client-controlled.
+		// Prefix check alone → rest of the Redis key still client-controlled.
 		const hGetAll = sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
 		const mw = authenticatedResourceHandler()
 		const ctx = {
@@ -56,7 +56,7 @@ describe('authenticatedResourceHandler', () => {
 			'Token Required',
 			'Missing/malformed/invalid token.'
 		)
-		// the malformed token never reaches Redis
+		// malformed token never reach Redis
 		expect(hGetAll.callCount).to.equal(0)
 	})
 
@@ -75,7 +75,7 @@ describe('authenticatedResourceHandler', () => {
 
 	it('sets ctx.state.user.id to the ObjectId of the session actually found in Redis', async () => {
 		// Downstream resolvers scope every read/write to ctx.state.user.id. Only .email
-		// was asserted, so the id could be detached from the real session unnoticed.
+		// asserted → id could detach from the real session unnoticed.
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({ id: '507f1f77bcf86cd799439011', email: 'test@test.com' })
 		const mw = authenticatedResourceHandler()
 		const ctx = {
@@ -149,9 +149,9 @@ describe('authenticatedResourceHandler', () => {
 	})
 
 	it('throws 498 for header "undefined" when INTROSPECTION_CODE is unset', async () => {
-		// The check used to be `header !== `${process.env.INTROSPECTION_CODE}``, which compares
-		// against the string 'undefined' once the variable is unset. Any caller could send that
-		// value and walk past the expired/deleted-token rejection with no secret whatsoever.
+		// Check was `header !== `${process.env.INTROSPECTION_CODE}`` → compares against
+		// string 'undefined' once the var is unset. Any caller send that value → walk past
+		// the expired/deleted-token rejection with no secret at all.
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
 		const savedCode = saveIntrospectionCode()
 		delete process.env.INTROSPECTION_CODE

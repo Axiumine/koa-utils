@@ -4,9 +4,9 @@
  * Chain: checkUserLoginAuthorization → infoUserForLogin (UserBase.findOne) → _finalizeLoginCheck
  *        (bcrypt.compare + SocketLabsLib.accountDisabled)
  *
- * Exercised directly here (not only transitively through login4Ever/loginRememberme specs) so an
- * inverted branch inside infoUserForLogin or _finalizeLoginCheck cannot hide behind the full
- * mutation's session/redis/token wiring.
+ * Exercised directly here, not only transitively via login4Ever/loginRememberme specs → an inverted branch
+ * inside infoUserForLogin or _finalizeLoginCheck cannot hide behind the full mutation's session/redis/token
+ * wiring.
  */
 import { checkUserLoginAuthorization } from '@private/graphQL/schema/mutations/checkUserLoginAuthorization.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
