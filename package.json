@@ -1,6 +1,6 @@
 {
 	"name": "@axiumine/koa-utils",
-	"version": "5.7.1",
+	"version": "5.7.2",
 	"description": "Koa Utils",
 	"type": "module",
 	"repository": {
@@ -659,13 +659,13 @@
 		"dotenv": "<18",
 		"file-type": "<23",
 		"fs-extra": "<12",
-		"graphql": "<17",
+		"graphql": "<18",
 		"keygrip": "^1.1.0",
 		"koa": "<4",
 		"mariadb": "<4",
 		"mongoose": "<10",
 		"pg": "<9",
-		"redis": "<6",
+		"redis": "<7",
 		"reflect-metadata": "<0.3",
 		"sequelize": "<7",
 		"sequelize-typescript": "<3",

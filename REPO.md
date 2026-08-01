@@ -213,7 +213,7 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 
 - License: `GPL-3.0-or-later`.
 - Repo: <https://github.com/Axiumine/koa-utils>.
-- Current version: `5.7.1` (`package.json`). Bump version → `yarn upload` → token in `.npmrc` is required.
+- Current version: `5.7.2` (`package.json`). Bump version → `yarn upload` → token in `.npmrc` is required.
 - **Publishing:** `yarn upload` pins `--registry=https://registry.npmjs.org/` on purpose. Yarn 1 exports the registry from
   `.yarnrc` to child processes as `npm_config_registry`, so a bare `npm publish` run through `yarn` targets the local
   Verdaccio mirror instead of npmjs. On a maintainer machine that fails with `ENEEDAUTH` against `yarnproxy.gio.lan`;
@@ -223,8 +223,12 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
   `tsconfig.json` sets `"inlineSources": true`, so every emitted map embeds the complete original `.mts` as
   `sourcesContent`, `src/private/**` included. The build still writes them, so local `--enable-source-maps` debugging
   is unaffected; they just do not ship. `npm pack --dry-run` must report zero `.map` files.
-- `peerDependencies` covers every runtime lib, 19 entries, each on the caret range this package is built and tested
-  against. Library declares zero `dependencies` — consumer must install peers. Seven are required
+- `peerDependencies` covers every runtime lib, 19 entries. Each carries an upper bound and no floor (`"redis": "<7"`,
+  `"mongoose": "<10"`); `keygrip` keeps its own `^1.1.0`. A floor would assert a minimum never tested here and would
+  warn consumers whose install worked yesterday, so ranges only ever close the top end. Set the bound at the major
+  above whichever is higher, the version this repo builds against or the current release on npm — deriving it from
+  `devDependencies` alone shipped a bound one major too low for `graphql` and `redis` in 5.7.1.
+  Library declares zero `dependencies` — consumer must install peers. Seven are required
   (`@node-rs/bcrypt`, `@sentry/node`, `dotenv`, `graphql`, `mongoose`, `redis`, `uuid`); the other twelve
   (`@socketlabs/email`, `clamscan`, `file-type`, `fs-extra`, `keygrip`, `koa`, `mariadb`, `pg`, `reflect-metadata`,
   `sequelize`, `sequelize-typescript`, `sharp`) are `optional` in `peerDependenciesMeta` because no barrel exists and
