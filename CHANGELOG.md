@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.7.1 — 2026-08-01
+
+Packaging metadata only. No file under `src/` changed and the published `dist/` is unchanged, so no runtime behaviour moves.
+
+Every peer dependency was declared hard, with an empty `peerDependenciesMeta`. A service that imports only the auth
+mutations was therefore told it had unmet peers for `sharp`, `clamscan`, `pg` and the Sequelize stack — packages its
+import graph never reaches — and on npm 7+, which installs missing peers instead of warning about them, that same
+declaration pulls all of it into `node_modules`. The warnings were noise, and noise is what makes a consumer stop
+reading the real ones.
+
+### Fixed
+
+- Twelve of the peers are now `optional` in `peerDependenciesMeta`: `@socketlabs/email`, `clamscan`, `file-type`,
+  `fs-extra`, `keygrip`, `koa`, `mariadb`, `pg`, `reflect-metadata`, `sequelize`, `sequelize-typescript` and `sharp`.
+  There is no barrel export — the `exports` map has 148 explicit subpaths and no `"."` — so each of these is reachable
+  only through subpaths the consumer opts into by importing them. Of the 148, 104 load a package at all; the other 44
+  are type-only declarations or dependency-free logic. `sharp` is reached by 4 of the 104, `pg` and
+  `sequelize-typescript` by 1 each; `file-type` is loaded with `await import()` and reached by none statically.
+  `keygrip` and `koa` survive only in the `.d.mts` declarations, erased from every emitted `.mjs`.
+
+  `@node-rs/bcrypt`, `@sentry/node`, `dotenv`, `graphql`, `mongoose`, `redis` and `uuid` stay required. Strictly, no
+  peer is reached by every dependency-bearing subpath — `graphql` has the widest reach at 71 of 104 — so "required"
+  here means the auth core reaches them, not that importing any subpath does. npm resolves peers per package, not per
+  subpath, so which seven are hard is a policy call about what a real consumer of this library installs anyway.
+
+  Optionality is a claim about the load path. It stays true only while the dependency sits behind an opt-in subpath:
+  adding a root `"."` barrel, or importing one of the twelve from a module every subpath reaches, silently converts it
+  back into a hard requirement for everyone. `.d.mts` files carry the same boundary — a consumer importing
+  `dataSources/PostgreSQL` under `skipLibCheck: false` still needs `pg` installed to typecheck.
+
+- Every version range was `*` except `keygrip`. `sharp` 0.34 → 1.0 would have installed silently and failed at runtime
+  with no warning at all, and the same held for every other peer's next major. Each range now carries an upper bound at
+  the major after the one this package is built against — `"sharp": "<1"`, `"mongoose": "<10"`, `"redis": "<6"` — and
+  `keygrip` keeps the `^1.1.0` it already had.
+
+  The bound is deliberately one-sided. `*` was unbounded in both directions and only the upper end ever caused the
+  defect; adding a floor would assert a minimum this package has never tested and would hand a working consumer a
+  `has incorrect peer dependency` warning, or an npm 7+ `ERESOLVE` failure, for a combination that was fine yesterday.
+  No consumer on any currently published major sees a new warning from this release.
+
+### Removed
+
+- Source maps no longer ship in the npm tarball. `files: ["dist"]` published every `.mjs.map` the build emits, and
+  `tsconfig.json` sets `"inlineSources": true`, so each map carried the complete original `.mts` — comments, `@todo`s
+  and all — as `sourcesContent`. That was 190 files and 363 kB, a third of the unpacked payload, and it published the
+  source of `src/private/**`, which is deliberately absent from the `exports` map. `files` now negates
+  `dist/**/*.mjs.map` and `dist/**/*.js.map`; the tarball drops from 573 files to 383.
+
+  The build is unchanged, so `yarn build` still writes maps into `dist/` with sources inlined and local debugging with
+  `--enable-source-maps` keeps working. Only the publish surface narrows.
+
+### Added
+
+- `koa` and `mariadb` joined `peerDependencies`, both optional. Both were already used and neither was declared:
+  `koa`'s `Next` type appears in six modules under `src/koa/` and reaches the emitted declarations, and
+  `dataSources/MariaDB` configures Sequelize with `dialect: 'mariadb'`, which loads the driver package from the
+  consuming project at connect time.
+
 ## 5.7.0 — 2026-07-26
 
 The email-verification chain, reported from a consumer binding `createVerifyEmailFlow` to a non-`UserBase` model, plus

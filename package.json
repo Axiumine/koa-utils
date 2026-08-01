@@ -1,6 +1,6 @@
 {
 	"name": "@axiumine/koa-utils",
-	"version": "5.7.0",
+	"version": "5.7.1",
 	"description": "Koa Utils",
 	"type": "module",
 	"repository": {
@@ -646,27 +646,69 @@
 		}
 	},
 	"files": [
-		"dist"
+		"dist",
+		"!dist/**/*.mjs.map",
+		"!dist/**/*.js.map"
 	],
 	"dependencies": {},
 	"peerDependencies": {
-		"@node-rs/bcrypt": "*",
-		"@sentry/node": "*",
-		"@socketlabs/email": "*",
-		"clamscan": "*",
-		"dotenv": "*",
-		"file-type": "*",
-		"fs-extra": "*",
-		"graphql": "*",
+		"@node-rs/bcrypt": "<2",
+		"@sentry/node": "<11",
+		"@socketlabs/email": "<2",
+		"clamscan": "<3",
+		"dotenv": "<18",
+		"file-type": "<23",
+		"fs-extra": "<12",
+		"graphql": "<17",
 		"keygrip": "^1.1.0",
-		"mongoose": "*",
-		"pg": "*",
-		"redis": "*",
-		"reflect-metadata": "*",
-		"sequelize": "*",
-		"sequelize-typescript": "*",
-		"sharp": "*",
-		"uuid": "*"
+		"koa": "<4",
+		"mariadb": "<4",
+		"mongoose": "<10",
+		"pg": "<9",
+		"redis": "<6",
+		"reflect-metadata": "<0.3",
+		"sequelize": "<7",
+		"sequelize-typescript": "<3",
+		"sharp": "<1",
+		"uuid": "<15"
+	},
+	"peerDependenciesMeta": {
+		"@socketlabs/email": {
+			"optional": true
+		},
+		"clamscan": {
+			"optional": true
+		},
+		"file-type": {
+			"optional": true
+		},
+		"fs-extra": {
+			"optional": true
+		},
+		"keygrip": {
+			"optional": true
+		},
+		"koa": {
+			"optional": true
+		},
+		"mariadb": {
+			"optional": true
+		},
+		"pg": {
+			"optional": true
+		},
+		"reflect-metadata": {
+			"optional": true
+		},
+		"sequelize": {
+			"optional": true
+		},
+		"sequelize-typescript": {
+			"optional": true
+		},
+		"sharp": {
+			"optional": true
+		}
 	},
 	"devDependencies": {
 		"@axiumine/eslint-config-be": "^2.0.1",
