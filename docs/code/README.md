@@ -1,6 +1,6 @@
 # @axiumine/koa-utils — Code Reference
 
-`@axiumine/koa-utils` is a TypeScript utility library for Koa + GraphQL backends: auth (signup/login/refresh/logout) mutations and middleware, Mongoose models, GraphQL error helpers, file-upload pipeline, transactional email, and low-level DB/Redis helpers. It ships ESM-only (`.mjs` / `.d.mts`) and targets Node `^24.14.0`. Current version: **5.7.0**.
+`@axiumine/koa-utils` is a TypeScript utility library for Koa + GraphQL backends: auth (signup/login/refresh/logout) mutations and middleware, Mongoose models, GraphQL error helpers, file-upload pipeline, transactional email, and low-level DB/Redis helpers. It ships ESM-only (`.mjs` / `.d.mts`) and targets Node `^24.14.0`. Current version: **5.7.1**.
 
 ## Install
 
@@ -9,6 +9,8 @@ npm i @axiumine/koa-utils
 ```
 
 All dependencies are declared as `peerDependencies` — the library itself ships zero runtime `dependencies`, so the consuming project controls the installed versions of Koa, Mongoose, GraphQL, Redis, etc.
+
+Seven of them are required (`@node-rs/bcrypt`, `@sentry/node`, `dotenv`, `graphql`, `mongoose`, `redis`, `uuid`); the other twelve are marked `optional` in `peerDependenciesMeta` because they sit behind subpaths you opt into. [README.md](../../README.md#install) maps each optional peer to the subpaths that need it.
 
 ## Importing
 

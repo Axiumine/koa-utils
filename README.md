@@ -16,13 +16,32 @@ yarn add @axiumine/koa-utils
 npm install @axiumine/koa-utils
 ```
 
-All runtime dependencies are declared as **peer dependencies**. Install the ones you use:
+All runtime dependencies are declared as **peer dependencies** — the package ships zero `dependencies`, so the consuming project owns every installed version.
+
+Seven are required. The auth core — sign-up, the login variants, refresh, logout, the middleware, the models and the error helpers — reaches all of them:
 
 ```bash
-yarn add @node-rs/bcrypt @sentry/node @socketlabs/email clamscan dotenv \
-  file-type fs-extra graphql keygrip mongoose pg redis \
-  reflect-metadata sequelize sequelize-typescript sharp uuid
+yarn add @node-rs/bcrypt @sentry/node dotenv graphql mongoose redis uuid
 ```
+
+The remaining twelve are declared **optional** in `peerDependenciesMeta`. There is no barrel export: each of these is reachable only through subpaths you opt into by importing them, so a project that never imports the subpath never loads the package, and npm/yarn will not warn about the missing peer. Install the row when you import the subpath:
+
+| Optional peer | Required by |
+|---|---|
+| `@socketlabs/email` | `email/SocketLabsLib`, `lib/access/createResetPwdFlow`, `lib/access/createVerifyEmailFlow`, `lib/access/verifyEmailMailer`, `koa/router/verifyEmail`, and the `signUp` / `login*` / `resetPwd` / `updatePassword` / `emailChangeHashVerify` mutations |
+| `clamscan` | `files/scanVirus`, `files/uploadTempImage`, `files/uploadTempPdf` |
+| `file-type` | `files/validateMimeType`, `files/validateMimeTypeImages`, `files/validateJpgPngMimeType`, `files/uploadTempImage`, `files/uploadTempPdf` — loaded lazily, at first call |
+| `fs-extra` | the `files/move*` and `files/validate*` helpers, `files/uploadTempImage`, `files/uploadTempPdf` |
+| `keygrip` | `koa/middleware/authenticatedAuthorizationHandler`, `.../verifySignedRefreshToken`, `koa/middleware/authenticatedLogoutHandler` — types only; the `Keygrip` instance is yours to construct and pass in |
+| `koa` | the `koa/middleware/*` handlers, `koa/tdwKoaErrorHandler`, `koa/logRequestToDb` — types only (`Next`) |
+| `mariadb` | `dataSources/MariaDB` — Sequelize connects with `dialect: 'mariadb'` and loads the driver itself |
+| `pg` | `dataSources/PostgreSQL` |
+| `reflect-metadata` | `dataSources/MariaDB` — required by `sequelize-typescript`, never imported by this package |
+| `sequelize` | `dataSources/MariaDB` — peer of `sequelize-typescript` |
+| `sequelize-typescript` | `dataSources/MariaDB` |
+| `sharp` | `files/reEncodeToJpeg`, `files/reEncodeToPng`, `files/reEncodeToWebp`, `files/uploadTempImage` |
+
+Optionality is a promise about the load path, not a way to silence the warning: it holds only while the dependency stays behind a subpath the consumer opts into. Adding a root `"."` barrel, or importing one of these from a module that every subpath reaches, breaks it for every consumer at once.
 
 ## Usage
 
