@@ -172,6 +172,14 @@ The shared Redis handle, chosen at module load time based on `REDIS_IS_CLUSTER`:
 
 Use `RedisConnect` / `RedisDisconnect` to manage its lifecycle.
 
+The signature above is the readable form. The export carries no type annotation, so the emitted
+`dist/dataSources/Redis.d.mts` publishes whatever `createCluster()` / `createClient()` infer — currently
+`RedisClusterType<{}, {}, {}, 3, {}> | RedisClientType<{}, {}, {}, 3, {}>`, where the `3` is `redis@6`'s RESP protocol
+default (`redis@5` defaulted to RESP 2). Nothing in this package or in any known consumer annotates a variable against
+that type — the handle is imported and its methods are called — so the generic is invisible in practice. It is still
+published surface: a consumer that writes `const c: RedisClientType<..., 2, ...> = redisClient` would fail to compile,
+and the parameter moves on its own whenever the `redis` major moves, without any source change here.
+
 **Notes:** All Redis key conventions elsewhere in this package assume `redisClient` is connected (e.g. keys prefixed with `${process.env.REDIS_KEY}`, refresh tokens under `${REDIS_KEY}refresh:<uuid>`, access tokens under `${REDIS_KEY}access:<uuid>`).
 
 ## `RedisConnect`
