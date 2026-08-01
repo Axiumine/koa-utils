@@ -228,6 +228,11 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
   warn consumers whose install worked yesterday, so ranges only ever close the top end. Set the bound at the major
   above whichever is higher, the version this repo builds against or the current release on npm — deriving it from
   `devDependencies` alone shipped a bound one major too low for `graphql` and `redis` in 5.7.1.
+  The two ceilings that sit a major above the pinned `devDependencies` are build-verified, not asserted:
+  `graphql@17.0.2` and `redis@6.2.0` were each swapped into `node_modules` and put through `yarn test:coverage`
+  (786 passing, 100% on all four metrics, `declaration: true` + `skipLibCheck: false`) before the range was written.
+  `redis` stayed swapped in and is now the pinned devDependency; `graphql` was restored to `16.x`, which is what every
+  consumer runs — `@apollo/server@5` peers `^16.11.0` and no Apollo release supports 17 yet.
   Library declares zero `dependencies` — consumer must install peers. Seven are required
   (`@node-rs/bcrypt`, `@sentry/node`, `dotenv`, `graphql`, `mongoose`, `redis`, `uuid`); the other twelve
   (`@socketlabs/email`, `clamscan`, `file-type`, `fs-extra`, `keygrip`, `koa`, `mariadb`, `pg`, `reflect-metadata`,
