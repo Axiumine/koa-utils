@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.7.2 — 2026-08-01
+
+Packaging metadata only, as 5.7.1 was. No file under `src/` changed and the published `dist/` is unchanged.
+
+### Fixed
+
+- The `graphql` and `redis` peer ranges introduced in 5.7.1 excluded the current release of both packages. They were
+  written as `"graphql": "<17"` and `"redis": "<6"`, but `graphql` is on 17.x and `redis` on 6.x on npm — the bound
+  landed one major too low in each case. Both are required peers, so a consumer already holding `graphql@17` or
+  `redis@6` got `has incorrect peer dependency` on Yarn 1 and an outright `ERESOLVE` install failure on npm 7+. The
+  ranges are now `"graphql": "<18"` and `"redis": "<7"`.
+
+  The bound is raised on evidence, not to silence the error: the package was built and its full suite run against
+  `graphql@17.0.2` and `redis@6.2.0` — 786 tests passing at 100% statements, branches, functions and lines. The API
+  surface this library touches is eight type constructors from `graphql` and `createClient` / `createCluster` from
+  `redis`, and none of it moved across either major.
+
+  The mistake was deriving each upper bound from the version pinned in `devDependencies` rather than from what is
+  actually published. That reads correctly for a peer whose latest release matches the pinned major and silently
+  produces an off-by-one-major bound for every peer whose ecosystem has moved on. The other seventeen ranges were
+  re-checked against the registry and all admit their current release.
+
 ## 5.7.1 — 2026-08-01
 
 Packaging metadata only. No file under `src/` changed and the published `dist/` is unchanged, so no runtime behaviour moves.
@@ -44,6 +66,8 @@ reading the real ones.
   defect; adding a floor would assert a minimum this package has never tested and would hand a working consumer a
   `has incorrect peer dependency` warning, or an npm 7+ `ERESOLVE` failure, for a combination that was fine yesterday.
   No consumer on any currently published major sees a new warning from this release.
+
+  That last sentence was wrong for `graphql` and `redis`, whose bounds were set a major too low. Corrected in 5.7.2.
 
 ### Removed
 
