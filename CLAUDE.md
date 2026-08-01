@@ -111,6 +111,7 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - No import from `src/private/**` outside package. No `private/*` in `package.json` `exports`.
 - No `yarn upload` / `npm publish` / `npm deprecate` unless user explicitly ask. Outward-facing, consumer-visible, owner call.
 - No destructive git (`reset --hard`, `clean -fd`, force-push) without confirmation.
+- **Never commit on `main`.** Ordered sequence, full prose by Rule 0 §4. Before the first edit of a task, run `git switch -c <type>/<slug>` and commit on that branch. Merging into `main` is the owner's decision alone: never merge, fast-forward, squash or rebase onto `main` unless the owner asks for it in that message. Being checked out on `main` is not permission to commit to it, and an instruction to "commit and push" means commit the branch and push the branch. Branch name reach the merge subject → banned-word check apply to it too, see *Owner / style*.
 - Mocha = runner. No swap.
 - No lowering/deleting `.c8rc.json` thresholds or `qodana.yaml` `testCoverageThresholds` — contract, not default. No `.c8rc.json` exclude, no `/* c8 ignore */`, to green a red gate. Write test.
 - No `git commit --no-verify`, no `SKIP_QODANA=1`, no suggesting either to user as fix. Owner emergency only — CI block anyway.
