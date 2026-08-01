@@ -38,10 +38,10 @@ jobs:
         run: yarn test:coverage
 
       - name: Qodana scan
-        uses: JetBrains/qodana-action@v2026.1
+        uses: JetBrains/qodana-action@v2026.2
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
         with:
-          args: --linter,jetbrains/qodana-js:2026.1
+          args: --linter,jetbrains/qodana-js:2026.2
           pr-mode: ${{ github.event_name == 'pull_request' }}
           upload-result: true
