@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.8.0 — 2026-08-04
+
+### Added
+
+- `SocketLabsLib.sendEmailVerify` takes two new optional parameters, `linkBase` and `linkPath`, appended after `name`:
+
+  ```ts
+  sendEmailVerify(emailTo, hash, name = '', linkBase = this.linkBase, linkPath = '/check/verify-email')
+  ```
+
+  They default to the previous behaviour exactly — `linkBase` to the constructor's `APP_DOMAIN` read, `linkPath` to the
+  hardcoded `/check/verify-email` — so this is additive and no existing call site changes. `signUp`, the library's only
+  internal caller, still passes two arguments.
+
+  The reason is that every other link this class builds is fixed at construction, which is correct while a deployment has
+  a single front-end and wrong the moment a second one registers accounts through the same backend. A platform with a
+  customer site next to an operator panel has two confirmation domains and one `APP_DOMAIN`; before this change the only
+  ways to send both were a second process or mutating `process.env` between sends. Passing the base per call is the
+  smallest thing that makes both links expressible. `linkPath` comes with it because two audiences usually also mean two
+  routes on the receiving service, and a distinct path removes the ambiguity that a shared one would push onto a reverse
+  proxy.
+
+  A trailing slash on `linkBase` and a missing leading slash on `linkPath` are normalised away before the join. The
+  caller supplies configuration, not a pre-joined URL, and `//check` or `example.comcheck` are not failures worth
+  surfacing to a user in the middle of registration.
+
 ## 5.7.2 — 2026-08-01
 
 Packaging metadata only, as 5.7.1 was. No file under `src/` changed and the published `dist/` is unchanged.

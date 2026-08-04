@@ -125,6 +125,29 @@ describe('SocketLabsLib — sendEmailVerify', () => {
 		const result = await lib.sendEmailVerify('a@b.com', 'h')
 		expect(result).to.equal(false)
 	})
+
+	it('builds the link on the given linkBase and linkPath when both are supplied', async () => {
+		await lib.sendEmailVerify('u@example.com', 'h9', '', 'https://customer.example.com', '/check/verify-email-user')
+		const { textBody, htmlBody } = sentMessage(sendStub)
+		// Whole point of the 2 params: 1 process, 2 audiences, 2 domains. APP_DOMAIN must not appear.
+		expect(textBody).to.contain('https://customer.example.com/check/verify-email-user/u@example.com/h9')
+		expect(htmlBody).to.contain('https://customer.example.com/check/verify-email-user/u@example.com/h9')
+		expect(textBody).to.not.contain('https://test.example.com')
+	})
+
+	it('normalises a trailing slash on linkBase and a missing leading slash on linkPath', async () => {
+		await lib.sendEmailVerify('u@example.com', 'h9', '', 'https://customer.example.com//', 'check/verify-email-user')
+		const { textBody } = sentMessage(sendStub)
+		// Caller give config, not pre-joined URL → `//check` + `example.comcheck` both normalised, no throw.
+		expect(textBody).to.contain('https://customer.example.com/check/verify-email-user/u@example.com/h9')
+	})
+
+	it('keeps the APP_DOMAIN link when only linkBase is defaulted', async () => {
+		await lib.sendEmailVerify('u@example.com', 'h9', '', undefined, '/check/verify-email-user')
+		const { textBody } = sentMessage(sendStub)
+		// `undefined` trigger default param → this.linkBase. Pin it: every pre-5.8.0 caller rely on it.
+		expect(textBody).to.contain('https://test.example.com/check/verify-email-user/u@example.com/h9')
+	})
 })
 
 // ---------------------------------------------------------------------------

@@ -41,14 +41,24 @@ Constructs a SocketLabs client and prepares the reusable HTML wrapper used by ev
 
 **Notes:** Env vars read at construction: `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`. `alertDevTeam` additionally reads `DEV_TEAM_EMAIL` at send time. `client` is typed `any` (eslint-disabled) because `@socketlabs/email`'s `SocketLabsClient` type isn't imported directly for the field. All public send methods below are instance methods of this class, invoked as `new SocketLabsLib().sendXxx(...)`.
 
-### `sendEmailVerify(emailTo, hash, name = '')`
+### `sendEmailVerify(emailTo, hash, name = '', linkBase = APP_DOMAIN, linkPath = '/check/verify-email')`
 
 **Signature:**
 ```ts
-async sendEmailVerify(emailTo: string, hash: string, name: string = ''): Promise<boolean>
+async sendEmailVerify(
+	emailTo: string,
+	hash: string,
+	name: string = '',
+	linkBase: string = this.linkBase,
+	linkPath: string = '/check/verify-email'
+): Promise<boolean>
 ```
 
-Sends the signup verification email. Builds `link = ${linkBase}/check/verify-email/${encodeURI(emailTo)}/${hash}` and an HTML anchor via `StringObj.makeLink(link)`. Subject is `Confirm your email for ${platformName}`; body text asks the recipient to confirm registration by opening the link.
+Sends the signup verification email. Builds `link = ${linkBase}${linkPath}/${encodeURI(emailTo)}/${hash}` and an HTML anchor via `StringObj.makeLink(link)`. Subject is `Confirm your email for ${platformName}`; body text asks the recipient to confirm registration by opening the link.
+
+`linkBase` and `linkPath` were added in 5.8.0 and are the only two link segments in this class that are not fixed at construction. They exist because one backend can register accounts for more than one front-end — a customer site alongside an operator panel, say — and each audience's confirmation link has to land on that audience's own domain, which a single constructor-time `APP_DOMAIN` read cannot express. Both default to the pre-5.8.0 behaviour exactly, so existing callers are unaffected.
+
+A trailing slash on `linkBase` and a missing leading slash on `linkPath` are normalised away before the join: the caller supplies configuration, not a pre-joined URL, so `//check` and `example.comcheck` are corrected rather than surfaced to a user mid-registration.
 
 **Parameters:**
 
@@ -57,6 +67,8 @@ Sends the signup verification email. Builds `link = ${linkBase}/check/verify-ema
 | emailTo | string | Recipient address. |
 | hash | string | Verification hash embedded in the confirmation link. |
 | name | string | Optional recipient name; prefixed with a space via `fixName` and interpolated as `Hi${nameFixed},`. |
+| linkBase | string | Scheme + host the confirmation link points at. Defaults to the instance's `linkBase`, i.e. `APP_DOMAIN`. Trailing slashes are stripped. |
+| linkPath | string | Route prefix the receiving service listens on. Defaults to `/check/verify-email`. A leading slash is added when absent. |
 
 **Returns:** `Promise<boolean>` — `true` if SocketLabs accepted the send, `false` if the send call rejected (captured to Sentry inside `sendEmail`).
 

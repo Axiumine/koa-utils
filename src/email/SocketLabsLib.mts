@@ -51,11 +51,40 @@ export class SocketLabsLib {
 		this.emailHtmlFooter = htmlFooter === '' ? this.htmlFooter() : htmlFooter
 	}
 
-	async sendEmailVerify(emailTo: string, hash: string, name: string = '') {
+	/**
+	 * Send the registration confirmation link.
+	 *
+	 * `linkBase` and `linkPath` exist because one process can serve more than one audience, and the
+	 * confirmation link of each has to land on that audience's own domain. Every other link in this class
+	 * is built from `APP_DOMAIN`, read once in the constructor — which is correct while a deployment has a
+	 * single front-end, and wrong the moment a second one (a customer site next to an operator panel, say)
+	 * registers accounts through the same backend. Passing the base per call is the smallest thing that
+	 * makes both links expressible without a second process or a second env read.
+	 *
+	 * Both are optional and default to the previous behaviour exactly, so every existing caller is
+	 * unaffected. A trailing slash on `linkBase` and a missing leading slash on `linkPath` are both
+	 * normalised away — the caller supplies configuration, not a pre-joined URL, and `//check` or
+	 * `example.comcheck` are not errors worth surfacing to a user mid-registration.
+	 *
+	 * @param emailTo recipient, also embedded in the link (URI-encoded)
+	 * @param hash the activation hash stored on the account
+	 * @param name optional greeting name
+	 * @param linkBase scheme + host the link points at; defaults to `APP_DOMAIN`
+	 * @param linkPath route prefix the receiving service listens on; defaults to `/check/verify-email`
+	 */
+	async sendEmailVerify(
+		emailTo: string,
+		hash: string,
+		name: string = '',
+		linkBase: string = this.linkBase,
+		linkPath: string = '/check/verify-email'
+	) {
 		const subject = `Confirm your email for ${this.platformName}`
 		const encodedEmail = encodeURI(emailTo)
 		const nameFixed = this.fixName(name)
-		const link = `${this.linkBase}/check/verify-email/${encodedEmail}/${hash}`
+		const base = linkBase.replace(/\/+$/, '')
+		const path = `/${linkPath.replace(/^\/+/, '')}`
+		const link = `${base}${path}/${encodedEmail}/${hash}`
 		const linkHtml = this.StringObj.makeLink(link)
 
 		const messageTxt = `Hi${nameFixed}, you or someone else is registering you on ${this.platformName}.
