@@ -6,11 +6,20 @@ import { createUpdatePasswordDb } from '@private/lib/access/db/updatePasswordDb.
 import { createResetPwdMutation, TResetPwdMutation } from '../../graphQL/schema/mutations/resetPwd.mjs'
 import { createUpdatePasswordMutation, TUpdatePasswordMutation } from '../../graphQL/schema/mutations/updatePassword.mjs'
 import { IResetPwdPaths, resolveResetPwdPaths, TAccessModel } from './accessPaths.mjs'
+import { IResetPwdMailer } from './resetPwdMailer.mjs'
 
 /** What the factory needs: the account model, plus any path that differs from the default layout. */
 export interface ICreateResetPwdFlowArgs {
 	model: TAccessModel
 	paths?: Partial<IResetPwdPaths>
+	/**
+	 * Where the reset link points. Omitted means SocketLabs on `APP_DOMAIN`, the pre-existing behaviour.
+	 *
+	 * Pass `createResetPwdMailer(base, path)` when this process mails more than one audience. The flow is
+	 * already per-model, so per-flow is the right granularity: the collection and the front end that
+	 * serves it are the same choice made twice.
+	 */
+	mailer?: IResetPwdMailer
 }
 
 /** The two mutations the flow exposes, bound to the model and paths passed in. */
@@ -38,7 +47,7 @@ export interface IResetPwdFlow {
  * })
  * ```
  */
-export const createResetPwdFlow = ({ model, paths }: ICreateResetPwdFlowArgs): IResetPwdFlow => {
+export const createResetPwdFlow = ({ model, paths, mailer }: ICreateResetPwdFlowArgs): IResetPwdFlow => {
 	const resolved = resolveResetPwdPaths(paths)
 
 	const getResetPwd = createGetResetPwd(model, resolved)
@@ -46,7 +55,8 @@ export const createResetPwdFlow = ({ model, paths }: ICreateResetPwdFlowArgs): I
 	return {
 		resetPwd: createResetPwdMutation({
 			getResetPwd,
-			saveResetReq: createSaveResetReq(model, resolved)
+			saveResetReq: createSaveResetReq(model, resolved),
+			mailer
 		}),
 		updatePassword: createUpdatePasswordMutation({
 			getResetPwd,

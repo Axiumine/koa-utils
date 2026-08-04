@@ -1,6 +1,6 @@
 {
 	"name": "@axiumine/koa-utils",
-	"version": "5.8.0",
+	"version": "5.9.0",
 	"description": "Koa Utils",
 	"type": "module",
 	"repository": {
@@ -71,6 +71,10 @@
 		"./lib/access/verifyEmailMailer": {
 			"import": "./dist/lib/access/verifyEmailMailer.mjs",
 			"types": "./dist/lib/access/verifyEmailMailer.d.mts"
+		},
+		"./lib/access/resetPwdMailer": {
+			"import": "./dist/lib/access/resetPwdMailer.mjs",
+			"types": "./dist/lib/access/resetPwdMailer.d.mts"
 		},
 		"./lib/MongoDB/IOnboarding": {
 			"import": "./dist/lib/MongoDB/IOnboarding.mjs",

@@ -324,10 +324,37 @@ SendResponse {
 		}
 	}
 
-	async sendEmailReset(emailTo: string, hash: string, name: string = '') {
+	/**
+	 * Send the password-reset link.
+	 *
+	 * `linkBase` and `linkPath` are here for the same reason they are on {@link sendEmailVerify}, and the
+	 * pair has to move together: an account that confirmed its address on one front end and then resets its
+	 * password on another has been sent to two different sites for two halves of the same login. Both
+	 * default to the previous behaviour — `APP_DOMAIN` and `/x/reset` — so no existing caller changes.
+	 *
+	 * ⚠️ Unlike the verification link, this one is consumed by a **front-end route**, not by a backend
+	 * router: the page reads the email and the hash out of its own path and calls `updatePwd`. `linkPath`
+	 * therefore names a route in whatever app `linkBase` serves, and the two have to agree with that app's
+	 * router rather than with a service mount point.
+	 *
+	 * @param emailTo recipient, also embedded in the link (URI-encoded)
+	 * @param hash the reset hash stored on the account
+	 * @param name optional greeting name
+	 * @param linkBase scheme + host the link points at; defaults to `APP_DOMAIN`
+	 * @param linkPath front-end route prefix that renders the new-password form; defaults to `/x/reset`
+	 */
+	async sendEmailReset(
+		emailTo: string,
+		hash: string,
+		name: string = '',
+		linkBase: string = this.linkBase,
+		linkPath: string = '/x/reset'
+	) {
 		const subject = `Password reset for ${this.platformName}`
 		const encodedEmail = encodeURI(emailTo)
-		const link = `${this.linkBase}/x/reset/${encodedEmail}/${hash}`
+		const base = linkBase.replace(/\/+$/, '')
+		const path = `/${linkPath.replace(/^\/+/, '')}`
+		const link = `${base}${path}/${encodedEmail}/${hash}`
 		const linkHtml = this.StringObj.makeLink(link)
 		const nameFixed = this.fixName(name)
 

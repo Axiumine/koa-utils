@@ -1,4 +1,4 @@
-import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
+import { IResetPwdMailer, socketLabsResetPwdMailer } from '@lib/access/resetPwdMailer.mjs'
 import { checkEmailLen } from '@lib/checkEmailLen.mjs'
 import { EMAIL_HASH_LEN } from '@lib/Constants.mjs'
 import { DateLib } from '@lib/DateLib.mjs'
@@ -25,6 +25,15 @@ interface IPendingMail {
 export interface IResetPwdDeps {
 	getResetPwd: TGetResetPwd
 	saveResetReq: TSaveResetReq
+	/**
+	 * Where the link in the mail points. Defaults to SocketLabs on `APP_DOMAIN`, which is what every
+	 * caller got before the option existed.
+	 *
+	 * Supply one when the process serves more than one front end: the link host is the only part of this
+	 * flow that differs per audience, and it is not derivable from the account — two collections behind
+	 * one service look identical by the time the resolver has an email and a hash.
+	 */
+	mailer?: IResetPwdMailer
 }
 
 /**
@@ -121,8 +130,8 @@ export const createResetPwdMutation = (deps: IResetPwdDeps) => ({
 		const mail = pendingMail as IPendingMail | null
 		if (mail !== null) {
 			try {
-				const SocketLabsObj = new SocketLabsLib()
-				void SocketLabsObj.sendEmailReset(uEmail, mail.hash, mail.name).catch((e: unknown) => {
+				const mailer = deps.mailer ?? socketLabsResetPwdMailer
+				void mailer.sendEmailReset(uEmail, mail.hash, mail.name).catch((e: unknown) => {
 					Sentry.captureException(e)
 				})
 			} catch (e: unknown) {
