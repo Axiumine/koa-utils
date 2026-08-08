@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 5.9.0 — 2026-08-05
+
+The same problem 5.8.0 fixed for the verification link, now for the reset link. Additive throughout — every existing
+caller keeps the behaviour it had — but it takes three signatures to reach the place where the choice can be made.
+
+`sendEmailReset` built its link from `APP_DOMAIN`, read once in the `SocketLabsLib` constructor. One process serving two
+front-ends therefore mailed every account the same host: a customer asking for a password reset was sent to the operator
+panel, which cannot complete the reset. Fixing only `sendEmailVerify` would have been worse than fixing neither — an
+account that confirmed its address on one front-end and then reset its password on another would have been sent to two
+different sites for two halves of the same login.
+
+### Added
+
+- `SocketLabsLib.sendEmailReset` takes two new optional parameters, `linkBase` and `linkPath`, appended after `name`:
+
+  ```ts
+  sendEmailReset(emailTo, hash, name = '', linkBase = this.linkBase, linkPath = '/x/reset')
+  ```
+
+  Both default to the previous behaviour exactly — `linkBase` to the constructor's `APP_DOMAIN` read, `linkPath` to the
+  hardcoded `/x/reset` — and the same normalisation `sendEmailVerify` got applies: a trailing slash on `linkBase` and a
+  missing leading slash on `linkPath` are stripped before the join.
+
+  ⚠️ Unlike the verification link, this one is consumed by a **front-end route**, not by a backend router: the page reads
+  the email and the hash out of its own path and calls `updatePassword`. `linkPath` therefore names a route in whatever
+  app `linkBase` serves and has to agree with that app's router rather than with a service mount point. Nothing on the
+  server fails loudly when it does not — only a person following a dead link ever finds out.
+
+- New export `@axiumine/koa-utils/lib/access/resetPwdMailer`, carrying `IResetPwdMailer`, `socketLabsResetPwdMailer` and
+  `createResetPwdMailer(linkBase?, linkPath?)`.
+
+  `IResetPwdMailer` has one method, `sendEmailReset(email, hash, name)`, and is structural, so `SocketLabsLib` itself
+  satisfies it and a test double is an object literal. One method looks like ceremony next to `IVerifyEmailMailer`'s six
+  and is not: this is the flow's only message. There is deliberately no throttle wrapper to match `throttleMailer` —
+  `resetPwd` already enforces a 10-minute per-account throttle before it reaches the send, and the amplification the
+  verify-email debounce exists for arrives through an unauthenticated GET this flow has no equivalent of.
+
+  Both arguments of `createResetPwdMailer` are optional so a caller can pass `process.env.SOMETHING` straight through: an
+  unset variable arrives as `undefined` and the default takes over, whereas normalising it to `''` at the call site would
+  build a link with no host at all.
+
+- `createResetPwdMutation` takes an optional `mailer` in `IResetPwdDeps`, defaulting to `socketLabsResetPwdMailer`, and
+  `createResetPwdFlow` takes an optional `mailer` in `ICreateResetPwdFlowArgs` and forwards it.
+
+  The host is not derivable inside the resolver — by the time `resetPwd` holds an email and a hash, two collections
+  behind one service look identical, and nothing in the account says which front-end it belongs to. So the choice moves
+  up to where the collection is already chosen, through the same seam `createVerifyEmailFlow` already exposes for its own
+  notifications. Per-flow is the right granularity: the collection and the front-end that serves it are the same choice
+  made twice.
+
+  ```ts
+  const customer = createResetPwdFlow({
+  	model: Customer,
+  	mailer: createResetPwdMailer('https://shop.example.com', '/account/new-password')
+  })
+  ```
+
+  `updatePassword` is untouched — its confirmation mail carries no link.
+
+- `deploy-local.sh`, maintainer tooling rather than part of the package. It builds, then rsyncs `dist/` into every
+  consumer's `node_modules/@axiumine/koa-utils` inside one workspace, so an unpublished version can be exercised against
+  the real services first. `npm publish` is a one-way door; this is not a release step.
+
 ## 5.8.0 — 2026-08-04
 
 ### Added

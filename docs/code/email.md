@@ -289,14 +289,24 @@ Legacy password-reset confirmation email. Subject: `` Password change confirmati
 
 **Returns:** `Promise<boolean>` — the `sendTemplate` result on success, or `false` if `sendTemplate` throws synchronously.
 
-### `sendEmailReset(emailTo, hash, name = '')`
+### `sendEmailReset(emailTo, hash, name = '', linkBase = APP_DOMAIN, linkPath = '/x/reset')`
 
 **Signature:**
 ```ts
-async sendEmailReset(emailTo: string, hash: string, name: string = ''): Promise<boolean>
+async sendEmailReset(
+	emailTo: string,
+	hash: string,
+	name: string = '',
+	linkBase: string = this.linkBase,
+	linkPath: string = '/x/reset'
+): Promise<boolean>
 ```
 
-Sends the "reset your password" email with a hash-bearing link. Link: `${linkBase}/x/reset/${encodeURI(emailTo)}/${hash}`. Subject: `Password reset for ${platformName}`.
+Sends the "reset your password" email with a hash-bearing link. Builds `link = ${linkBase}${linkPath}/${encodeURI(emailTo)}/${hash}`. Subject: `Password reset for ${platformName}`.
+
+`linkBase` and `linkPath` were added in 5.9.0, for the reason `sendEmailVerify` got them in 5.8.0: one backend serving two front-ends has two hosts and a single constructor-time `APP_DOMAIN` read cannot express both, so a customer asking for a reset was mailed the operator panel — a page that cannot complete the reset. The pair has to move together with the verification one, because an account that confirmed its address on one front-end and then resets its password on another has been sent to two different sites for two halves of the same login. Both default to the pre-5.9.0 behaviour exactly, and the same trailing-slash / missing-leading-slash normalisation applies.
+
+⚠️ Unlike `sendEmailVerify`'s, this link is consumed by a **front-end route**, not by a backend router: the page reads the email and hash out of its own path and calls `updatePassword`. `linkPath` therefore names a route in whatever app `linkBase` serves and has to agree with that app's router, not with a service mount point. Nothing on the server fails when it does not — only a person following a dead link ever finds out. Most callers should reach this through [`createResetPwdMailer`](./lib-access.md#resetpwdmailer) rather than passing the two arguments here directly.
 
 **Parameters:**
 
@@ -305,6 +315,8 @@ Sends the "reset your password" email with a hash-bearing link. Link: `${linkBas
 | emailTo | string | Recipient address. |
 | hash | string | Reset hash embedded in the link. |
 | name | string | Optional recipient name, `fixName`-prefixed. |
+| linkBase | string | Scheme + host the reset link points at. Defaults to the instance's `linkBase`, i.e. `APP_DOMAIN`. Trailing slashes are stripped. |
+| linkPath | string | Front-end route prefix that renders the new-password form. Defaults to `/x/reset`. A leading slash is added when absent. |
 
 **Returns:** `Promise<boolean>` — send success/failure.
 

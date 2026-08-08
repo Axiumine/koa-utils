@@ -238,7 +238,7 @@ export const resetPwd = {
 }
 ```
 
-Sends a "reset your password" email, rate-limited to one every 10 minutes. Normalizes/validates the email, then inside a transaction calls `getResetPwd(session, uEmail)`; if the email does **not** exist it silently does nothing and still returns `true` (deliberate privacy behavior — the caller cannot distinguish "sent" from "no such account"). If it does exist: if a previous reset request (`resetDateReq`) was made less than 10 minutes ago, it also silently does nothing and returns `true` — the throttle is enforced (no new hash written, no email sent) but never disclosed; otherwise it generates a fresh random hash (`StringLib.randomString(EMAIL_HASH_LEN)`), persists it via `saveResetReq(session, resetPwdVal._id, nowDt, hash)`, and hands the hash to the post-commit block, which queues the reset-link email via `SocketLabsLib.sendEmailReset(uEmail, hash, resetPwdVal.name)` **after** the transaction has committed and **without awaiting it**. The hash is stored in `account.resetHash`, which is disjoint from the `account.email.hash` slot used by signup activation and email-change — a reset request therefore never invalidates a verification link the user is already holding, and a verification hash is never accepted by `updatePassword`.
+Sends a "reset your password" email, rate-limited to one every 10 minutes. Normalizes/validates the email, then inside a transaction calls `getResetPwd(session, uEmail)`; if the email does **not** exist it silently does nothing and still returns `true` (deliberate privacy behavior — the caller cannot distinguish "sent" from "no such account"). If it does exist: if a previous reset request (`resetDateReq`) was made less than 10 minutes ago, it also silently does nothing and returns `true` — the throttle is enforced (no new hash written, no email sent) but never disclosed; otherwise it generates a fresh random hash (`StringLib.randomString(EMAIL_HASH_LEN)`), persists it via `saveResetReq(session, resetPwdVal._id, nowDt, hash)`, and hands the hash to the post-commit block, which queues the reset-link email via `mailer.sendEmailReset(uEmail, hash, resetPwdVal.name)` **after** the transaction has committed and **without awaiting it**. The hash is stored in `account.resetHash`, which is disjoint from the `account.email.hash` slot used by signup activation and email-change — a reset request therefore never invalidates a verification link the user is already holding, and a verification hash is never accepted by `updatePassword`.
 
 **Parameters:**
 
@@ -257,6 +257,20 @@ Sends a "reset your password" email, rate-limited to one every 10 minutes. Norma
 Up to and including 5.1.1 the throttled case threw `throwTooManyRequestsError((10 - elapsedMin).toString())` (429) carrying the remaining wait in whole minutes. That answer could only ever reach a caller whose address was both registered and mid-reset, while an unknown address got `true` — an account-enumeration oracle on an unauthenticated mutation. The 429 is gone; the 10-minute throttle itself is unchanged. **Consumers that surfaced "please wait N minutes" in their UI must drop that branch** — a repeated request within the window is now indistinguishable from the first one. `throwTooManyRequestsError` itself is still exported and unchanged, it simply has no caller left in this package.
 
 Since 5.3.0 the resolver takes its reader and writer as arguments: the module also exports `createResetPwdMutation({ getResetPwd, saveResetReq })`, and `resetPwd` is that factory applied to the `UserBase`-bound pair. Nothing changes for a consumer importing `resetPwd`. A consumer whose accounts live in another collection or under another field layout builds its own pair through [`createResetPwdFlow`](./lib-access.md) instead of being locked out of the flow.
+
+Since 5.9.0 `IResetPwdDeps` carries a third, **optional** key:
+
+```ts
+export interface IResetPwdDeps {
+	getResetPwd: TGetResetPwd
+	saveResetReq: TSaveResetReq
+	mailer?: IResetPwdMailer
+}
+```
+
+`mailer` decides where the link in the mail points. It defaults to `socketLabsResetPwdMailer` ([`resetPwdMailer`](./lib-access.md#resetpwdmailer)) — SocketLabs on `APP_DOMAIN` and `/x/reset`, which is what every caller got before the option existed. Optional because this factory is public and pre-existing callers pass two keys.
+
+Supply one when the process serves more than one front-end. The link host is the only part of this flow that differs per audience and it is not derivable here: by the time the resolver holds an email and a hash, two collections behind one service look identical. `createResetPwdFlow` forwards its own `mailer` into this key, so a consumer building the flow per model configures the link there rather than at this factory — see [notifications](./lib-access.md#notifications--mailer).
 
 A deleted or disabled account is treated exactly as an unknown address: `getResetPwd` answers `null` for it, so no hash is written and no link is mailed, and the mutation still returns `true`. Before the gate existed a tombstoned address received a live reset link. The flags read are `account.deleted` / `account.disabled` by default, both remappable through `IResetPwdPaths` — see [the account-state gate](./lib-access.md#the-account-state-gate) for how the raw, uncast flag values behave on un-migrated data.
 

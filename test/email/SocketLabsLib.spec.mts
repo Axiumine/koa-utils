@@ -598,6 +598,30 @@ describe('SocketLabsLib — sendEmailReset', () => {
 		const result = await lib.sendEmailReset('reset@x.com', 'resetHash')
 		expect(result).to.equal(false)
 	})
+
+	it('builds the link on the given linkBase and linkPath when both are supplied', async () => {
+		await lib.sendEmailReset('u@example.com', 'r9', '', 'https://customer.example.com', '/account/new-password')
+		const { textBody, htmlBody } = sentMessage(sendStub)
+		// Same reason as sendEmailVerify: 1 process, 2 audiences, 2 domains. A customer reset link
+		// landing on the operator panel cannot be completed at all. APP_DOMAIN must not appear.
+		expect(textBody).to.contain('https://customer.example.com/account/new-password/u@example.com/r9')
+		expect(htmlBody).to.contain('https://customer.example.com/account/new-password/u@example.com/r9')
+		expect(textBody).to.not.contain('https://test.example.com')
+	})
+
+	it('normalises a trailing slash on linkBase and a missing leading slash on linkPath', async () => {
+		await lib.sendEmailReset('u@example.com', 'r9', '', 'https://customer.example.com//', 'account/new-password')
+		const { textBody } = sentMessage(sendStub)
+		// Caller give config, not pre-joined URL → `//account` + `example.comaccount` both normalised, no throw.
+		expect(textBody).to.contain('https://customer.example.com/account/new-password/u@example.com/r9')
+	})
+
+	it('keeps the APP_DOMAIN link on /x/reset when both are defaulted', async () => {
+		await lib.sendEmailReset('u@example.com', 'r9')
+		const { textBody } = sentMessage(sendStub)
+		// Pin pre-5.9.0 link verbatim: every existing caller pass 2 or 3 args, front-end route already deployed.
+		expect(textBody).to.contain('https://test.example.com/x/reset/u@example.com/r9')
+	})
 })
 
 // ---------------------------------------------------------------------------

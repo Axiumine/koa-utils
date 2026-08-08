@@ -28,7 +28,7 @@ The remaining twelve are declared **optional** in `peerDependenciesMeta`. There 
 
 | Optional peer | Required by |
 |---|---|
-| `@socketlabs/email` | `email/SocketLabsLib`, `lib/access/createResetPwdFlow`, `lib/access/createVerifyEmailFlow`, `lib/access/verifyEmailMailer`, `koa/router/verifyEmail`, and the `signUp` / `login*` / `resetPwd` / `updatePassword` / `emailChangeHashVerify` mutations |
+| `@socketlabs/email` | `email/SocketLabsLib`, `lib/access/createResetPwdFlow`, `lib/access/createVerifyEmailFlow`, `lib/access/resetPwdMailer`, `lib/access/verifyEmailMailer`, `koa/router/verifyEmail`, and the `signUp` / `login*` / `resetPwd` / `updatePassword` / `emailChangeHashVerify` mutations |
 | `clamscan` | `files/scanVirus`, `files/uploadTempImage`, `files/uploadTempPdf` |
 | `file-type` | `files/validateMimeType`, `files/validateMimeTypeImages`, `files/validateJpgPngMimeType`, `files/uploadTempImage`, `files/uploadTempPdf` — loaded lazily, at first call |
 | `fs-extra` | the `files/move*` and `files/validate*` helpers, `files/uploadTempImage`, `files/uploadTempPdf` |

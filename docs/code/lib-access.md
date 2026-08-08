@@ -8,6 +8,8 @@ The two factories here build the same flows against **any** Mongoose model, with
 |---|---|
 | `createResetPwdFlow` | `@axiumine/koa-utils/lib/access/createResetPwdFlow` |
 | `createVerifyEmailFlow` | `@axiumine/koa-utils/lib/access/createVerifyEmailFlow` |
+| `IResetPwdMailer`, `socketLabsResetPwdMailer`, `createResetPwdMailer` | `@axiumine/koa-utils/lib/access/resetPwdMailer` |
+| `IVerifyEmailMailer`, `socketLabsVerifyEmailMailer`, `throttleMailer`, `defaultVerifyEmailMailer` | `@axiumine/koa-utils/lib/access/verifyEmailMailer` |
 | `IResetPwdPaths`, `DEFAULT_RESET_PWD_PATHS`, `resolveResetPwdPaths`, `IVerifyEmailPaths`, `DEFAULT_VERIFY_EMAIL_PATHS`, `resolveVerifyEmailPaths`, `TAccessModel` | `@axiumine/koa-utils/lib/access/accessPaths` |
 
 ## `createResetPwdFlow`
@@ -19,6 +21,7 @@ The two factories here build the same flows against **any** Mongoose model, with
 export interface ICreateResetPwdFlowArgs {
 	model: TAccessModel                  // any mongoose Model
 	paths?: Partial<IResetPwdPaths>      // only the keys that differ from the default layout
+	mailer?: IResetPwdMailer             // 5.9.0; omitted ⇒ SocketLabs on APP_DOMAIN + /x/reset
 }
 
 export interface IResetPwdFlow {
@@ -86,6 +89,58 @@ resetPwd: { resetDateReq: Date, resetHash: String(50) }   // both required if pr
 ```
 
 — under `validationLevel: 'strict'` / `validationAction: 'error'` rejects a write that unsets a single member: the leftover document fails validation. The only legal cleanup there is `$unset: { resetPwd: '' }`, one container path rather than two leaf paths. A flat layout never hits this, so deriving the list from the leaves would look correct and make the strict layout impossible to express. `removeResetReq` unsets exactly what `resetClear` names, never the fields it read.
+
+### Notifications — `mailer`
+
+Added in **5.9.0**. `resetPwd` mails a link, and through 5.8.0 that link's host was `APP_DOMAIN`, read once in the `SocketLabsLib` constructor. One process serving two front-ends therefore mailed every account the same host: a customer asking for a password reset was sent to the operator panel, a page that cannot complete the reset.
+
+The host is not derivable inside the resolver. By the time `resetPwd` holds an email and a hash, two collections behind one service look identical — nothing in the account says which front-end it belongs to. So the choice moves up to where the collection is already chosen, which is this factory, through the same seam `createVerifyEmailFlow` already exposes for its own notifications. Per-flow is the right granularity because the collection and the front-end that serves it are the same choice made twice.
+
+```ts
+import { createResetPwdFlow } from '@axiumine/koa-utils/lib/access/createResetPwdFlow'
+import { createResetPwdMailer } from '@axiumine/koa-utils/lib/access/resetPwdMailer'
+
+const customer = createResetPwdFlow({
+	model: Customer,
+	mailer: createResetPwdMailer('https://shop.example.com', '/account/new-password')
+})
+
+const operator = createResetPwdFlow({
+	model: Operator,
+	mailer: createResetPwdMailer('https://panel.example.com', '/reset')
+})
+```
+
+Omitting `mailer` keeps the pre-5.9.0 behaviour exactly — SocketLabs on `APP_DOMAIN` and `/x/reset` — so an existing consumer sees no difference. `updatePassword` is unaffected: its confirmation mail carries no link.
+
+Unlike the verify-email mailer, this one has **no throttle**. `resetPwd` already enforces a 10-minute per-account throttle before it reaches the send at all, and the notifications the debounce exists for are the ones the unauthenticated verify-email route can trigger, which this flow has none of.
+
+## `resetPwdMailer`
+
+Added in **5.9.0**. **Import:** `import { IResetPwdMailer, socketLabsResetPwdMailer, createResetPwdMailer } from '@axiumine/koa-utils/lib/access/resetPwdMailer'`
+
+### `IResetPwdMailer`
+
+```ts
+export interface IResetPwdMailer {
+	sendEmailReset(email: string, hash: string, name: string): Promise<unknown>
+}
+```
+
+Structural, so `SocketLabsLib` itself satisfies it and a test double is an object literal. A one-method interface looks like ceremony next to `IVerifyEmailMailer`'s six and is not: this is the flow's only message, and the link it carries names the host the account will finish the reset on.
+
+The resolver never awaits the returned promise — see [`resetPwd`](./graphql-mutations.md#resetpwd) for why — so an implementation must not rely on its rejection being observed by the caller. The flow attaches its own Sentry handler and nothing else looks at it.
+
+**Signatures:**
+```ts
+export const socketLabsResetPwdMailer: IResetPwdMailer
+export const createResetPwdMailer: (linkBase?: string, linkPath?: string) => IResetPwdMailer
+```
+
+- `socketLabsResetPwdMailer` — SocketLabs on the default link base, `new SocketLabsLib()` per call, for the same reason `socketLabsVerifyEmailMailer` is: the constructor reads `process.env`, and hoisting it to import time pins whatever the environment held when the module was first resolved. This is what `createResetPwdMutation` falls back to, so it is the pre-5.9.0 behaviour.
+- `createResetPwdMailer(linkBase, linkPath)` — points the link at a specific host and route. Both arguments are configuration rather than a pre-joined URL: `sendEmailReset` strips a trailing slash from the base and adds a missing leading slash to the path. Both are optional so a caller can pass `process.env.SOMETHING` straight through — an unset variable arrives as `undefined` and the default takes over, whereas normalising it to `''` at the call site would build a link with no host at all.
+
+⚠️ `linkPath` names a **front-end route**, not a backend mount, which is the one way this seam differs from the verify-email one. It has to match the route that renders the new-password form in the app `linkBase` serves. Nothing on the server side fails loudly when it does not, because the link is only ever followed by a person.
 
 ## `createVerifyEmailFlow`
 

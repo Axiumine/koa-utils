@@ -56,6 +56,7 @@ src/
 │   │   ├── createMailThrottle.mts     # TMailThrottle, in-process per-key debounce, ALWAYS_MAIL opt-out
 │   │   ├── createResetPwdFlow.mts     # { resetPwd, updatePassword } bound to any model/layout
 │   │   ├── createVerifyEmailFlow.mts  # whole verify-email chain bound to any model/layout
+│   │   ├── resetPwdMailer.mts         # IResetPwdMailer, socketLabsResetPwdMailer, createResetPwdMailer
 │   │   └── verifyEmailMailer.mts      # IVerifyEmailMailer, socketLabs*/throttleMailer/default*
 │   ├── MariaDB/                # IMariaDBErr, MariaDBErrType, throwSqlErrors
 │   ├── MongoDB/                # IMongoDBError, MongoDBErrType, throwIfMongoErr, throwMongoErrors, IOnboarding
@@ -268,5 +269,6 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - `.claude/skills/`, `.agents/skills/` — Claude Code / Agent SDK scaffolding.
 - `skills-lock.json` — pinned skill manifest.
 - `z-ram.sh` — local helper script (RAM tweak, not part of library).
+- `deploy-local.sh` — maintainer-only. Builds, then rsyncs `dist/` into every consumer's `node_modules/@axiumine/koa-utils` inside one workspace, so an unpublished version can be exercised against the real services first. `npm publish` is a one-way door; this is not a release step and touches nothing outside the local machine.
 - `scripts/migrate-account-disabled-to-boolean.mjs` — one-shot data migration for consumers. Rewrites `account.disabled`/`account.deleted` from string to boolean in the `user` and `userAdmin` collections. Dry run unless `--apply`; needs `MONGO_URI`. Required once when upgrading from **5.0.3 or earlier** — see the "Migration required" section in `CHANGELOG.md`.
 - `CODEOWNERS` — single owner `@giovannimanzoni`.
