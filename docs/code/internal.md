@@ -580,7 +580,11 @@ Tiny helper for building a raw JSON response body outside the GraphQL layer (e.g
 export const verifyIntrospectionCode = (headerValue: string | undefined): boolean => { ... }
 ```
 
-Constant-time check of the `x-introspectioncode` header against `process.env.INTROSPECTION_CODE`, via `Buffer.from` + `node:crypto`'s `timingSafeEqual`. Fails closed: if `INTROSPECTION_CODE` is unset or empty, or `headerValue` is not a string, or the two buffers differ in byte length, it returns `false` without calling `timingSafeEqual` (which throws on unequal-length buffers). Only when both are non-empty strings of equal byte length does it fall through to the constant-time comparison. Guards against the previous call-site pattern of comparing against the *interpolated* `` `${process.env.INTROSPECTION_CODE}` ``, which coerced an unset variable to the literal string `'undefined'` and let a client satisfy the check by sending that exact header value with no real secret configured. Used by three middlewares to allow an introspection bypass: `authenticatedResourceHandler`, `authenticatedAuthorizationHandler`, and `authenticatedLogoutHandler`.
+Environment-gated, then a constant-time check of the `x-introspectioncode` header against `process.env.INTROSPECTION_CODE`.
+
+The **first** statement calls [`isIntrospectionBypassAllowed()`](./lib-core.md#isintrospectionbypassallowed) and returns `false` when it refuses — before `INTROSPECTION_CODE` is read at all. Outside `NODE_ENV` `'development'` and `'test'` the header therefore does nothing, even with the secret correctly configured and the header byte-for-byte correct. The gate lives here rather than in the three calling middlewares deliberately: gating at the call sites would leave the primitive itself ungated for any future direct caller. It is an allowlist and must not be rewritten as `NODE_ENV !== 'production'` — see `isIntrospectionBypassAllowed` for why the negated form fails open.
+
+Past the gate, the comparison runs via `Buffer.from` + `node:crypto`'s `timingSafeEqual`. Fails closed: if `INTROSPECTION_CODE` is unset or empty, or `headerValue` is not a string, or the two buffers differ in byte length, it returns `false` without calling `timingSafeEqual` (which throws on unequal-length buffers). Only when both are non-empty strings of equal byte length does it fall through to the constant-time comparison. Guards against the previous call-site pattern of comparing against the *interpolated* `` `${process.env.INTROSPECTION_CODE}` ``, which coerced an unset variable to the literal string `'undefined'` and let a client satisfy the check by sending that exact header value with no real secret configured. Used by three middlewares to allow an introspection bypass: `authenticatedResourceHandler`, `authenticatedAuthorizationHandler`, and `authenticatedLogoutHandler`.
 
 **Parameters:**
 
@@ -588,4 +592,4 @@ Constant-time check of the `x-introspectioncode` header against `process.env.INT
 |---|---|---|
 | headerValue | string \| undefined | The `x-introspectioncode` header value from the incoming request |
 
-**Returns:** `boolean` — `true` only if `INTROSPECTION_CODE` is set and `headerValue` matches it byte-for-byte; `false` otherwise.
+**Returns:** `boolean` — `true` only if `NODE_ENV` is `'development'` or `'test'`, `INTROSPECTION_CODE` is set, and `headerValue` matches it byte-for-byte; `false` otherwise.

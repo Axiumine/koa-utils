@@ -5,6 +5,71 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 6.0.0 — 2026-08-11
+
+`verifyIntrospectionCode` had no environment gate. The comparison itself was sound — `timingSafeEqual`, fails closed on
+an unset or empty `INTROSPECTION_CODE` — but nothing stopped it running in production, so the `x-introspectioncode`
+header skipped authentication under **every** `NODE_ENV`. A leaked or guessed `INTROSPECTION_CODE` was a full
+authentication bypass on three middlewares against a live database.
+
+This release is a major bump because closing that hole is, by construction, a behaviour break: deployments that relied
+on the bypass outside development stop being able to use it.
+
+### Security
+
+- The `x-introspectioncode` bypass is now refused unless `process.env.NODE_ENV` is exactly `'development'` or `'test'`.
+
+  The check is the **first** statement of `verifyIntrospectionCode`, before `INTROSPECTION_CODE` is read at all — a
+  correctly configured secret and a byte-for-byte correct header still return `false` in any other environment. It sits
+  inside `verifyIntrospectionCode` rather than in the three middlewares that call it (`authenticatedResourceHandler`,
+  `authenticatedLogoutHandler`, `authenticatedAuthorizationHandler`), so no direct caller of the primitive can reach an
+  ungated comparison.
+
+  ⚠️ The gate is an **allowlist**, not `NODE_ENV !== 'production'`. The two forms differ only on unrecognised values,
+  and the negated form fails *open* on exactly the inputs most likely to be wrong: an unset or empty `NODE_ENV` is the
+  ordinary failure of a container runtime, and `'Production'`, `'prod'` and `'staging'` are the ordinary failures of a
+  deploy script. Under the allowlist a mislabelled environment loses a development convenience; under the denylist it
+  opens authentication in production, silently. Do not "simplify" it to the negated form.
+
+### Added
+
+- New export `@axiumine/koa-utils/lib/isIntrospectionBypassAllowed`, carrying `isIntrospectionBypassAllowed()`.
+
+  The gate as a standalone predicate — no arguments, returns `true` only under `NODE_ENV` `'development'` or `'test'`.
+  Consumers were already maintaining their own copy of exactly this condition; the bypass is only coherent while the
+  library and the app agree on which environments may use it, so it is published rather than kept internal.
+  `verifyIntrospectionCode` calls it instead of repeating the comparison.
+
+### Breaking
+
+- **`x-introspectioncode` no longer authenticates anything outside `NODE_ENV=development` and `NODE_ENV=test`.**
+
+  Concretely, these `NODE_ENV` values stopped working and now refuse the header even when `INTROSPECTION_CODE` is set
+  and the header matches it:
+
+  | `NODE_ENV` | 5.9.0 | 6.0.0 |
+  |---|---|---|
+  | `development` | bypass honoured | bypass honoured |
+  | `test` | bypass honoured | bypass honoured |
+  | `production` | bypass honoured | **refused** |
+  | `staging` (or any other custom name) | bypass honoured | **refused** |
+  | unset | bypass honoured | **refused** |
+  | `''` (empty) | bypass honoured | **refused** |
+  | `Production`, `PRODUCTION`, `prod` | bypass honoured | **refused** |
+  | `Development`, `TEST`, `Test` (case variants) | bypass honoured | **refused** |
+
+  The failure is the ordinary unauthenticated one for each middleware, not a new error: `498 Invalid Token` from
+  `authenticatedResourceHandler` and `authenticatedAuthorizationHandler`, `412 Precondition Failed` from
+  `authenticatedLogoutHandler`.
+
+  **Unset `NODE_ENV` is the migration hazard, not `production`.** A container image that never exports `NODE_ENV` reads
+  as "not on the allowlist", so a service that used the bypass in an environment nobody thought of as production loses
+  it at upgrade. Fix it by setting `NODE_ENV=development` (or `test`) where the bypass is genuinely wanted — not by
+  widening the allowlist.
+
+  If a service needs privileged access in production, that is an authentication problem and needs a credential, not a
+  header that skips the check.
+
 ## 5.9.0 — 2026-08-05
 
 The same problem 5.8.0 fixed for the verification link, now for the reset link. Additive throughout — every existing

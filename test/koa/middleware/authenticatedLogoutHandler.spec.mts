@@ -6,6 +6,7 @@ import * as RedisMod from '../../../dist/dataSources/Redis.mjs'
 
 import { expectGraphQLErrorAsync } from '../../helpers/assertGraphQLError.mjs'
 import { restoreIntrospectionCode, saveIntrospectionCode } from '../../helpers/introspectionCode.mjs'
+import { restoreNodeEnv, saveNodeEnv } from '../../helpers/nodeEnv.mjs'
 
 // Real Keygrip: verifySignedRefreshToken is a non-stubbable ESM export →
 // supply a properly signed cookie, pass it for real.
@@ -17,8 +18,18 @@ const REDIS_REFRESH_KEY = `refresh:${TOKEN}`
 const ACCESS_UUID = '11111111-1111-4111-8111-111111111111'
 
 describe('authenticatedLogoutHandler', () => {
+	let savedEnv: string | undefined
+
+	beforeEach(() => {
+		savedEnv = saveNodeEnv()
+		// Bypass env-gated since 6.0.0. Mocha set no NODE_ENV → gate refuse → every
+		// introspection spec below assert nothing unless env pinned to an allowed value.
+		process.env.NODE_ENV = 'test'
+	})
+
 	afterEach(() => {
 		sinon.restore()
+		restoreNodeEnv(savedEnv)
 	})
 
 	it('returns a middleware function from keys', () => {
@@ -76,6 +87,29 @@ describe('authenticatedLogoutHandler', () => {
 			let nextCalled = false
 			await mw(ctx, async () => { nextCalled = true })
 			expect(nextCalled).to.equal(true)
+		} finally {
+			restoreIntrospectionCode(savedCode)
+		}
+	})
+
+	it('throws 412 under NODE_ENV=production even when the introspection code matches', async () => {
+		// Behaviour break shipped in 6.0.0. Secret set, header match it exactly — the missing
+		// cookie stop being tolerated purely because the process is not on the bypass allowlist.
+		const savedCode = saveIntrospectionCode()
+		process.env.NODE_ENV = 'production'
+		process.env.INTROSPECTION_CODE = 'icode'
+		try {
+			const mw = authenticatedLogoutHandler(keys)
+			const ctx = {
+				request: { header: { 'x-introspectioncode': 'icode' } },
+				state: {}
+			} as never
+			await expectGraphQLErrorAsync(
+				() => mw(ctx, async () => undefined),
+				412,
+				'Precondition Failed',
+				'No authorization cookie.'
+			)
 		} finally {
 			restoreIntrospectionCode(savedCode)
 		}

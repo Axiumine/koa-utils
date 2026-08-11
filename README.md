@@ -200,13 +200,29 @@ import { StringLib } from '@axiumine/koa-utils/lib/StringLib'
 | `POSTGRESQL_USER`, `_PWD`, `_HOST`, `_PORT`, `_DBNAME`, `_POOL_MAX`, `_IDLE_TIMEOUT` | PostgreSQL |
 | `REDIS_URL` or `REDIS_IS_CLUSTER` + `REDIS_DB{1,2,3}_HOST/PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | Redis |
 | `REDIS_KEY` | Prefix for all keys (e.g. `myapp:`) |
-| `INTROSPECTION_CODE` | Bypass header `x-introspectioncode` for schema introspection |
+| `INTROSPECTION_CODE` | Bypass header `x-introspectioncode` for schema introspection — **only honoured when `NODE_ENV` is `development` or `test`** (see below) |
 | `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY` | SocketLabs auth |
 | `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`, `DEV_TEAM_EMAIL` | Email templating |
 | `STATIC_FOLDER` | Destination for `moveFileStaticDomain` |
-| `NODE_ENV` | `development` enables extra Sentry capture in the error handler |
+| `NODE_ENV` | `development` enables extra Sentry capture in the error handler. Also gates the introspection bypass: `development` and `test` are the only values that let `x-introspectioncode` skip authentication |
 
 Each module calls `dotenv.config()` at import time.
+
+### Introspection bypass and `NODE_ENV` (6.0.0)
+
+`x-introspectioncode` skips authentication in `authenticatedResourceHandler`, `authenticatedAuthorizationHandler` and `authenticatedLogoutHandler`. Up to 5.9.0 it did so under **every** `NODE_ENV`. From 6.0.0 the bypass is refused unless `process.env.NODE_ENV` is exactly `development` or `test` — the check runs before `INTROSPECTION_CODE` is read, so a correct secret and a correct header still fail everywhere else.
+
+The gate is an allowlist, not `NODE_ENV !== 'production'`, so unset, empty, `Production`, `prod` and `staging` all refuse. A mislabelled environment loses a development convenience rather than opening authentication.
+
+The predicate ships as a public export so consumers can drop their own copy:
+
+```ts
+import { isIntrospectionBypassAllowed } from '@axiumine/koa-utils/lib/isIntrospectionBypassAllowed'
+
+if (isIntrospectionBypassAllowed()) {
+	// mount the introspection-friendly route
+}
+```
 
 ## TLS / cookies
 

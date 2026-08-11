@@ -11,7 +11,7 @@ This section covers the Koa-level authentication surface: the two Redis-backed s
 export const authenticatedResourceHandler: () => (ctx: IContextAuthenticatedResource, next: Next) => Promise<void>
 ```
 
-General-purpose resource guard. Reads `ctx.request.header.authorization`, expects the literal prefix `Bearer access:`. Strips `Bearer ` (keeping the `access:` prefix) to get the key, then validates that the UUID portion (`key.slice('access:'.length)`) is a well-formed v4 UUID via `isValidUuidV4` — if not, throws `throwMissingMalformedInvalidToken()` before ever building the Redis key or calling `redisClient.hGetAll`. Otherwise builds the Redis key `${process.env.REDIS_KEY}access:<uuid>` and reads it with `redisClient.hGetAll`. If the hash exists, the raw Redis object is shallow-copied (`{ ...redSession }`, since node-redis hashes come back without `Object.prototype` in their chain) and checked for `redData?.disabled` / `redData?.deleted` — both are truthy for the *strings* `'true'`/`'false'` alike, so storage code must only ever set them when actually blocking. If clear, `ctx.state.user` is set to `{ ...redData, id: new Types.ObjectId(redData.id) }` (all other hash fields pass through as strings). If the hash is empty (expired/deleted token), the handler still allows the request through when `ctx.request.header['x-introspectioncode']` matches `process.env.INTROSPECTION_CODE` (internal service-to-service bypass) — otherwise it throws. Ends by calling `next()`.
+General-purpose resource guard. Reads `ctx.request.header.authorization`, expects the literal prefix `Bearer access:`. Strips `Bearer ` (keeping the `access:` prefix) to get the key, then validates that the UUID portion (`key.slice('access:'.length)`) is a well-formed v4 UUID via `isValidUuidV4` — if not, throws `throwMissingMalformedInvalidToken()` before ever building the Redis key or calling `redisClient.hGetAll`. Otherwise builds the Redis key `${process.env.REDIS_KEY}access:<uuid>` and reads it with `redisClient.hGetAll`. If the hash exists, the raw Redis object is shallow-copied (`{ ...redSession }`, since node-redis hashes come back without `Object.prototype` in their chain) and checked for `redData?.disabled` / `redData?.deleted` — both are truthy for the *strings* `'true'`/`'false'` alike, so storage code must only ever set them when actually blocking. If clear, `ctx.state.user` is set to `{ ...redData, id: new Types.ObjectId(redData.id) }` (all other hash fields pass through as strings). If the hash is empty (expired/deleted token), the handler still allows the request through when `ctx.request.header['x-introspectioncode']` passes `verifyIntrospectionCode` (internal service-to-service bypass) — otherwise it throws. Since 6.0.0 that check is environment-gated: it returns `false` unless `process.env.NODE_ENV` is `'development'` or `'test'`, so under any other value — production, staging, or an unset variable — the header is ignored and the request is refused even with `INTROSPECTION_CODE` correctly set. Ends by calling `next()`.
 
 **Returns:** `(ctx, next) => Promise<void>` — the Koa middleware; resolves via `next()` when authorized (or introspection-bypassed).
 
@@ -20,9 +20,9 @@ General-purpose resource guard. Reads `ctx.request.header.authorization`, expect
 - `499 Token Required` (`throwAccessTokenRequired`) — header present but doesn't start with `Bearer access:`.
 - `499 Token Required` (`throwMissingMalformedInvalidToken`) — prefix present but the UUID portion of the key is not a well-formed v4 UUID.
 - `403 Forbidden` (`throwForbiddenError`) — Redis session found but `disabled`/`deleted` is set.
-- `498 Invalid Token` (`throwAccessTokenExpiredOrDeleted`) — no Redis session for the key and no valid `x-introspectioncode`.
+- `498 Invalid Token` (`throwAccessTokenExpiredOrDeleted`) — no Redis session for the key and no valid `x-introspectioncode` (a matching header does not count outside `NODE_ENV` `'development'` / `'test'`).
 
-**Notes:** reads env `REDIS_KEY`, `INTROSPECTION_CODE`. Populates `ctx.state.user.id` as a Mongoose `ObjectId`, not a string. Loads `dotenv` at module scope.
+**Notes:** reads env `REDIS_KEY`, `INTROSPECTION_CODE`, `NODE_ENV` (the last two via `verifyIntrospectionCode` — `NODE_ENV` gates whether `INTROSPECTION_CODE` is consulted at all, 6.0.0+). Populates `ctx.state.user.id` as a Mongoose `ObjectId`, not a string. Loads `dotenv` at module scope.
 
 ## `authenticatedAuthorizationHandler`
 
@@ -33,7 +33,7 @@ General-purpose resource guard. Reads `ctx.request.header.authorization`, expect
 export const authenticatedAuthorizationHandler: (keys: Keygrip) => (ctx: IContextRefresh, next: Next) => Promise<void>
 ```
 
-Guard for the **refresh endpoint only** — not a general resource handler. The client sends the refresh token as a signed cookie (no `Authorization` header involved here). Delegates cookie parsing + signature verification to `verifySignedRefreshToken(ctx, keys)`, which returns an already-prefixed Redis key (`refresh:<uuid>`). Looks that key up with `redisClient.hGetAll`; if present, applies the same `disabled`/`deleted` → 403 check as `authenticatedResourceHandler`, then sets `ctx.state.user = { ...redData, id: new Types.ObjectId(redData.id), refreshToken: refreshTokenRedis }`. If the Redis hash is empty, falls back to the `x-introspectioncode` bypass exactly like the resource handler, else throws. Ends with `next()`.
+Guard for the **refresh endpoint only** — not a general resource handler. The client sends the refresh token as a signed cookie (no `Authorization` header involved here). Delegates cookie parsing + signature verification to `verifySignedRefreshToken(ctx, keys)`, which returns an already-prefixed Redis key (`refresh:<uuid>`). Looks that key up with `redisClient.hGetAll`; if present, applies the same `disabled`/`deleted` → 403 check as `authenticatedResourceHandler`, then sets `ctx.state.user = { ...redData, id: new Types.ObjectId(redData.id), refreshToken: refreshTokenRedis }`. If the Redis hash is empty, falls back to the `x-introspectioncode` bypass exactly like the resource handler — including the 6.0.0 `NODE_ENV` gate, so the header is inert outside `'development'` and `'test'` — else throws. Ends with `next()`.
 
 **Parameters:**
 
@@ -45,9 +45,9 @@ Guard for the **refresh endpoint only** — not a general resource handler. The 
 
 **Throws:** everything `verifySignedRefreshToken` can throw (`412`, `499` ×2, `401` — see below), plus:
 - `403 Forbidden` (`throwForbiddenError`) — session marked `disabled`/`deleted`.
-- `498 Invalid Token` (`throwRefreshTokenExpiredOrDeleted`) — no Redis session for the refresh key and no valid `x-introspectioncode`.
+- `498 Invalid Token` (`throwRefreshTokenExpiredOrDeleted`) — no Redis session for the refresh key and no valid `x-introspectioncode` (a matching header does not count outside `NODE_ENV` `'development'` / `'test'`).
 
-**Notes:** `ctx.state.user.refreshToken` is stored **with** its `refresh:` prefix already applied — do not re-prefix it downstream. Reads env `REDIS_KEY`, `INTROSPECTION_CODE`.
+**Notes:** `ctx.state.user.refreshToken` is stored **with** its `refresh:` prefix already applied — do not re-prefix it downstream. Reads env `REDIS_KEY`, `INTROSPECTION_CODE`, `NODE_ENV` (the last two via `verifyIntrospectionCode` — `NODE_ENV` gates whether `INTROSPECTION_CODE` is consulted at all, 6.0.0+).
 
 ## `verifySignedRefreshToken`
 
@@ -100,7 +100,7 @@ Shape of the hand-parsed `Cookie` header map produced inside `verifySignedRefres
 export const authenticatedLogoutHandler: (keys: Keygrip) => (ctx: IContextLogout, next: Next) => Promise<void>
 ```
 
-Middleware for the logout endpoint. Reads both credentials: the signed refresh cookie (`ctx.request.header.cookie`) and the `Authorization` header (`Bearer ACCESS_TOKEN`, optional at logout). If either is missing, it is tolerated **only** when `ctx.request.header['x-introspectioncode']` matches `process.env.INTROSPECTION_CODE`, which sets an internal `introspection = true` flag and skips all further checks; otherwise the corresponding precondition error is thrown. When not in introspection mode: calls `verifySignedRefreshToken(ctx as unknown as IContextRefresh, keys)` to get the `refresh:<uuid>` key, then `redisClient.hGet(key, 'id')` — if `null` (already logged out / expired), throws `throwAlreadyDone()`; otherwise sets `ctx.state = { user: { refreshToken } }`. It then optionally checks the access token: strips `Bearer `, and if non-empty, looks up `${REDIS_KEY}<access-key>` via `hGet(..., 'id')` — if found, adds `accessToken` to `ctx.state.user`; if not found, this is **not** an error (the access session may simply have already expired, which is fine during logout). Ends with `next()`.
+Middleware for the logout endpoint. Reads both credentials: the signed refresh cookie (`ctx.request.header.cookie`) and the `Authorization` header (`Bearer ACCESS_TOKEN`, optional at logout). If either is missing, it is tolerated **only** when `ctx.request.header['x-introspectioncode']` passes `verifyIntrospectionCode`, which sets an internal `introspection = true` flag and skips all further checks; otherwise the corresponding precondition error is thrown. Since 6.0.0 that check is environment-gated the same way as in the other two middlewares: outside `NODE_ENV` `'development'` / `'test'` it always returns `false`, so a missing cookie or a missing `Authorization` header is never tolerated in production, whatever the header carries. When not in introspection mode: calls `verifySignedRefreshToken(ctx as unknown as IContextRefresh, keys)` to get the `refresh:<uuid>` key, then `redisClient.hGet(key, 'id')` — if `null` (already logged out / expired), throws `throwAlreadyDone()`; otherwise sets `ctx.state = { user: { refreshToken } }`. It then optionally checks the access token: strips `Bearer `, and if non-empty, looks up `${REDIS_KEY}<access-key>` via `hGet(..., 'id')` — if found, adds `accessToken` to `ctx.state.user`; if not found, this is **not** an error (the access session may simply have already expired, which is fine during logout). Ends with `next()`.
 
 **Parameters:**
 
@@ -111,12 +111,12 @@ Middleware for the logout endpoint. Reads both credentials: the signed refresh c
 **Returns:** `(ctx, next) => Promise<void>` — the Koa middleware.
 
 **Throws:**
-- `412 Precondition Failed` (`throwPreconditionFailedNoAuthCookie`) — cookie header missing and no valid `x-introspectioncode`.
-- `412 Precondition Failed` (`throwPreconditionFailedNoAuthHeader`) — `Authorization` header missing and no valid `x-introspectioncode`.
+- `412 Precondition Failed` (`throwPreconditionFailedNoAuthCookie`) — cookie header missing and no valid `x-introspectioncode` (a matching header does not count outside `NODE_ENV` `'development'` / `'test'`).
+- `412 Precondition Failed` (`throwPreconditionFailedNoAuthHeader`) — `Authorization` header missing and no valid `x-introspectioncode` (same gate).
 - everything `verifySignedRefreshToken` can throw (`412`, `499` ×2, `401`) when parsing/verifying the refresh cookie.
 - `204 No Content` (`throwAlreadyDone()`) — refresh key not found in Redis (already logged out); note `tdwKoaErrorHandler` skips the response body for status `204`, so clients must not expect a JSON payload here.
 
-**Notes:** reads env `REDIS_KEY`, `INTROSPECTION_CODE`. The access-token half of the flow is deliberately soft-failing (no throw) — only the refresh half is mandatory for a successful logout.
+**Notes:** reads env `REDIS_KEY`, `INTROSPECTION_CODE`, `NODE_ENV` (the last two via `verifyIntrospectionCode` — `NODE_ENV` gates whether `INTROSPECTION_CODE` is consulted at all, 6.0.0+). The access-token half of the flow is deliberately soft-failing (no throw) — only the refresh half is mandatory for a successful logout.
 
 ## `debugHandler`
 
