@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   be removed in a future version; the linter itself is unchanged and still matches `linter:` in `qodana.yaml`, which is
   what `.githooks/pre-commit` reads.
 
+- CI only, no effect on the published package. `actions/checkout` and `actions/setup-node` bumped from `v4` to `v5`.
+  Both `v4` majors declare `runs.using: node20`, which GitHub is retiring on its runners, so the runner was forcing them
+  onto Node 24 and warning on every run; `v5` is the first major of each that declares `node24` natively. This is the
+  runtime of the actions themselves — `node-version: 24` for the build and the `engines` requirement for consumers are
+  unrelated and unchanged.
+
 ## 6.0.0 — 2026-08-11
 
 `verifyIntrospectionCode` had no environment gate. The comparison itself was sound — `timingSafeEqual`, fails closed on
