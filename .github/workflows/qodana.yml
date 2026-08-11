@@ -42,6 +42,6 @@ jobs:
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
         with:
-          args: --linter,jetbrains/qodana-js:2026.2
+          args: --linter jetbrains/qodana-js:2026.2
           pr-mode: ${{ github.event_name == 'pull_request' }}
           upload-result: true
