@@ -5,12 +5,23 @@ import * as RedisMod from '../../../dist/dataSources/Redis.mjs'
 
 import { expectGraphQLErrorAsync } from '../../helpers/assertGraphQLError.mjs'
 import { restoreIntrospectionCode, saveIntrospectionCode } from '../../helpers/introspectionCode.mjs'
+import { restoreNodeEnv, saveNodeEnv } from '../../helpers/nodeEnv.mjs'
 
 const VALID_UUID = '11111111-1111-4111-8111-111111111111'
 
 describe('authenticatedResourceHandler', () => {
+	let savedEnv: string | undefined
+
+	beforeEach(() => {
+		savedEnv = saveNodeEnv()
+		// Bypass env-gated since 6.0.0. Mocha set no NODE_ENV → gate refuse → every
+		// introspection spec below assert nothing unless env pinned to an allowed value.
+		process.env.NODE_ENV = 'test'
+	})
+
 	afterEach(() => {
 		sinon.restore()
+		restoreNodeEnv(savedEnv)
 	})
 
 	it('returns a middleware function', () => {
@@ -143,6 +154,29 @@ describe('authenticatedResourceHandler', () => {
 			let nextCalled = false
 			await mw(ctx, async () => { nextCalled = true })
 			expect(nextCalled).to.equal(true)
+		} finally {
+			restoreIntrospectionCode(savedCode)
+		}
+	})
+
+	it('throws 498 under NODE_ENV=production even when the introspection code matches', async () => {
+		// Behaviour break shipped in 6.0.0. Secret set, header match it exactly — the request is
+		// refused purely because the process is not on the bypass allowlist.
+		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
+		const savedCode = saveIntrospectionCode()
+		process.env.NODE_ENV = 'production'
+		process.env.INTROSPECTION_CODE = 'secret123'
+		try {
+			const mw = authenticatedResourceHandler()
+			const ctx = {
+				request: { header: { authorization: `Bearer access:${VALID_UUID}`, 'x-introspectioncode': 'secret123' } },
+				state: {}
+			} as never
+			await expectGraphQLErrorAsync(
+				() => mw(ctx, async () => undefined),
+				498,
+				'Invalid Token'
+			)
 		} finally {
 			restoreIntrospectionCode(savedCode)
 		}

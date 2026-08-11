@@ -45,6 +45,7 @@ src/
 │   ├── tryCatchRethrow.mts     # GraphQL/Mongo error normaliser
 │   ├── throwIfNotValidEnumValue.mts
 │   ├── sleepMs.mts
+│   ├── isIntrospectionBypassAllowed.mts # NODE_ENV allowlist (development|test) gating the introspection bypass
 │   ├── isSafeRedirectTarget.mts # allow-lists `/x/...` redirect targets
 │   ├── isSessionBlocked.mts    # true when a Redis session is disabled/deleted
 │   ├── isValidUuidV4.mts       # uuid v4 shape check
@@ -146,7 +147,7 @@ Every exported subpath maps to `{ import: dist/.../X.mjs, types: dist/.../X.d.mt
 1. **`signUp`** mutation: validates email/pwd lens, looks up `UserBase` in Mongo transaction, creates user with `account.email.valid=false`, generates `EMAIL_HASH_LEN` hash, sends verify email via `SocketLabsLib`.
 2. **`routerVerifyEmail`** Koa router: chain of `handleIf*` guards (deleted, disabled, hash mismatch, expiry, too many attempts) → on success calls `enableEmailAccess`, redirects to `/x/registration-done`; on failure redirects to encoded URL allowed by `^/x/[a-zA-Z0-9._\-%/]+$` or `/x/error`.
 3. **`loginRememberme` / `login4Ever` / `loginAdmin`** mutations: mongo session + transaction, `checkUserLoginAuthorization` (compares bcrypt hash), `updateLoginStats*`, generate uuid access+refresh tokens, `setRedisLoginSession`, `setLoginCookies` writes signed `refresh_token` cookie (90 d max-age).
-4. **`authenticatedResourceHandler`** middleware: reads `Authorization: Bearer access:<uuid>` header, looks up `${REDIS_KEY}access:<uuid>` in Redis (`hGetAll`); blocks if `disabled` or `deleted` flag in session; populates `ctx.state.user`. Falls back to allowing through if `x-introspectioncode` matches `INTROSPECTION_CODE` env.
+4. **`authenticatedResourceHandler`** middleware: reads `Authorization: Bearer access:<uuid>` header, looks up `${REDIS_KEY}access:<uuid>` in Redis (`hGetAll`); blocks if `disabled` or `deleted` flag in session; populates `ctx.state.user`. Falls back to allowing through if `x-introspectioncode` matches `INTROSPECTION_CODE` env **and** `NODE_ENV` is `development` or `test` (6.0.0+ gate — outside those two values the header is ignored entirely).
 5. **`authenticatedAuthorizationHandler(keys: Keygrip)`** middleware: verifies signed `refresh_token` cookie via `Keygrip.index()`, looks up `${REDIS_KEY}refresh:<uuid>`, populates `ctx.state.user`. Used to authorise `refresh` mutation only.
 6. **`refresh`** mutation: rotates both tokens, writes new Redis keys with `accessTokenExpiry()` (random 30–90 min) and `REFRESH_TOKEN_EXPIRY` (90 d) TTLs, deletes old refresh entry.
 7. **`logout`** + `authenticatedLogoutHandler`: deletes refresh + (optional) access Redis keys, clears cookie.
@@ -187,8 +188,8 @@ Loaded ad-hoc per module via `dotenv.config()`. No single `.env.example` in tree
 | `MARIADB_DBNAME` / `_USER` / `_PWD` / `_IP` / `_PORT` / `_RETRY` / `_TIMEOUT` / `_LOGGING` | `dataSources/MariaDB` |
 | `POSTGRESQL_USER` / `_PWD` / `_HOST` / `_PORT` / `_DBNAME` / `_POOL_MAX` / `_IDLE_TIMEOUT` | `dataSources/PostgreSQL` |
 | `REDIS_URL`, `REDIS_IS_CLUSTER`, `REDIS_DB{1,2,3}_HOST/PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD`, `REDIS_KEY` | `dataSources/Redis`, middleware, mutations |
-| `INTROSPECTION_CODE` | middleware (bypass auth for schema introspection) |
-| `NODE_ENV` | `tdwKoaErrorHandler` (Sentry capture only in dev) |
+| `INTROSPECTION_CODE` | middleware (bypass auth for schema introspection; inert unless `NODE_ENV` is `development`/`test`) |
+| `NODE_ENV` | `tdwKoaErrorHandler` (Sentry capture only in dev), `lib/isIntrospectionBypassAllowed` (allowlist `development`/`test` gating the introspection bypass) |
 | `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`, `DEV_TEAM_EMAIL` | `SocketLabsLib` |
 | `STATIC_FOLDER` | `moveFileStaticDomain` |
 

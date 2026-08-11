@@ -3,8 +3,17 @@ import { expect } from 'chai'
 import { EventEmitter } from 'events'
 import { GraphQLError } from 'graphql'
 
+import { restoreNodeEnv, saveNodeEnv } from '../helpers/nodeEnv.mjs'
+
 // NOTE: Sentry.captureException non-stubbable in ESM. No init → no-op.
 // Drive dev-mode branches, assert observable side effects only.
+
+// Restore via `restoreNodeEnv`, never bare `process.env.NODE_ENV = saved`. Mocha set no NODE_ENV,
+// so `saved` is normally undefined, and assigning undefined store literal string 'undefined'
+// instead of clearing the var. That value then leak into every spec file running after this one.
+// Load-bearing since the introspection env gate landed: `isIntrospectionBypassAllowed()` allowlist
+// 'development' / 'test', so a leaked 'undefined' silently turn any later bypass assert into a
+// false-negative — spec pass for the wrong reason.
 
 interface CtxBody { message?: string; description?: string }
 
@@ -103,7 +112,7 @@ describe('tdwKoaErrorHandler', () => {
 	})
 
 	it('development mode: non-GraphQL error still sets body and emits app error', async () => {
-		const originalEnv = process.env.NODE_ENV
+		const originalEnv = saveNodeEnv()
 		process.env.NODE_ENV = 'development'
 		try {
 			const ctx = makeCtx()
@@ -116,12 +125,12 @@ describe('tdwKoaErrorHandler', () => {
 			expect(ctx.body).to.deep.equal({ message: 'dev error' })
 			expect(emitted).to.have.lengthOf(1)
 		} finally {
-			process.env.NODE_ENV = originalEnv
+			restoreNodeEnv(originalEnv)
 		}
 	})
 
 	it('development mode: GraphQL error does NOT invoke Sentry path — body and status still set', async () => {
-		const originalEnv = process.env.NODE_ENV
+		const originalEnv = saveNodeEnv()
 		process.env.NODE_ENV = 'development'
 		try {
 			const ctx = makeCtx()
@@ -132,7 +141,7 @@ describe('tdwKoaErrorHandler', () => {
 			expect(ctx.status).to.equal(418)
 			expect(ctx.body).to.deep.equal({ message: 'gql in dev', description: 'teapot' })
 		} finally {
-			process.env.NODE_ENV = originalEnv
+			restoreNodeEnv(originalEnv)
 		}
 	})
 })

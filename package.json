@@ -1,6 +1,6 @@
 {
 	"name": "@axiumine/koa-utils",
-	"version": "5.9.0",
+	"version": "6.0.0",
 	"description": "Koa Utils",
 	"type": "module",
 	"repository": {
@@ -611,6 +611,10 @@
 		"./lib/ICookies": {
 			"import": "./dist/lib/ICookies.mjs",
 			"types": "./dist/lib/ICookies.d.mts"
+		},
+		"./lib/isIntrospectionBypassAllowed": {
+			"import": "./dist/lib/isIntrospectionBypassAllowed.mjs",
+			"types": "./dist/lib/isIntrospectionBypassAllowed.d.mts"
 		},
 		"./lib/isSessionBlocked": {
 			"import": "./dist/lib/isSessionBlocked.mjs",

@@ -235,6 +235,25 @@ Validates a password's length before hashing/comparing. Throws if shorter than `
 
 **Throws:** `throwErrorWrongUserInput(...)` (400-class GraphQL error) — when `password.length < 10` ("La password è troppo corta") or `password.length > 72` ("La password è troppo lunga").
 
+## `isIntrospectionBypassAllowed`
+
+**Import:** `import { isIntrospectionBypassAllowed } from '@axiumine/koa-utils/lib/isIntrospectionBypassAllowed'`
+
+**Signature:**
+```ts
+export function isIntrospectionBypassAllowed(): boolean
+```
+
+Answers whether the `x-introspectioncode` authentication bypass is permitted to run in this process at all. Returns `true` only when `process.env.NODE_ENV` is exactly `'development'` or `'test'`; every other value returns `false`, including unset, the empty string, `'Production'`, `'prod'` and `'staging'`.
+
+This is the gate the three auth middlewares now sit behind — `verifyIntrospectionCode` calls it as its first statement, before `INTROSPECTION_CODE` is read, so a correctly configured secret and a correctly formed header still fail outside the two allowed environments. Exported because consuming apps were already maintaining a private copy of the same predicate; the bypass is only coherent while the library and the app agree on which environments may use it.
+
+⚠️ **It is an allowlist, and it must stay one.** The equivalent-looking `process.env.NODE_ENV !== 'production'` differs from it exactly on the unrecognised values — and that is the point. The negated form fails *open* on precisely the inputs most likely to be wrong: an unset or empty `NODE_ENV` is the ordinary failure of a container runtime, and `'Production'` / `'prod'` / `'staging'` are the ordinary failures of a deploy script. Under the allowlist a mislabelled environment loses a development convenience; under the denylist it opens authentication in production, silently.
+
+**Parameters:** none.
+
+**Returns:** `boolean` — `true` under `NODE_ENV` `'development'` or `'test'`, `false` for every other value.
+
 ## `OBJECTID_0_STR`
 
 **Import:** `import { OBJECTID_0_STR } from '@axiumine/koa-utils/lib/Constants'`
