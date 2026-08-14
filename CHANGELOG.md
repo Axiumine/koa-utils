@@ -5,7 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 7.0.0 — 2026-08-14
+
+`src/files/uploadTempImage.mts` shipped a function whose name did not match its own file or its `package.json` export
+key: the module `./files/uploadTempImage` exported `uploadTemp`. Every other uploader in the package follows the
+file-name convention (`uploadTempPdf.mts` exports `uploadTempPdf`), and the mismatch was carried in `REPO.md` and
+`docs/code/files.md` as a standing note readers had to be warned about. This release makes the name match the file.
+
+It is a major bump because renaming an exported symbol breaks every consumer importing the old binding, even though
+nothing about the upload pipeline's behaviour changed.
+
+### Breaking
+
+- **`@axiumine/koa-utils/files/uploadTempImage` now exports `uploadTempImage`, not `uploadTemp`.**
+
+  The export key (`./files/uploadTempImage`), the signature `(img: Promise<IFileUpload>) => Promise<IUploadTemp>`, the
+  pipeline steps and the thrown `Error('Error storing image')` are all unchanged, so the only edit a consumer needs is
+  the imported binding:
+
+  ```ts
+  // 6.0.0
+  import { uploadTemp } from '@axiumine/koa-utils/files/uploadTempImage'
+  // 7.0.0
+  import { uploadTempImage } from '@axiumine/koa-utils/files/uploadTempImage'
+  ```
+
+  No alias is kept under the old name. A consumer that upgrades without renaming reads `undefined` off the module —
+  TypeScript catches it at build time, but a plain-JS consumer only fails when the upload is actually called, not at
+  import time.
 
 ### Changed
 

@@ -11,7 +11,7 @@ import { validateJpgPngMimeType } from './validateMimeTypeImages.mjs'
  * @todo log uploaded file
  * @param img
  */
-export async function uploadTemp(img: Promise<IFileUpload>): Promise<IUploadTemp> {
+export async function uploadTempImage(img: Promise<IFileUpload>): Promise<IUploadTemp> {
 	let storedTempFile = ''
 
 	try {
