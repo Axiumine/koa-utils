@@ -26,7 +26,7 @@ function makeUploadFromFile(srcPath: string, filename: string) {
 	})
 }
 
-describe('uploadTemp (uploadTempImage)', () => {
+describe('uploadTempImage', () => {
 	afterEach(() => {
 		sinon.restore()
 		for (const f of createdFiles.splice(0)) {
@@ -35,8 +35,8 @@ describe('uploadTemp (uploadTempImage)', () => {
 	})
 
 	it('function is exported and async', async () => {
-		const { uploadTemp } = await import('../../dist/files/uploadTempImage.mjs')
-		expect(uploadTemp).to.be.a('function')
+		const { uploadTempImage } = await import('../../dist/files/uploadTempImage.mjs')
+		expect(uploadTempImage).to.be.a('function')
 	})
 
 	it('returns { ext: webp, tempFile } on happy path with valid JPEG', async () => {
@@ -48,16 +48,16 @@ describe('uploadTemp (uploadTempImage)', () => {
 		const fakeScanner = { scanFile: sinon.stub().resolves({ isInfected: false, viruses: [] }) }
 		sinon.stub(NodeClam.prototype, 'init').resolves(fakeScanner as unknown as NodeClam)
 
-		const { initClamScan, uploadTemp } = await import('../../dist/files/scanVirus.mjs').then(async (scanMod) => {
+		const { initClamScan, uploadTempImage } = await import('../../dist/files/scanVirus.mjs').then(async (scanMod) => {
 			await scanMod.initClamScan()
 			return import('../../dist/files/uploadTempImage.mjs').then((imgMod) => ({
 				initClamScan: scanMod.initClamScan,
-				uploadTemp: imgMod.uploadTemp
+				uploadTempImage: imgMod.uploadTempImage
 			}))
 		})
 
 		const upload = makeUploadFromFile(src, 'photo.jpg')
-		const result = await uploadTemp(upload)
+		const result = await uploadTempImage(upload)
 
 		expect(result.ext).to.equal('webp')
 		expect(result.tempFile).to.be.a('string').and.include('.webp')
@@ -69,10 +69,10 @@ describe('uploadTemp (uploadTempImage)', () => {
 		const src = makeSrcFile(Buffer.from('data'), `src-invalid-${Date.now()}.exe`)
 		const upload = makeUploadFromFile(src, 'malware.exe')
 
-		const { uploadTemp } = await import('../../dist/files/uploadTempImage.mjs')
+		const { uploadTempImage } = await import('../../dist/files/uploadTempImage.mjs')
 		let err: unknown
 		try {
-			await uploadTemp(upload)
+			await uploadTempImage(upload)
 		} catch (e) {
 			err = e
 		}
@@ -85,10 +85,10 @@ describe('uploadTemp (uploadTempImage)', () => {
 		const src = makeSrcFile(Buffer.from('this is not an image'), `src-badmime-${Date.now()}.tmp`)
 		const upload = makeUploadFromFile(src, 'fakephoto.jpg')
 
-		const { uploadTemp } = await import('../../dist/files/uploadTempImage.mjs')
+		const { uploadTempImage } = await import('../../dist/files/uploadTempImage.mjs')
 		let err: unknown
 		try {
-			await uploadTemp(upload)
+			await uploadTempImage(upload)
 		} catch (e) {
 			err = e
 		}
@@ -97,14 +97,14 @@ describe('uploadTemp (uploadTempImage)', () => {
 	})
 
 	it('throws "Error storing image" when file size exceeds limit', async () => {
-		// maxFileSize not overridable via uploadTemp's public API → confirm the error wrapping via ext failure
+		// maxFileSize not overridable via uploadTempImage public API → confirm error wrapping via ext failure
 		const src = makeSrcFile(Buffer.from('x'), `src-size-${Date.now()}.tmp`)
 		const upload = makeUploadFromFile(src, 'too-big.gif') // .gif not allowed
 
-		const { uploadTemp } = await import('../../dist/files/uploadTempImage.mjs')
+		const { uploadTempImage } = await import('../../dist/files/uploadTempImage.mjs')
 		let err: unknown
 		try {
-			await uploadTemp(upload)
+			await uploadTempImage(upload)
 		} catch (e) {
 			err = e
 		}

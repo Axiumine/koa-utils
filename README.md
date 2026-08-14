@@ -148,11 +148,11 @@ All `throw*` helpers wrap `throwGraphQLError(status, title, description)` and yi
 
 ```ts
 import { initClamScan } from '@axiumine/koa-utils/files/scanVirus'
-import { uploadTemp } from '@axiumine/koa-utils/files/uploadTempImage'
+import { uploadTempImage } from '@axiumine/koa-utils/files/uploadTempImage'
 import { uploadTempPdf } from '@axiumine/koa-utils/files/uploadTempPdf'
 
 await initClamScan()  // once at boot
-const { tempFile, ext } = await uploadTemp(filePromise)  // jpg/png → webp
+const { tempFile, ext } = await uploadTempImage(filePromise)  // jpg/png → webp
 ```
 
 Pipeline: stream to `/tmp` (5 MB cap) → extension + magic-number MIME check → ClamAV → sharp re-encode (strips EXIF). PDF path scans only (no re-encode).

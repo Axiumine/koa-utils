@@ -1,6 +1,6 @@
 # File Upload Pipeline
 
-This section covers the `src/files/*` modules that implement koa-utils' upload pipeline: an incoming multipart stream is first written to a temp file (`storeUploadAsTemp`), then run through extension and magic-number MIME validation, a ClamAV virus scan, an (currently disabled) NSFW check, a `sharp`-based re-encode that strips metadata, and finally a move out of the temp directory into its permanent home. The two orchestrators — `uploadTemp` (images) and `uploadTempPdf` (PDFs) — wire these building blocks together into a single call. Pieces are grouped below as constants/interfaces, validators, scanners, re-encoders, movers, and uploaders (orchestrators).
+This section covers the `src/files/*` modules that implement koa-utils' upload pipeline: an incoming multipart stream is first written to a temp file (`storeUploadAsTemp`), then run through extension and magic-number MIME validation, a ClamAV virus scan, an (currently disabled) NSFW check, a `sharp`-based re-encode that strips metadata, and finally a move out of the temp directory into its permanent home. The two orchestrators — `uploadTempImage` (images) and `uploadTempPdf` (PDFs) — wire these building blocks together into a single call. Pieces are grouped below as constants/interfaces, validators, scanners, re-encoders, movers, and uploaders (orchestrators).
 
 ## Constants & interfaces
 
@@ -57,7 +57,7 @@ export interface IUploadTemp {
 }
 ```
 
-Shape returned by the two pipeline orchestrators (`uploadTemp`, `uploadTempPdf`): the final temp-file path after all processing and the resulting extension (`'webp'` or `'pdf'`), ready to be handed to a mover (`moveImageFile` / `moveFileStaticDomain`).
+Shape returned by the two pipeline orchestrators (`uploadTempImage`, `uploadTempPdf`): the final temp-file path after all processing and the resulting extension (`'webp'` or `'pdf'`), ready to be handed to a mover (`moveImageFile` / `moveFileStaticDomain`).
 
 ## Validators
 
@@ -161,7 +161,7 @@ Magic-number (content-based, not extension-based) MIME validation. Delegates det
 export async function validateJpgPngMimeType(filePath: string): Promise<string>
 ```
 
-Thin wrapper over `validateMimeType` fixed to `['image/jpeg', 'image/png']`. Used by the image upload pipeline (`uploadTemp`) right after the extension check.
+Thin wrapper over `validateMimeType` fixed to `['image/jpeg', 'image/png']`. Used by the image upload pipeline (`uploadTempImage`) right after the extension check.
 
 **Parameters:**
 
@@ -261,7 +261,7 @@ Scans `filePath` with the singleton initialized by `initClamScan`. If the file i
 // }
 ```
 
-Placeholder for a NSFW-content moderation step (intended to call sightengine.com or a similar service). It is disabled: `src/files/checkForNSFW.mts` contains no executable code, and both `uploadTemp` and `uploadTempPdf` reference the call only inside a comment (`// await checkForNSFW(filePath)`). The upload pipeline currently performs no NSFW check at all.
+Placeholder for a NSFW-content moderation step (intended to call sightengine.com or a similar service). It is disabled: `src/files/checkForNSFW.mts` contains no executable code, and both `uploadTempImage` and `uploadTempPdf` reference the call only inside a comment (`// await checkForNSFW(filePath)`). The upload pipeline currently performs no NSFW check at all.
 
 ## Re-encoders
 
@@ -318,7 +318,7 @@ Same as `reEncodeToJpeg` but targets PNG: `reEncode` reads the source into a `Bu
 export async function reEncodeToWebp(filename: string, quality = 100)
 ```
 
-Same pattern targeting WebP: `reEncode` reads the source into a `Buffer` first, then runs `sharp(input).webp({ quality, lossless: true }).withMetadata({}).withExif({}).toFile(finalFilepath)`. This is the re-encoder used by the image upload pipeline (`uploadTemp`), which always converts to `'webp'` regardless of the original jpg/png extension, and strips metadata/EXIF. Note that `lossless: true` combined with a `quality` argument is somewhat redundant for WebP's lossless mode, but that is what the underlying `sharp` call passes through unchanged.
+Same pattern targeting WebP: `reEncode` reads the source into a `Buffer` first, then runs `sharp(input).webp({ quality, lossless: true }).withMetadata({}).withExif({}).toFile(finalFilepath)`. This is the re-encoder used by the image upload pipeline (`uploadTempImage`), which always converts to `'webp'` regardless of the original jpg/png extension, and strips metadata/EXIF. Note that `lossless: true` combined with a `quality` argument is somewhat redundant for WebP's lossless mode, but that is what the underlying `sharp` call passes through unchanged.
 
 **Parameters:**
 
@@ -371,7 +371,7 @@ Validates `folder` and `secondFolder` with `assertNoTraversal`, then moves a re-
 
 | Name | Type | Description |
 |---|---|---|
-| sourceFilePath | string | Temp file path (typically the `tempFile` from `uploadTemp`). |
+| sourceFilePath | string | Temp file path (typically the `tempFile` from `uploadTempImage`). |
 | folder | string | First-level subdirectory under `UPLOAD_IMG_DIRECTORY_URL`. |
 | secondFolder | string | Second-level subdirectory. |
 | destFilename | string | Base destination filename (extension is derived from `sourceFilePath`, see `moveTempFile`). |
@@ -430,15 +430,15 @@ Step 1 of the pipeline: awaits the incoming `IFileUpload` (from `../koa/IFileUpl
 
 **Throws:** `Error('File size exceeds the limit of ${maxFileSize} bytes')` — when the stream exceeds `maxFileSize`, reporting the limit in bytes. On a write/read-stream error, rejects with the underlying `Error` itself (not a generic message) — the 'error' handler records it and the 'close' handler rejects with the recorded error after unlinking the partial file. Both paths are covered by `test/files/storeUploadAsTemp.spec.mts`.
 
-### `uploadTemp`
+### `uploadTempImage`
 
-**Import:** `import { uploadTemp } from '@axiumine/koa-utils/files/uploadTempImage'`
+**Import:** `import { uploadTempImage } from '@axiumine/koa-utils/files/uploadTempImage'`
 
-> Note: the exported function is named `uploadTemp`, **not** `uploadTempImage` — only the file name and the `package.json` export key (`./files/uploadTempImage`) use the `uploadTempImage` spelling.
+> Breaking rename in 7.0.0: this function was exported as `uploadTemp` up to and including 6.0.0, and is now named after its own file. The file name and the `package.json` export key (`./files/uploadTempImage`) are unchanged, so only the imported binding needs updating.
 
 **Signature:**
 ```ts
-export async function uploadTemp(img: Promise<IFileUpload>): Promise<IUploadTemp>
+export async function uploadTempImage(img: Promise<IFileUpload>): Promise<IUploadTemp>
 ```
 
 Full image-upload orchestrator: `storeUploadAsTemp(img)` → `validateJpgPngExtension(fileName, filePath)` → `validateJpgPngMimeType(filePath)` → `scanVirus(filePath)` → `reEncodeToWebp(filePath)`. The NSFW step (`checkForNSFW`) is commented out and not executed. Every step runs inside a single `try`/`catch`; any thrown error (from validation, virus scan initialization, or re-encoding) is logged via `console.error('Error storing image:', e)` and replaced with a new generic error, losing the original error detail/type.

@@ -1,6 +1,6 @@
 # @axiumine/koa-utils — Code Reference
 
-`@axiumine/koa-utils` is a TypeScript utility library for Koa + GraphQL backends: auth (signup/login/refresh/logout) mutations and middleware, Mongoose models, GraphQL error helpers, file-upload pipeline, transactional email, and low-level DB/Redis helpers. It ships ESM-only (`.mjs` / `.d.mts`) and targets Node `^24.14.0`. Current version: **6.0.0**.
+`@axiumine/koa-utils` is a TypeScript utility library for Koa + GraphQL backends: auth (signup/login/refresh/logout) mutations and middleware, Mongoose models, GraphQL error helpers, file-upload pipeline, transactional email, and low-level DB/Redis helpers. It ships ESM-only (`.mjs` / `.d.mts`) and targets Node `^24.14.0`. Current version: **7.0.0**.
 
 ## Install
 
@@ -27,7 +27,7 @@ import { authenticatedResourceHandler } from '@axiumine/koa-utils/koa/middleware
 |---|---|
 | [Data Sources](./data-sources.md) | Connect/disconnect helpers for MariaDB, MongoDB, PostgreSQL and Redis. |
 | [Email (SocketLabs)](./email.md) | `SocketLabsLib` — transactional email (signup, reset, OTP, moderation) via SocketLabs. |
-| [File Upload Pipeline](./files.md) | Temp storage, MIME/virus validation, image re-encode, and the `uploadTemp`/`uploadTempPdf` orchestrators. |
+| [File Upload Pipeline](./files.md) | Temp storage, MIME/virus validation, image re-encode, and the `uploadTempImage`/`uploadTempPdf` orchestrators. |
 | [GraphQL — Mongoose Models](./graphql-models.md) | `UserBase` and the `log/*` collections (stats, errors, throws). |
 | [GraphQL — Context Types](./graphql-context.md) | TypeScript shapes narrowing Koa's `ctx` for auth mutations and middleware. |
 | [GraphQL — Object & Input Types](./graphql-types.md) | Reusable `GraphQLObjectType`/`GraphQLInputObjectType` building blocks and `IFindAndUpdate<T>`. |

@@ -166,7 +166,7 @@ Each connector reads `.env` via `dotenv.config()` at import time. Functions are 
 
 ### File uploads (`files/uploadTempImage`, `files/uploadTempPdf`)
 
-Note the file/symbol mismatch: `src/files/uploadTempImage.mts` exports a function named `uploadTemp`, not `uploadTempImage` — `uploadTempImage` is only the file name / `package.json` export path (`./files/uploadTempImage`). `src/files/uploadTempPdf.mts` exports `uploadTempPdf`, matching its file name.
+Both files export a function matching their own name: `src/files/uploadTempImage.mts` exports `uploadTempImage` (named `uploadTemp` up to and including 6.0.0), `src/files/uploadTempPdf.mts` exports `uploadTempPdf`.
 
 Pipeline: `storeUploadAsTemp` (writes stream to `/tmp/<uuid>.<ext>`, enforces 5 MB cap) → `validateJpgPngExtension` / `validatePdfExtension` → `validateMimeTypeImages` / `validateMimeTypePdf` (file-type magic-number check) → `scanVirus` (clamscan, requires `initClamScan()` to be called once at boot) → `reEncodeToWebp` (sharp, strips EXIF) for images / passthrough for PDF. NSFW check is commented out (Sightengine integration scaffolded).
 
