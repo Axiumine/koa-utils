@@ -1,3 +1,6 @@
+import { isRedisTlsRequired } from '@private/dataSources/isRedisTlsRequired.mjs'
+import { redisNodeUrl } from '@private/dataSources/redisNodeUrl.mjs'
+import { resolveRedisUrl } from '@private/dataSources/resolveRedisUrl.mjs'
 import * as Sentry from '@sentry/node'
 import * as dotenv from 'dotenv'
 import { createClient, createCluster } from 'redis'
@@ -9,17 +12,22 @@ export const redisClient =
 		? /* c8 ignore start -- cluster branch: requires REDIS_IS_CLUSTER=1 + 3 redis nodes, not in unit env */
 			createCluster({
 				rootNodes: [
-					{ url: `redis://${process.env.REDIS_DB1_HOST}:${process.env.REDIS_DB1_PORT}` },
-					{ url: `redis://${process.env.REDIS_DB2_HOST}:${process.env.REDIS_DB2_PORT}` },
-					{ url: `redis://${process.env.REDIS_DB3_HOST}:${process.env.REDIS_DB3_PORT}` }
+					{ url: redisNodeUrl(process.env.REDIS_DB1_HOST, process.env.REDIS_DB1_PORT) },
+					{ url: redisNodeUrl(process.env.REDIS_DB2_HOST, process.env.REDIS_DB2_PORT) },
+					{ url: redisNodeUrl(process.env.REDIS_DB3_HOST, process.env.REDIS_DB3_PORT) }
 				],
 				defaults: {
 					username: process.env.REDIS_USERNAME,
-					password: process.env.REDIS_PASSWORD
+					password: process.env.REDIS_PASSWORD,
+					// rootNodes only carry the topology-discovery connections; node-redis does not inherit their
+					// TLS setting for the connections it then opens to the discovered nodes. Without this the
+					// rediss:// scheme above would be a no-op and every real cluster connection would stay
+					// plaintext. See the rootNodes JSDoc in @redis/client's cluster/index.d.ts.
+					socket: isRedisTlsRequired() ? { tls: true } : { tls: false }
 				}
 			})
 		: /* c8 ignore stop */
-			createClient({ url: process.env.REDIS_URL })
+			createClient({ url: resolveRedisUrl(process.env.REDIS_URL) })
 
 export const RedisConnect = async () => {
 	console.info('[Redis] Try connect to database... ')

@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.1.0 — 2026-08-28
+
+The Redis connection scheme is now configurable. `dataSources/Redis` hard-coded `redis://` for cluster root nodes and
+passed `REDIS_URL` to `createClient` unexamined, so a deployment that wanted TLS had no supported way to ask for it and
+no way to notice when it silently did not get it. The new `REDIS_TLS` flag makes the choice explicit and, once enabled,
+refuses to start on a plaintext URL rather than downgrading quietly.
+
+The flag is opt-in and off by default: with `REDIS_TLS` unset the client behaves byte-for-byte as it did in 7.0.0, so
+this release needs no configuration change.
+
+### Added
+
+- **`REDIS_TLS` — require TLS for the Redis connection.** Enabled only by the exact string `true`; unset, empty, `1`,
+  `TRUE` and `yes` are all read as off. The match is deliberately exact, because `Boolean(process.env.REDIS_TLS)` would
+  read a stored `false` as true and `!== 'false'` would read an unset variable as true — both force TLS on a deployment
+  whose operator never asked for it.
+
+  | `REDIS_TLS` | Single client (`REDIS_URL`) | Cluster (`REDIS_IS_CLUSTER=1`) |
+  | --- | --- | --- |
+  | unset / anything but `true` | `REDIS_URL` passed through untouched | root nodes `redis://host:port`, `defaults.socket.tls` false |
+  | `true` | `REDIS_URL` must use the `rediss:` scheme, or module load throws | root nodes `rediss://host:port`, `defaults.socket.tls` true |
+
+  With the flag on, a non-`rediss://` `REDIS_URL` throws at import time, before a socket is opened:
+
+  ```
+  [Redis] REDIS_TLS is enabled but REDIS_URL is not set — a rediss:// URL is required.
+  [Redis] REDIS_TLS is enabled but REDIS_URL is not a valid URL — a rediss:// URL is required.
+  [Redis] REDIS_TLS is enabled but REDIS_URL uses scheme "redis:" — rediss:// required.
+  ```
+
+  It fails closed rather than rewriting `redis://` to `rediss://`. A silent upgrade would hide the misconfiguration
+  until the TLS handshake failed, against a host that may not be the intended one; refusing at startup turns it into a
+  single unmissable error. The scheme is compared through `new URL().protocol`, the same way node-redis compares it, so
+  an upper-case `REDISS://cache:6379` is accepted.
+
+### Changed
+
+- **Cluster mode now sets `defaults.socket` as well as the root-node scheme.** node-redis uses `rootNodes` only to
+  discover the cluster topology and does not inherit their socket configuration for the connections it then opens to
+  the discovered nodes, so a `rediss://` scheme on `rootNodes` alone would have left every real cluster connection on
+  plaintext. `defaults.socket` is `{ tls: true }` when the flag is on and `{ tls: false }` otherwise, which is what
+  node-redis already defaulted to — no behaviour change with the flag off.
+
+### Internal
+
+- Three new private modules back the flag, none of them exported: `private/dataSources/isRedisTlsRequired` (the single
+  `process.env` read, evaluated per call so the ESM module cache cannot freeze it), `private/dataSources/redisNodeUrl`
+  (one cluster root-node URL) and `private/dataSources/resolveRedisUrl` (the standalone-client gate). The scheme
+  decision lives in `redisNodeUrl` rather than inline in `Redis.mts` because the whole `createCluster` arm is excluded
+  from coverage — inlining it would have parked that arm's one security-relevant decision outside the 100% gate.
+
 ## 7.0.0 — 2026-08-14
 
 `src/files/uploadTempImage.mts` shipped a function whose name did not match its own file or its `package.json` export

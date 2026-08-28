@@ -200,6 +200,7 @@ import { StringLib } from '@axiumine/koa-utils/lib/StringLib'
 | `POSTGRESQL_USER`, `_PWD`, `_HOST`, `_PORT`, `_DBNAME`, `_POOL_MAX`, `_IDLE_TIMEOUT` | PostgreSQL |
 | `REDIS_URL` or `REDIS_IS_CLUSTER` + `REDIS_DB{1,2,3}_HOST/PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD` | Redis |
 | `REDIS_KEY` | Prefix for all keys (e.g. `myapp:`) |
+| `REDIS_TLS` | Set to exactly `true` to require TLS: cluster nodes are built as `rediss://` and a non-`rediss://` `REDIS_URL` refuses to boot (see below). Any other value, unset included, keeps the previous plaintext behaviour |
 | `INTROSPECTION_CODE` | Bypass header `x-introspectioncode` for schema introspection — **only honoured when `NODE_ENV` is `development` or `test`** (see below) |
 | `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY` | SocketLabs auth |
 | `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`, `DEV_TEAM_EMAIL` | Email templating |
@@ -223,6 +224,29 @@ if (isIntrospectionBypassAllowed()) {
 	// mount the introspection-friendly route
 }
 ```
+
+### Redis TLS — the `REDIS_TLS` flag
+
+`REDIS_TLS` is opt-in and off by default: with the variable unset, `redisClient` connects exactly as it did before the flag existed, so upgrading changes nothing for an existing deployment.
+
+Set it to the **exact** string `true` to require TLS. The match is deliberately exact — `TRUE`, `1`, `yes` and `on` are all read as *off*, because the alternatives (`Boolean(process.env.REDIS_TLS)`, `!== 'false'`) would force TLS on operators who wrote `false` or wrote nothing at all.
+
+| | `REDIS_TLS` unset / any other value | `REDIS_TLS=true` |
+| --- | --- | --- |
+| Single client (`REDIS_URL`) | `REDIS_URL` used as-is, whatever its scheme | `REDIS_URL` **must** use the `rediss://` scheme, or the module throws at import time |
+| Cluster (`REDIS_IS_CLUSTER=1`) | root nodes built as `redis://host:port`, `defaults.socket.tls` is `false` | root nodes built as `rediss://host:port`, `defaults.socket.tls` is `true` |
+
+The single-client path fails closed rather than rewriting the scheme for you. A silent upgrade from `redis://` to `rediss://` would hide the misconfiguration until the TLS handshake failed, against a host that may not be the one you meant; refusing at startup turns it into one unmissable error instead. The three messages it can throw are:
+
+```
+[Redis] REDIS_TLS is enabled but REDIS_URL is not set — a rediss:// URL is required.
+[Redis] REDIS_TLS is enabled but REDIS_URL is not a valid URL — a rediss:// URL is required.
+[Redis] REDIS_TLS is enabled but REDIS_URL uses scheme "redis:" — rediss:// required.
+```
+
+The scheme is compared through `new URL().protocol`, the same way node-redis compares it, so an upper-case `REDISS://cache:6379` is accepted.
+
+For the cluster path the `rediss://` scheme on `rootNodes` is not enough on its own: node-redis uses `rootNodes` only to discover the topology and does not inherit their TLS setting for the connections it then opens to the discovered nodes. `defaults.socket.tls` is what actually carries TLS across the cluster, and it is set from the same flag.
 
 ## TLS / cookies
 

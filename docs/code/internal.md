@@ -1,6 +1,83 @@
 # Internal Helpers (private/)
 
-Everything under `src/private/**` is **INTERNAL** — none of it appears in `package.json` `exports`, and per `CLAUDE.md` it must never be added there or imported by consumers. These modules exist purely to back the *public* surface (mutations like `signUp`, `loginRememberme`, `login4Ever`, `loginAdmin`, the `routerVerifyEmail` Koa router, and the image-upload wrappers `reEncodeToJpeg`/`reEncodeToPng`/`reEncodeToWebp`). This doc is for maintainers only: image re-encode/MIME sniffing internals, the `UserAdminKoaUtils` Mongo model, GraphQL context shapes used by internal resolvers, the login-check pipeline (Mongo + SQL variants, Redis session write), and the `handleIf*`/`db/*` chain that backs email verification. Every symbol below has **Import:** `_internal — not exported_` since none of it is reachable from outside the package.
+Everything under `src/private/**` is **INTERNAL** — none of it appears in `package.json` `exports`, and per `CLAUDE.md` it must never be added there or imported by consumers. These modules exist purely to back the *public* surface (mutations like `signUp`, `loginRememberme`, `login4Ever`, `loginAdmin`, the `routerVerifyEmail` Koa router, and the image-upload wrappers `reEncodeToJpeg`/`reEncodeToPng`/`reEncodeToWebp`). This doc is for maintainers only: the Redis connection-scheme helpers, image re-encode/MIME sniffing internals, the `UserAdminKoaUtils` Mongo model, GraphQL context shapes used by internal resolvers, the login-check pipeline (Mongo + SQL variants, Redis session write), and the `handleIf*`/`db/*` chain that backs email verification. Every symbol below has **Import:** `_internal — not exported_` since none of it is reachable from outside the package.
+
+## `dataSources/` — Redis connection scheme
+
+Three helpers backing `dataSources/Redis.mts`. All three run at *module load* of that file — before any
+socket is opened — and all three read `process.env` at call time rather than caching it in a module-level
+constant, because an ESM module is evaluated once and a cached constant could never be re-read. The
+consumer-facing description of the flag lives in [Data Sources → TLS](./data-sources.md#tls--the-redis_tls-flag).
+
+### `isRedisTlsRequired`
+
+**Import:** _internal — not exported_
+
+**Signature:**
+```ts
+export const isRedisTlsRequired = (): boolean
+```
+
+Returns `true` only when `process.env.REDIS_TLS` is exactly the string `'true'`. Every other value — unset, empty, `'1'`, `'TRUE'`, `'yes'`, `'false'` — returns `false`, leaving the plaintext `redis://` scheme in place exactly as it was before the flag existed.
+
+The match is exact on purpose and must stay exact. `Boolean(process.env.REDIS_TLS)` reads the literal string `'false'` as true, forcing TLS on an operator who explicitly turned it off; `process.env.REDIS_TLS !== 'false'` reads an unset variable as true, forcing TLS on every deployment that predates the flag. Both rewrites pass a test suite that only checks `'true'` and `'false'`, which is why the spec pins the unset / `''` / `'1'` / `'TRUE'` cases. The accepted trade-off is the other direction: a misspelled `REDIS_TLS=TRUE` silently stays on plaintext rather than failing, so the accepted spelling is documented in `README.md`.
+
+**Returns:** `boolean` — `true` only for the exact string `'true'`.
+
+### `redisNodeUrl`
+
+**Import:** _internal — not exported_
+
+**Signature:**
+```ts
+export const redisNodeUrl = (host: string | undefined, port: string | undefined): string
+```
+
+Builds one `createCluster` root-node URL: `redis://host:port`, or `rediss://host:port` when `isRedisTlsRequired()`.
+
+It is a separate module purely so the scheme choice stays under coverage. Its only call site is the `createCluster` arm of `dataSources/Redis.mts`, which is `c8 ignore`d wholesale (it needs `REDIS_IS_CLUSTER=1` plus three live nodes), so interpolating the scheme inline there would park that arm's one security-relevant decision outside the 100% gate.
+
+`host` and `port` are interpolated exactly as the previous inline template did, `undefined` included — an unset `REDIS_DB1_HOST` still yields the literal `'undefined'` in the URL, and cluster boot still surfaces it as a connect error. That is unchanged behaviour, pinned by a spec.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| host | string \| undefined | `REDIS_DB{1,2,3}_HOST`, forwarded verbatim |
+| port | string \| undefined | `REDIS_DB{1,2,3}_PORT`, forwarded verbatim |
+
+**Returns:** `string` — `` `${scheme}://${host}:${port}` ``.
+
+### `resolveRedisUrl`
+
+**Import:** _internal — not exported_
+
+**Signature:**
+```ts
+export const resolveRedisUrl = (url: string | undefined): string | undefined => { ... }
+```
+
+Returns the standalone-client connection URL, refusing a plaintext one when TLS is required.
+
+With `REDIS_TLS` off this is a pure pass-through — `REDIS_URL` reaches `createClient` untouched, `undefined` and unparsable values included — so it adds no failure mode to any deployment that does not opt in.
+
+With `REDIS_TLS=true` the URL must carry the `rediss:` scheme. Anything else throws, at module load, before a socket exists. It fails closed rather than upgrading the scheme silently: rewriting `redis://` to `rediss://` would hide the misconfiguration until the TLS handshake failed, against a host that may not be the intended one. The scheme is read through `new URL().protocol`, not `startsWith`, so it is compared the way node-redis's own `RedisClient.parseURL` compares it — `URL` lower-cases the protocol, making `REDISS://cache:6379` valid here and there alike. A bare `cache.internal:6379` parses (`cache.internal` is a syntactically valid scheme) and is therefore reported as a wrong scheme, not as an unparsable URL.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| url | string \| undefined | `process.env.REDIS_URL`, as read by `dataSources/Redis.mts` |
+
+**Returns:** `string | undefined` — `url` unchanged. The function never rewrites the value it is given.
+
+**Throws:** `Error` — only when `REDIS_TLS === 'true'`:
+
+| Condition | Message |
+|---|---|
+| `url` is not a string, or is empty | `[Redis] REDIS_TLS is enabled but REDIS_URL is not set — a rediss:// URL is required.` |
+| `new URL(url)` throws | `[Redis] REDIS_TLS is enabled but REDIS_URL is not a valid URL — a rediss:// URL is required.` |
+| protocol is not `rediss:` | `` [Redis] REDIS_TLS is enabled but REDIS_URL uses scheme "<protocol>" — rediss:// required. `` |
 
 ## `files/` — image re-encode & MIME sniffing
 
