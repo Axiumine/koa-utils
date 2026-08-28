@@ -167,10 +167,42 @@ export const redisClient: RedisClientType | RedisClusterType
 ```
 
 The shared Redis handle, chosen at module load time based on `REDIS_IS_CLUSTER`:
-- `REDIS_IS_CLUSTER === '1'` → `createCluster({ rootNodes: [...3 nodes...], defaults: { username, password } })`, with root nodes built from `REDIS_DB1_HOST`/`REDIS_DB1_PORT`, `REDIS_DB2_HOST`/`REDIS_DB2_PORT`, `REDIS_DB3_HOST`/`REDIS_DB3_PORT`, and auth from `REDIS_USERNAME` / `REDIS_PASSWORD`.
-- otherwise → `createClient({ url: process.env.REDIS_URL })`.
+- `REDIS_IS_CLUSTER === '1'` → `createCluster({ rootNodes: [...3 nodes...], defaults: { username, password, socket } })`, with root nodes built from `REDIS_DB1_HOST`/`REDIS_DB1_PORT`, `REDIS_DB2_HOST`/`REDIS_DB2_PORT`, `REDIS_DB3_HOST`/`REDIS_DB3_PORT`, and auth from `REDIS_USERNAME` / `REDIS_PASSWORD`.
+- otherwise → `createClient({ url: resolveRedisUrl(process.env.REDIS_URL) })`.
 
 Use `RedisConnect` / `RedisDisconnect` to manage its lifecycle.
+
+### TLS — the `REDIS_TLS` flag
+
+The connection scheme is configurable. `REDIS_TLS` is read at module load and its only enabling value is
+the exact string `'true'`; unset, empty, `'1'`, `'TRUE'` and `'yes'` all leave the client exactly where it
+was before the flag existed, so an existing deployment upgrades with no configuration change and no
+behaviour change.
+
+| `REDIS_TLS` | Single client (`REDIS_URL`) | Cluster (`REDIS_IS_CLUSTER=1`) |
+|---|---|---|
+| unset / anything but `'true'` | `REDIS_URL` passed through untouched, `undefined` included | root nodes built as `redis://host:port`, `defaults.socket = { tls: false }` |
+| `'true'` | `REDIS_URL` **must** carry the `rediss:` scheme, or module load throws | root nodes built as `rediss://host:port`, `defaults.socket = { tls: true }` |
+
+With the flag on, a `REDIS_URL` that is not `rediss://` is refused rather than silently upgraded. The check
+runs in `resolveRedisUrl` before any socket is opened, so the failure is one startup crash naming the
+offending scheme instead of a TLS handshake error later against a host nobody meant to change. The scheme is
+compared through `new URL()`, which lower-cases the protocol, so `REDISS://cache:6379` is accepted exactly as
+node-redis's own `RedisClient.parseURL` accepts it.
+
+**Throws (at import time, `REDIS_TLS=true` only):**
+
+| Condition | Message |
+|---|---|
+| `REDIS_URL` unset or empty | `[Redis] REDIS_TLS is enabled but REDIS_URL is not set — a rediss:// URL is required.` |
+| `REDIS_URL` not parsable by `new URL()` | `[Redis] REDIS_TLS is enabled but REDIS_URL is not a valid URL — a rediss:// URL is required.` |
+| scheme is anything but `rediss:` | `` [Redis] REDIS_TLS is enabled but REDIS_URL uses scheme "<protocol>" — rediss:// required. `` |
+
+Note that `defaults.socket` carries the cluster's TLS setting, not the `rediss://` scheme on `rootNodes`.
+node-redis uses `rootNodes` only to discover the cluster topology and does **not** inherit their socket
+configuration for the connections it then opens to the discovered nodes — setting the scheme alone would
+leave every real cluster connection on plaintext. Both are set together for that reason; do not drop
+`defaults.socket` on the assumption that the scheme covers it.
 
 The signature above is the readable form. The export carries no type annotation, so the emitted
 `dist/dataSources/Redis.d.mts` publishes whatever `createCluster()` / `createClient()` infer — currently

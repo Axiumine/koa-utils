@@ -69,6 +69,7 @@ src/
 │   │   ├── registerNewUser.mts
 │   │   └── userExist.mts
 └── private/          # Internal helpers — NOT exported via package.json
+    ├── dataSources/isRedisTlsRequired.mts, redisNodeUrl.mts, resolveRedisUrl.mts  # REDIS_TLS scheme gate
     ├── files/_validateMimeType.mts, reEncode.mts
     ├── graphQL/Consts.mts, schema/{context,mutations}/
     └── lib/access/{db/* (incl. abandonUser.mts), handleIf*, assertVerifyEmailAllowed.mts, pathTools.mts}
@@ -164,6 +165,8 @@ Each connector reads `.env` via `dotenv.config()` at import time. Functions are 
 
 `redisClient` supports cluster mode when `REDIS_IS_CLUSTER === '1'` (3 nodes from `REDIS_DB{1,2,3}_HOST/PORT`); otherwise single via `REDIS_URL`.
 
+Both paths take their scheme from `REDIS_TLS`, via the three `private/dataSources/` helpers. Set to exactly `true` it builds cluster root nodes as `rediss://` **and** sets `defaults.socket.tls` (node-redis does not inherit root-node TLS for the connections it opens to discovered nodes), and it requires `REDIS_URL` to carry the `rediss:` scheme — `resolveRedisUrl` throws at module load otherwise, rather than upgrading the scheme silently. Any other value, unset included, is off and keeps the pre-flag plaintext behaviour. See `docs/code/data-sources.md` and `docs/code/internal.md`.
+
 ### File uploads (`files/uploadTempImage`, `files/uploadTempPdf`)
 
 Both files export a function matching their own name: `src/files/uploadTempImage.mts` exports `uploadTempImage` (named `uploadTemp` up to and including 6.0.0), `src/files/uploadTempPdf.mts` exports `uploadTempPdf`.
@@ -188,6 +191,7 @@ Loaded ad-hoc per module via `dotenv.config()`. No single `.env.example` in tree
 | `MARIADB_DBNAME` / `_USER` / `_PWD` / `_IP` / `_PORT` / `_RETRY` / `_TIMEOUT` / `_LOGGING` | `dataSources/MariaDB` |
 | `POSTGRESQL_USER` / `_PWD` / `_HOST` / `_PORT` / `_DBNAME` / `_POOL_MAX` / `_IDLE_TIMEOUT` | `dataSources/PostgreSQL` |
 | `REDIS_URL`, `REDIS_IS_CLUSTER`, `REDIS_DB{1,2,3}_HOST/PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD`, `REDIS_KEY` | `dataSources/Redis`, middleware, mutations |
+| `REDIS_TLS` | `dataSources/Redis` via `private/dataSources/{isRedisTlsRequired,redisNodeUrl,resolveRedisUrl}` — exactly `true` requires the `rediss://` scheme, anything else is off |
 | `INTROSPECTION_CODE` | middleware (bypass auth for schema introspection; inert unless `NODE_ENV` is `development`/`test`) |
 | `NODE_ENV` | `tdwKoaErrorHandler` (Sentry capture only in dev), `lib/isIntrospectionBypassAllowed` (allowlist `development`/`test` gating the introspection bypass) |
 | `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`, `DEV_TEAM_EMAIL` | `SocketLabsLib` |
