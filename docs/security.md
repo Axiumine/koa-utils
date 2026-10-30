@@ -40,7 +40,7 @@ The library runs inside the consumer's Koa process. It authenticates users, guar
 | L8 | **Data at rest.** Nothing is encrypted by the library, and database and Redis hardening is yours. | Use the encryption and access control your databases offer. |
 | L9 | **Malware detection.** ClamAV finds known signatures only, and only as fresh as the signature database you maintain. | Update ClamAV; do not serve uploads from an executable path. |
 | L10 | **Your peers.** You choose their versions. For example, `@socketlabs/email` 1.4.4, its latest release, depends on `axios` `^0.21.1`, a range with published advisories that this package cannot fix. | Run an audit on your own tree. |
-| L11 | **HTML in email.** `SocketLabsLib` puts the `name` you pass to the send methods, and the `err` text you pass to `alertDevTeam`, into the HTML body without escaping them (`fixName` only adds a leading space). | Pass only values you have escaped or trust. |
+| L11 | **Email HTML you configure.** `SocketLabsLib` escapes every value it receives for an email body (names, error text, ids, one-time codes, the subject in the `<title>`, and the URLs and link text in the anchors). It does not escape what you configure: the `htmlHeader1`, `htmlHeader2` and `htmlFooter` fragments of the constructor are inserted as HTML unchanged, and `APP_DOMAIN` and the `linkBase` argument are used as the link target as given, so a `javascript:` base would be emitted. | Keep these fragments and bases out of user control; set them from your own configuration only. |
 | L12 | **Password length is counted in characters.** `checkPwdLen` accepts 10 to 72 characters, but bcrypt reads at most 72 bytes. A password made of multi-byte characters can pass the check and still be cut at 72 bytes (verified with `@node-rs/bcrypt`: two passwords that share their first 72 bytes verify against each other). | Treat the first 72 bytes as the effective password, or limit the byte length in your own validation. |
 | L13 | **Image metadata other than EXIF.** The re-encode step passes sharp `withMetadata({})` and `withExif({})`. The original EXIF data is gone, but an XMP block in the input survived into JPEG and WebP output in a test with sharp 0.35.5. | Do not rely on the upload pipeline to anonymise images; strip metadata yourself if privacy matters. |
 
@@ -114,7 +114,7 @@ flowchart LR
 | A10 Server-side request forgery, CWE-918 | The library connects only to the database hosts the consumer configures and to the SocketLabs API through its SDK, never to a URL taken from request input. | R8, R11 |
 | Open redirect, CWE-601 | Redirect targets must match an anchored allowlist; a scheme-relative or absolute URL fails. | R8; CHANGELOG 4.0.0; `test/lib/isSafeRedirectTarget.spec.mts` |
 | Unrestricted upload, CWE-434 | Upload pipeline. | R9, L9, L13 |
-| Cross-site scripting, CWE-79 | The library renders no web pages and returns JSON. Email HTML is a fixed template plus the values noted in L11, which are not escaped. | L11 |
+| Cross-site scripting, CWE-79 | The library renders no web pages and returns JSON. Email HTML is a fixed template; each value placed in it is HTML-escaped (`&`, `<`, `>`, `"`, `'`) by one helper, and each link is escaped as an attribute value and as text. The plain-text part and the subject line stay unescaped. The header, footer and link bases you configure are inserted as given (L11). | L11; `src/private/email/escapeHtml.mts`, `test/email/SocketLabsLib.spec.mts` |
 
 ## 8. Known gaps
 

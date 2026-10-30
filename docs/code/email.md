@@ -1,6 +1,6 @@
 # Email (SocketLabs)
 
-This section documents the transactional email client used to send account-lifecycle emails (signup verification, password reset, OTP, account moderation notices, dev-team alerts) through [SocketLabs](https://www.socketlabs.com/). The package exposes a single class, `SocketLabsLib`, which wraps `@socketlabs/email`'s `SocketLabsClient`/`BasicMessage`, builds each message's copy (a mix of hard-coded strings and `platformName`-templated text), wraps it in an HTML template, and reports delivery failures to Sentry. All public send methods funnel through the same private `sendTemplate` helper, which in turn calls the private `sendEmail` helper, so template wrapping and Sentry error capture are centralized.
+This section documents the transactional email client used to send account-lifecycle emails (signup verification, password reset, OTP, account moderation notices, dev-team alerts) through [SocketLabs](https://www.socketlabs.com/). The package exposes a single class, `SocketLabsLib`, which wraps `@socketlabs/email`'s `SocketLabsClient`/`BasicMessage`, builds each message's copy (a mix of hard-coded strings and `platformName`-templated text), wraps it in an HTML template, and reports delivery failures to Sentry. The copy itself is built by small internal modules under `src/private/email/` (see [Internal Helpers](./internal.md#email--message-builders-and-html-escaping)), so each public method only names the builder and the recipient. All public send methods funnel through the same private `sendTemplate` helper, so template wrapping and Sentry error capture are centralized. Every value a method places in the HTML part is HTML-escaped (see [HTML escaping](#html-escaping)).
 
 ## `SocketLabsLib`
 
@@ -9,7 +9,6 @@ This section documents the transactional email client used to send account-lifec
 **Signature:**
 ```ts
 export class SocketLabsLib {
-	private StringObj: StringLib
 	private readonly platformName: string
 	private readonly linkBase: string
 	private readonly emailFrom: string
@@ -28,18 +27,36 @@ Constructs a SocketLabs client and prepares the reusable HTML wrapper used by ev
 - Reads `process.env.PLATFORM_NAME` into `platformName` (used in subjects/bodies and as the `emailFromName`).
 - Reads `process.env.APP_DOMAIN` into `linkBase` (base URL used to build verification/reset links).
 - Reads `process.env.EMAIL_FROM` into `emailFrom` (the `From` address for every message).
-- If `htmlHeader1` / `htmlHeader2` / `htmlFooter` are not supplied (or are `''`), falls back to the private `htmlHeader1()` / `htmlHeader2()` / `htmlFooter()` boilerplate (an XHTML 1.0 Transitional doctype + a 600px centered table body). These three fallback fragments become `emailHtmlHeader1`, `emailHtmlHeader2`, `emailHtmlFooter` and are concatenated around every outgoing message body as `emailHtmlHeader1 + subject + emailHtmlHeader2 + htmlBody + emailHtmlFooter` (see `sendEmail` below).
+- If `htmlHeader1` / `htmlHeader2` / `htmlFooter` are not supplied (or are `''`), falls back to the internal boilerplate `FALLBACK_HEADER_1` / `FALLBACK_HEADER_2` / `FALLBACK_FOOTER` (an XHTML 1.0 Transitional doctype + a 600px centered table body, defined in `src/private/email/htmlFrame.mts`). These three fragments become `emailHtmlHeader1`, `emailHtmlHeader2`, `emailHtmlFooter` and are concatenated around every outgoing message body as `emailHtmlHeader1 + escapeHtml(subject) + emailHtmlHeader2 + htmlBody + emailHtmlFooter` (see `sendTemplate` below). The three fragments you pass in are inserted as HTML unchanged.
 - Calls `dotenv.config()` at module load time.
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
-| htmlHeader1 | string | First half of a custom HTML header (rendered before the subject). Defaults to the built-in fallback when `''`. |
+| htmlHeader1 | string | First half of a custom HTML header (rendered before the subject). Defaults to the built-in fallback when `''`. Inserted as HTML, not escaped. |
 | htmlHeader2 | string | Second half of a custom HTML header (rendered after the subject, before the body). Defaults to the built-in fallback when `''`. |
 | htmlFooter | string | Custom HTML footer appended after the body. Defaults to the built-in fallback when `''`. |
 
 **Notes:** Env vars read at construction: `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`. `alertDevTeam` additionally reads `DEV_TEAM_EMAIL` at send time. `client` is typed `any` (eslint-disabled) because `@socketlabs/email`'s `SocketLabsClient` type isn't imported directly for the field. All public send methods below are instance methods of this class, invoked as `new SocketLabsLib().sendXxx(...)`.
+
+### HTML escaping
+
+Every value a send method places in the HTML part is escaped for its context; the plain-text part and the subject line carry the raw value, because they are not HTML. One internal helper does the escaping, `escapeHtml` in `src/private/email/escapeHtml.mts`: it maps `&`, `<`, `>`, `"` and `'` to `&amp;`, `&lt;`, `&gt;`, `&quot;` and `&#39;` and leaves every other character, non-ASCII included, as it is. Text that is fixed in the library (the copy of the moderation notices, for example) is not escaped, so nothing is escaped twice.
+
+| Value | Where it lands in the HTML part | Handling |
+|---|---|---|
+| `name` (every method that takes one) | greeting text | `escapeHtml` of the greeting (` ${name}`) |
+| `err` of `alertDevTeam` | paragraph text | `escapeHtml` |
+| `otp` of `sendSubscriptionEmail` and `sendOTP` | paragraph text | `escapeHtml` |
+| `PLATFORM_NAME` (`platformName`) | paragraph text and link text | `escapeHtml` |
+| the finished link (`linkBase` or `APP_DOMAIN`, `linkPath`, the address, the hash) | `href='...'` and the visible link text | `escapeHtml` of the whole URL, once as attribute value and once as text. The address inside the URL stays `encodeURI`-encoded as before, so the plain-text link is byte-identical; `encodeURIComponent` is not used because it would rewrite `@` and `+` in that link. |
+| the subject | the `<title>` between the two header halves | `escapeHtml` (the subject line itself is unchanged) |
+| `title` of `getHtmlHeader` | `<title>` | `escapeHtml` |
+| `idPost`, `name`, `surname` and `_id` of `sendEmailPostReported` | paragraph text | `escapeHtml` |
+| `times` of `wrongHash` | paragraph text | not escaped: it is a number |
+
+Observable change in the HTML part only: a name, message, code or link that contains `&`, `<`, `>`, `"` or `'` now appears escaped in the HTML source (it renders as typed in the mail client). For example `&` inside the query string of the legacy reset link of `sendResetPwdConfirmationHash` is `&amp;` in the `href` and in the link text. Not escaped, by design: the `htmlHeader1`, `htmlHeader2` and `htmlFooter` fragments you pass to the constructor, and the `linkBase` you supply, which is configuration (see limit L11 in [security.md](../security.md)).
 
 ### `sendEmailVerify(emailTo, hash, name = '', linkBase = APP_DOMAIN, linkPath = '/check/verify-email')`
 
@@ -54,7 +71,7 @@ async sendEmailVerify(
 ): Promise<boolean>
 ```
 
-Sends the signup verification email. Builds `link = ${linkBase}${linkPath}/${encodeURI(emailTo)}/${hash}` and an HTML anchor via `StringObj.makeLink(link)`. Subject is `Confirm your email for ${platformName}`; body text asks the recipient to confirm registration by opening the link.
+Sends the signup verification email. Builds `link = ${linkBase}${linkPath}/${encodeURI(emailTo)}/${hash}` and an HTML anchor built from the escaped link (`htmlLink(link)`, which calls `StringLib.makeLink`). Subject is `Confirm your email for ${platformName}`; body text asks the recipient to confirm registration by opening the link.
 
 `linkBase` and `linkPath` were added in 5.8.0 and are the only two link segments in this class that are not fixed at construction. They exist because one backend can register accounts for more than one front-end — a customer site alongside an operator panel, say — and each audience's confirmation link has to land on that audience's own domain, which a single constructor-time `APP_DOMAIN` read cannot express. Both default to the pre-5.8.0 behaviour exactly, so existing callers are unaffected.
 
@@ -66,11 +83,11 @@ A trailing slash on `linkBase` and a missing leading slash on `linkPath` are nor
 |---|---|---|
 | emailTo | string | Recipient address. |
 | hash | string | Verification hash embedded in the confirmation link. |
-| name | string | Optional recipient name; prefixed with a space via `fixName` and interpolated as `Hi${nameFixed},`. |
+| name | string | Optional recipient name; prefixed with a space (`fixName`) and interpolated as `Hi${nameFixed},`; escaped in the HTML part. |
 | linkBase | string | Scheme + host the confirmation link points at. Defaults to the instance's `linkBase`, i.e. `APP_DOMAIN`. Trailing slashes are stripped. |
 | linkPath | string | Route prefix the receiving service listens on. Defaults to `/check/verify-email`. A leading slash is added when absent. |
 
-**Returns:** `Promise<boolean>` — `true` if SocketLabs accepted the send, `false` if the send call rejected (captured to Sentry inside `sendEmail`).
+**Returns:** `Promise<boolean>` — `true` if SocketLabs accepted the send, `false` if the send call rejected (captured to Sentry inside `sendTemplate`).
 
 ### `sendEmailChangeVerify(emailTo, hash, name = '')`
 
@@ -87,7 +104,7 @@ Sends the email-change verification email, used when a user changes their login 
 |---|---|---|
 | emailTo | string | Recipient address (the new email being confirmed). |
 | hash | string | Verification hash embedded in the confirmation link. |
-| name | string | Optional recipient name, same `fixName` treatment. |
+| name | string | Optional recipient name, same `fixName` treatment; escaped in the HTML part. |
 
 **Returns:** `Promise<boolean>` — send success/failure.
 
@@ -98,7 +115,7 @@ Sends the email-change verification email, used when a user changes their login 
 async sendWelcome(emailTo: string): Promise<boolean>
 ```
 
-Sends a welcome email after successful signup/activation. Subject: `Welcome to ${platformName}`. Body links to the platform home (`StringObj.makeLink(linkBase, platformName)`).
+Sends a welcome email after successful signup/activation. Subject: `Welcome to ${platformName}`. Body links to the platform home (`htmlLink(linkBase, platformName)`, both escaped).
 
 **Parameters:**
 
@@ -149,13 +166,13 @@ Notifies the user their account has been banned. Fixed copy: subject `Your accou
 async alertDevTeam(err: string): Promise<boolean>
 ```
 
-Sends an internal alert to the dev team when a 500-level error occurs. Recipient is always `process.env.DEV_TEAM_EMAIL` (ignores any concept of `emailTo`). Subject: `${platformName} error 500`; body embeds the raw `err` string in both text and HTML (`'error 500 ' + err`, `'<p>error 500 <br><br>' + err + '</p>'`) — not HTML-escaped.
+Sends an internal alert to the dev team when a 500-level error occurs. Recipient is always `process.env.DEV_TEAM_EMAIL` (ignores any concept of `emailTo`). Subject: `${platformName} error 500`; body embeds `err` in the text part as is (`'error 500 ' + err`) and in the HTML part escaped (`'<p>error 500 <br><br>' + escapeHtml(err) + '</p>'`). A value that is not a string is converted with `String()`, as the old concatenation did.
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
-| err | string | Error message/detail to report, interpolated directly (unescaped) into the email body. |
+| err | string | Error message/detail to report. Raw in the text part, HTML-escaped in the HTML part. |
 
 **Returns:** `Promise<boolean>` — send success/failure.
 
@@ -241,14 +258,14 @@ Notifies the user their account is already active/valid and they can log in dire
 async sendSubscriptionEmail(emailTo: string, otp: string): Promise<boolean>
 ```
 
-Sends an OTP-based subscription-activation email. Subject: `` Activate your ${platformName} account ``. Builds `url = ${linkBase}/x/emailVerify` and includes both a clickable link and the raw `otp` code in the body.
+Sends an OTP-based subscription-activation email. Subject: `` Activate your ${platformName} account ``. Builds `url = ${linkBase}/x/emailVerify` and includes both a clickable link and the `otp` code in the body (`otp` is escaped in the HTML part).
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
 | emailTo | string | Recipient address. |
-| otp | string | One-time activation code shown in the email body. |
+| otp | string | One-time activation code shown in the email body; HTML-escaped in the HTML part. |
 
 **Returns:** `Promise<boolean>` — send success/failure.
 
@@ -277,17 +294,17 @@ Confirms that a password reset has completed and the user can now log in. Subjec
 async sendResetPwdConfirmationHash(email: string, name: string, hash: string): Promise<boolean>
 ```
 
-Legacy password-reset confirmation email. Subject: `` Password change confirmation for ${platformName} ``, used both as the sent subject and inside the HTML body via `getHtmlHeader(subject)`. Builds `linkReset = linkBase + '/index.php?q=reset&hash=' + hash + '&email=' + encodeURI(email)`. Unlike the other send methods, the HTML body here is built with the public `getHtmlHeader(subject)` / `getHtmlFooter()` helpers (a full standalone `<html>...</html>` document) rather than relying only on the constructor's `emailHtmlHeader1/2`/`emailHtmlFooter` fallback — because `sendEmail` unconditionally wraps whatever `htmlBody` it's given with `emailHtmlHeader1 + subject + emailHtmlHeader2 + htmlBody + emailHtmlFooter`, the final message ends up with the fallback template wrapped around a second, complete HTML document. This double-wrapping is a pre-existing behavior, not a bug introduced here. Send errors are caught locally: on failure, `Sentry.captureException(e)` is called and the method returns `false` instead of throwing.
+Legacy password-reset confirmation email. Subject: `` Password change confirmation for ${platformName} ``, used both as the sent subject and inside the HTML body via `getHtmlHeader(subject)` (the title is escaped). Builds `linkReset = linkBase + '/index.php?q=reset&hash=' + hash + '&email=' + encodeURI(email)`; the plain-text part does not carry it, and in the HTML part the whole URL is escaped, so its `&` separators read `&amp;`. Unlike the other send methods, the HTML body here is built with the public `getHtmlHeader(subject)` / `getHtmlFooter()` helpers (a full standalone `<html>...</html>` document) rather than relying only on the constructor's `emailHtmlHeader1/2`/`emailHtmlFooter` fallback — because `sendTemplate` unconditionally wraps whatever `htmlBody` it's given with `emailHtmlHeader1 + escapeHtml(subject) + emailHtmlHeader2 + htmlBody + emailHtmlFooter`, the final message ends up with the fallback template wrapped around a second, complete HTML document. This double-wrapping is a pre-existing behavior, not a bug introduced here. Send errors are caught locally: on failure, `Sentry.captureException(e)` is called and the method returns `false` instead of throwing.
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
 | email | string | Recipient address. |
-| name | string | Recipient name (no default; always interpolated as `'Hi ' + name`, unlike the other methods' `fixName` treatment). |
-| hash | string | Reset-confirmation hash embedded in `linkReset`. |
+| name | string | Recipient name (no default; always interpolated as `'Hi ' + name`, unlike the other methods' `fixName` treatment). HTML-escaped in the HTML part. |
+| hash | string | Reset-confirmation hash embedded in `linkReset` (escaped as part of the URL in the HTML part). |
 
-**Returns:** `Promise<boolean>` — the `sendTemplate` result on success, or `false` if `sendTemplate` throws synchronously.
+**Returns:** `Promise<boolean>` — the `sendTemplate` result on success, or `false` if the send throws (reported to Sentry).
 
 ### `sendEmailReset(emailTo, hash, name = '', linkBase = APP_DOMAIN, linkPath = '/x/reset')`
 
@@ -314,7 +331,7 @@ Sends the "reset your password" email with a hash-bearing link. Builds `link = $
 |---|---|---|
 | emailTo | string | Recipient address. |
 | hash | string | Reset hash embedded in the link. |
-| name | string | Optional recipient name, `fixName`-prefixed. |
+| name | string | Optional recipient name, `fixName`-prefixed; escaped in the HTML part. |
 | linkBase | string | Scheme + host the reset link points at. Defaults to the instance's `linkBase`, i.e. `APP_DOMAIN`. Trailing slashes are stripped. |
 | linkPath | string | Front-end route prefix that renders the new-password form. Defaults to `/x/reset`. A leading slash is added when absent. |
 
@@ -327,7 +344,7 @@ Sends the "reset your password" email with a hash-bearing link. Builds `link = $
 htmlFooter(): string
 ```
 
-Public "fallback footer" fragment: `'</p></td>' + '  </tr>' + ' </table>' + '</body>'`. Marked with a `/** fallback footer */` doc comment but, unlike its counterparts `htmlHeader1()`/`htmlHeader2()` (which are `private`), this method has no `private` modifier and is callable externally. Its body is identical to `getHtmlFooter()`.
+Public "fallback footer" fragment: `'</p></td>' + '  </tr>' + ' </table>' + '</body>'` (`FALLBACK_FOOTER` in `src/private/email/htmlFrame.mts`). Marked with a `/** fallback footer */` doc comment and callable externally. Its output is identical to `getHtmlFooter()`.
 
 **Returns:** `string` — closing `</p></td></tr></table></body>` HTML fragment.
 
@@ -338,16 +355,16 @@ Public "fallback footer" fragment: `'</p></td>' + '  </tr>' + ' </table>' + '</b
 async sendOTP(emailTo: string, otp: string): Promise<boolean>
 ```
 
-Sends a one-time-password email. Subject: `` OTP code for ${platformName} ``; body text: `` To confirm your subscription on ${platformName}, enter the following OTP code: ${otp} `` (text and HTML).
+Sends a one-time-password email. Subject: `` OTP code for ${platformName} ``; body text: `` To confirm your subscription on ${platformName}, enter the following OTP code: ${otp} `` (text and HTML; in the HTML part `platformName` and `otp` are escaped).
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
 | emailTo | string | Recipient address. |
-| otp | string | One-time password code shown in the email body. |
+| otp | string | One-time password code shown in the email body; HTML-escaped in the HTML part. |
 
-**Returns:** `Promise<boolean>` — the `sendTemplate` result on success, or `false` if `sendTemplate` throws synchronously. Errors from `sendEmail` are caught and reported to Sentry via `Sentry.captureException(e)` rather than propagated.
+**Returns:** `Promise<boolean>` — the `sendTemplate` result on success, or `false` if the send throws. Errors thrown while sending are caught and reported to Sentry via `Sentry.captureException(e)` rather than propagated.
 
 ### `sendEmailPostReported(userInfo, idPost)`
 
@@ -356,14 +373,14 @@ Sends a one-time-password email. Subject: `` OTP code for ${platformName} ``; bo
 async sendEmailPostReported(userInfo: IUserInfo, idPost: number | string): Promise<boolean>
 ```
 
-Sends an internal notification that a post has been reported/flagged to `process.env.DEV_TEAM_EMAIL`, the same recipient `alertDevTeam` uses. Subject: `'Post ' + idPost + ' reported'`. Body interpolates the reporting user's name/surname/id from `userInfo`. Uses `getHtmlHeader(subject)` / `getHtmlFooter()` to build the HTML body (same double-wrapping consideration as `sendResetPwdConfirmationHash`, since `sendEmail` re-wraps it again).
+Sends an internal notification that a post has been reported/flagged to `process.env.DEV_TEAM_EMAIL`, the same recipient `alertDevTeam` uses. Subject: `'Post ' + idPost + ' reported'`. Body interpolates the reporting user's name/surname/id from `userInfo` and the post id; these come from user data, so they are escaped in the HTML part and raw in the text part. Uses `getHtmlHeader(subject)` / `getHtmlFooter()` to build the HTML body (same double-wrapping consideration as `sendResetPwdConfirmationHash`, since `sendTemplate` re-wraps it again).
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
 | userInfo | `IUserInfo` | Info about the user who filed the report (module-internal interface — shape below). |
-| idPost | number \| string | Identifier of the reported post, interpolated into subject/body. |
+| idPost | number \| string | Identifier of the reported post, interpolated into subject/body (escaped in the HTML part and in the HTML `<title>`). |
 
 `IUserInfo` shape: `{ _id: string; personalData: { name: string; surname: string } }`.
 
@@ -378,13 +395,13 @@ Sends an internal notification that a post has been reported/flagged to `process
 getHtmlHeader(title: string): string
 ```
 
-Public helper that returns a complete standalone HTML document opening (doctype, `<html>`, `<head>` with the given `title` in a `<title>` tag, viewport meta, then `<body>` and an opening 600px-wide centered `<table>`/`<tr>`/`<td>`/`<p>`). Used by `sendResetPwdConfirmationHash` and `sendEmailPostReported` to build their HTML bodies. The `title` argument is interpolated directly into `<title>title</title>` without HTML-escaping.
+Public helper that returns a complete standalone HTML document opening (doctype, `<html>`, `<head>` with the given `title` in a `<title>` tag, viewport meta, then `<body>` and an opening 600px-wide centered `<table>`/`<tr>`/`<td>`/`<p>`). Used by `sendResetPwdConfirmationHash` and `sendEmailPostReported` to build their HTML bodies. The `title` argument is HTML-escaped before it goes into `<title>title</title>`; pass plain text, not pre-escaped text.
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
-| title | string | Text used as the document `<title>` (also typically the email subject). |
+| title | string | Plain text used as the document `<title>` (also typically the email subject); escaped by the method. |
 
 **Returns:** `string` — opening HTML fragment ending mid-`<p>`, to be closed by `getHtmlFooter()`.
 
@@ -399,92 +416,24 @@ Public closing counterpart to `getHtmlHeader`: `'</p></td>' + '  </tr>' + ' </ta
 
 **Returns:** `string` — closing `</p></td></tr></table></body>` HTML fragment.
 
-### `sendTemplate(emailTo, subject, textBody, htmlBody)` — private
+### `sendTemplate(emailTo, content)` — private
 
 **Import:** _internal — not exported_.
 
 **Signature:**
 ```ts
-private async sendTemplate(emailTo: string, subject: string, textBody: string, htmlBody: string): Promise<boolean>
+private async sendTemplate(emailTo: string, content: IEmailContent): Promise<boolean>
 ```
 
-Thin wrapper called by every public send method (`sendEmailVerify`, `sendEmailChangeVerify`, `sendWelcome`, `accountDisabled`, `accountBanned`, `alertDevTeam`, `wrongHash`, `tooMuchVerifyRequests`, `hashReqTooOld`, `emailAlreadyValid`, `sendSubscriptionEmail`, `sendResetPwdConfirmation`, `sendResetPwdConfirmationHash`, `sendEmailReset`, `sendOTP`, `sendEmailPostReported`) instead of calling `sendEmail` directly. Assembles the `ISendEmail` args object — `emailFrom`/`emailFromName` from the instance's `emailFrom`/`platformName` fields, plus the given `emailTo`/`subject`/`textBody`/`htmlBody` — and forwards it to the private `sendEmail`. It is the sole caller of `sendEmail` in active code.
+Called by every public send method (`sendEmailVerify`, `sendEmailChangeVerify`, `sendWelcome`, `accountDisabled`, `accountBanned`, `alertDevTeam`, `wrongHash`, `tooMuchVerifyRequests`, `hashReqTooOld`, `emailAlreadyValid`, `sendSubscriptionEmail`, `sendResetPwdConfirmation`, `sendResetPwdConfirmationHash`, `sendEmailReset`, `sendOTP`, `sendEmailPostReported`). Builds a `BasicMessage` from `@socketlabs/email`: sets from-address/name (`emailFrom` / `platformName`), the subject, the text body, and an HTML body computed as `emailHtmlHeader1 + escapeHtml(subject) + emailHtmlHeader2 + htmlBody + emailHtmlFooter` (every message is wrapped in the constructor's header/footer template, with the HTML-escaped subject re-inserted between the two header halves), then sets the recipient and calls `client.send(basicMessage)`. The subject line and the text body are set unescaped.
 
 **Parameters:**
 
 | Name | Type | Description |
 |---|---|---|
 | emailTo | string | Recipient address. |
-| subject | string | Email subject line. |
-| textBody | string | Plain-text body. |
-| htmlBody | string | HTML body (wrapped further by `sendEmail` with the constructor's header/footer template). |
-
-**Returns:** `Promise<boolean>` — the result of `sendEmail`.
-
-### `sendEmail(args)` — private
-
-**Import:** _internal — not exported_ (private instance method; only reachable through the private `sendTemplate` helper above, which every public send method calls).
-
-**Signature:**
-```ts
-private async sendEmail(args: ISendEmail): Promise<boolean>
-```
-
-Central send implementation used by every public method. Builds a `BasicMessage` from `@socketlabs/email`: sets from-address/name, subject, text body, and an HTML body computed as `emailHtmlHeader1 + subject + emailHtmlHeader2 + htmlBody + emailHtmlFooter` (i.e. every message is wrapped in the constructor's header/footer template, with the subject re-inserted between the two header halves), then sets the recipient and calls `client.send(basicMessage)`.
-
-**Parameters:**
-
-| Name | Type | Description |
-|---|---|---|
-| args | `ISendEmail` | Fully-assembled message fields (module-internal interface — shape below). |
-
-`ISendEmail` shape: `{ emailFrom: string; emailFromName: string; emailTo: string; subject: string; textBody: string; htmlBody: string }`.
+| content | `IEmailContent` | `{ subject, textBody, htmlBody }` as built by the internal message modules; every value inside `htmlBody` is already escaped. Module-internal interface, `src/private/email/IEmailContent.mts`. |
 
 **Returns:** `Promise<boolean>` — `true` on successful SocketLabs API acknowledgement; `false` if the send promise rejects.
 
-**Notes:** On rejection, calls `Sentry.captureException(e, { extra: { detail: 'Error in sending the email' } })` and resolves `false` rather than rethrowing — callers never see the underlying SocketLabs error object directly. `ISendEmail` is not exported and has no `package.json` export entry.
-
-### `htmlHeader1()` — private
-
-**Import:** _internal — not exported_.
-
-**Signature:**
-```ts
-private htmlHeader1(): string
-```
-
-Fallback header fragment (first half) used only when the constructor is called without an explicit `htmlHeader1` argument. Returns the XHTML 1.0 Transitional doctype, `<html lang="en" ...>`, `<head>`, charset meta, and the opening `<title>` tag (left unclosed so the subject can be inserted after it).
-
-**Returns:** `string` — opening HTML/head fragment through `<title>`.
-
-### `htmlHeader2()` — private
-
-**Import:** _internal — not exported_.
-
-**Signature:**
-```ts
-private htmlHeader2(): string
-```
-
-Fallback header fragment (second half), picking up after the subject inserted by `sendEmail`: closes `</title>`, adds the viewport meta, closes `</head></html>`, opens `<body>` and a centered 600px `<table>`/`<tr>`/`<td>`/`<p>`.
-
-**Returns:** `string` — `</title>` through opening `<p>` fragment.
-
-### `fixName(name)` — private
-
-**Import:** _internal — not exported_.
-
-**Signature:**
-```ts
-private fixName(name: string): string
-```
-
-Normalizes an optional recipient name for interpolation into greetings like `` `Hi${nameFixed},` ``. Returns `` ` ${name}` `` (a single leading space plus the name) when `name !== ''`, otherwise returns `''` so `Hi${nameFixed}` reads as plain `Hi` with no double space.
-
-**Parameters:**
-
-| Name | Type | Description |
-|---|---|---|
-| name | string | Raw recipient name, or `''` for none. |
-
-**Returns:** `string` — `` ` ${name}` `` or `''`.
+**Notes:** On rejection, calls `Sentry.captureException(e, { extra: { detail: 'Error in sending the email' } })` and resolves `false` rather than rethrowing — callers never see the underlying SocketLabs error object directly. `sendOTP` and `sendResetPwdConfirmationHash` additionally run the send through the internal `orFalse` helper, which turns any throw into a Sentry report and `false`.
