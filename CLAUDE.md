@@ -51,7 +51,9 @@ Full prose by Rule 0 §4. Both of these shipped as real defects.
 ## Coverage — hard 100%
 
 - `.c8rc.json`: `check-coverage: true`, `per-file: true`, `lines`/`statements`/`functions`/`branches` all `100`. Any file below → `yarn test:coverage` exit non-zero.
-- `.githooks/pre-commit` run `yarn test:coverage` **then Qodana**, on every commit touching `src/`, `test/`, `package.json`, `.c8rc.json`, `.mocharc.json`, `tsconfig*.json`. Docs-only skip both. Wired by `yarn hooks:install` (via `prepare`) → `core.hooksPath .githooks`.
+- `.c8rc.json` `include` = `dist/**/*.mjs` + `scripts/check-code-caps.mts` + `scripts/code-caps/**/*.mts` → caps tool + specs held to same 100%. Other `scripts/` = measurement tools, outside include, no spec.
+- `.githooks/pre-commit` order: lockfile check (always) → `yarn -s check:static` → `yarn test:coverage` → Qodana last. Run on any commit touching `src/`, `test/`, `scripts/`, `package.json`, `.c8rc.json`, `.mocharc.json`, `tsconfig*.json`, `eslint.config.js`, `eslint-suppressions.json`, `knip.config.js`, `fta.json`, `.code-caps-baseline.json`. Docs-only skip all heavy steps. Wired by `yarn hooks:install` (via `prepare`) → `core.hooksPath .githooks`.
+- `.githooks/pre-push`: `yarn -s check:static` again (catch `--no-verify` commits) → `scripts/semgrep.sh` → `scripts/semgrep-canary.sh`. Skip branch delete + docs-only range. Prereq missing (yarn, `node_modules`, python3, docker, daemon, pinned `SEMGREP_IMAGE` local) → print 1 fix cmd, exit 1. Never pull, never network (no `--registry` packs). No `SKIP_*`.
 - Red gate → new test. Never lower threshold, never new exclude.
 - `.c8rc.json` `exclude` = untestable artefacts only: type-only emit (`I*.mjs`, `types/`, `interfaces/`, `TCommonHeaders`, `TCookieRefreshToken`), fully commented-out `checkForNSFW.mjs`, build output. Never park real logic there for green.
 - Truly unreachable defensive branch → raise with owner before excluding. Never add `/* c8 ignore */` on own initiative.
@@ -120,7 +122,11 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - No lowering/deleting `.c8rc.json` thresholds or `qodana.yaml` `testCoverageThresholds` — contract, not default. No `.c8rc.json` exclude, no `/* c8 ignore */`, to green a red gate. Write test.
 - No `git commit --no-verify`, no `SKIP_QODANA=1`, no suggesting either to user as fix. Owner emergency only — CI block anyway.
 - No softening hook Qodana prereqs into warnings. No `docker pull` inside hook.
-- No disable/delete/edit of `.githooks/pre-commit` or `.githooks/commit-msg` unasked. Widening allowed commit types to pass a message = same violation → rewrite message.
+- Never raise any value in `.code-caps-baseline.json`, and never add an entry to it by hand. `yarn caps:update` only lowers values and removes entries; it is the only way that file changes. A cap violation is fixed by splitting the code. `--accept` rewrites the whole baseline and is for the owner only.
+- Never hand-edit `eslint-suppressions.json`. It changes only through `eslint --suppress-all` / `--suppress-rule` (owner adopting a rule) and `eslint --prune-suppressions` (shrinking). A count that goes up is a new violation: fix the code.
+- Never raise a cap (`LIMITS` in `scripts/code-caps/measure.mts`, ESLint `max-*`, `complexity`), raise `fta.json` `score_cap`, or lower a `type-coverage` bar (`--at-least` values in `package.json`) or a `tsc` strict flag to pass a gate. Fix the code. Bars only move toward stricter.
+- `typescript-eslint` + `@typescript-eslint/*` move together, same version. Bump 1 alone → peer mismatch.
+- No disable/delete/edit of `.githooks/pre-commit`, `.githooks/pre-push` or `.githooks/commit-msg` unasked. Widening allowed commit types to pass a message = same violation → rewrite message.
 - No deleting the `PreToolUse` hooks in `.claude/settings.json` or `scripts/caveman-gate.sh` to land a `CLAUDE.md` or `test/**/*.mts` write. Blocked write → invoke the skill, not remove the gate. Rule 0 §6.
 - No normal-prose comment in `test/**/*.mts` — caveman ultra, see `test/CLAUDE.md`. `describe` / `it` description strings not comments → stay prose. `src/` comments stay prose.
 
@@ -128,8 +134,13 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 
 - `yarn build` — prod ESM build (`yarn clean && yarn build:esm`). `tspc` (ts-patch) apply `typescript-transform-paths` → emitted `.mjs` carry relative imports.
 - `yarn build:all` — ESM + CJS dual. Only when explicitly needed.
-- `yarn lint` — `eslint --fix` then `prettier --write 'src/**/*.mts'`. Run after every multi-file edit.
-- `yarn lint:check` — `eslint` then `prettier --check 'src/**/*.mts'`. Read-only, no fix. CI run it (`ci.yml`, step `Coding standard`) → red CI = run `yarn lint`.
+- `yarn lint` — `eslint --fix` then `prettier --write 'src/**/*.mts' 'scripts/**/*.mts'`. Run after every multi-file edit.
+- `yarn lint:check` — `eslint --max-warnings 0 --cache` then `prettier --check`. Read-only, no fix. Part of `check:static` → red CI = run `yarn lint`.
+- `yarn check:static` — `caps` → `lint:check` → `typecheck` → `typecheck:scripts` → `knip` → `type-coverage` → `fta`. Single source: pre-commit, pre-push, CI step `Static gates` all call it. Run before report done.
+- `yarn typecheck` (`tsconfig.check.json`, `exactOptionalPropertyTypes`) / `yarn typecheck:scripts` (`tsconfig.scripts.json`) / `yarn knip` / `yarn type-coverage` / `yarn fta` (cap `fta.json`, 64 → target 50 after refactor, owner) — 1 gate each.
+- `yarn caps` — code-size ratchet vs `.code-caps-baseline.json`. `caps:update` only lower. `caps:report` list all.
+- `yarn leak:check` — heap tripwire on built `dist/` (`yarn build` first). CI weekly/dispatch only, advisory.
+- Snapshots: `test/__snapshots__/*.json`. Regen `UPDATE_SNAPSHOT=1 yarn test`, only on intentional API change, read diff. See `test/CLAUDE.md`.
 - `yarn clean` — wipe `dist/`.
 - `yarn test` — `build` + `build:tests` + mocha. No coverage check.
 - `yarn test:coverage` — same via c8, **fail below 100%** on any file. This command decide change finished. Feed Qodana coverage gate too.
@@ -180,6 +191,8 @@ The next four rules are supply-chain security invariants, so they are written in
 - No workflow runs `npm install`, `pip install` or `curl ... | bash`. Dependencies come from `yarn install --frozen-lockfile` or from a pinned action or image.
 - Never put an expression such as `${{ github.event.* }}` inside a `run:` script, because event payload text is attacker-controlled. Pass it through `env:` and read the shell variable.
 
+- Job `Test coverage` (required check, name fixed) hold step `Static gates` = `yarn check:static`, before `yarn test:coverage`. Old `Coding standard` step folded in. Static gate → inside this job, never a new required context.
+- Advisory jobs, not required checks: `Trivy` (digest-pinned image, `--exit-code 1`; ghcr rate limit → red = rerun first), `Leak check` (schedule/dispatch only). Never hook, never required without ruleset edit. Semgrep registry packs (`--registry`) = CI `semgrep.yml` only, never hook, never `release.yml`.
 - YAML in `.github/` = 2 spaces, overrides `.editorconfig` tabs (tab invalid in YAML).
 - `qodana-action` bump (hand or Dependabot) travels with `qodana.yaml` `linter:` and `--linter` arg in `qodana.yml` → all same version, else CI + hook scan different images. Dependabot cannot bump the two → check by hand.
 - `SEMGREP_IMAGE` (tag + `@sha256` digest) identical in `semgrep.yml` and `release.yml`. Change both same commit.

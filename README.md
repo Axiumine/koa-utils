@@ -301,7 +301,8 @@ yarn build:all    # ESM + CJS dual output
 yarn test         # build + build:tests + mocha, no coverage gate
 yarn test:coverage  # same under c8: fails below 100% on lines, statements, functions or branches of any file
 yarn lint         # eslint --fix + prettier --write
-yarn lint:check   # eslint + prettier --check, writes nothing (runs in CI)
+yarn lint:check   # eslint + prettier --check, writes nothing
+yarn check:static # every static gate: caps, lint, typecheck, knip, type-coverage, fta (runs in CI)
 yarn clean
 ```
 
