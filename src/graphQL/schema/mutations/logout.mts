@@ -21,6 +21,7 @@ export const logout = {
 
 			await redisClient.del(`${process.env['REDIS_KEY']}${buildPrefixedRedisKey('refresh:', ctx.state.user.refreshToken)}`)
 
+			// Stryker disable next-line OptionalChaining: ctx.state.user.refreshToken is already dereferenced on the first del line, so a nullish user throws there and never reaches this line
 			const accessToken = ctx.state.user?.accessToken || ''
 			if (accessToken !== '') {
 				await redisClient.del(`${process.env['REDIS_KEY']}${buildPrefixedRedisKey('access:', accessToken)}`)
