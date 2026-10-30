@@ -41,7 +41,7 @@ function buildErrorBody(
 
 // more debug data ?
 function maybeCaptureSentryError(errKoa: IKoaError, isIstanceOfGQL: boolean): void {
-	if (process.env.NODE_ENV === 'development') {
+	if (process.env['NODE_ENV'] === 'development') {
 		if (!isIstanceOfGQL) {
 			Sentry.captureException(errKoa)
 		}

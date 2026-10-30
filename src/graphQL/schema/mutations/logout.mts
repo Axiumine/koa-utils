@@ -19,11 +19,11 @@ export const logout = {
 			// comes from authenticatedLogoutHandler, so re-adding the prefix here would delete
 			// 'refresh:refresh:<uuid>' — a key that was never written — and leave the session alive
 
-			await redisClient.del(`${process.env.REDIS_KEY}${buildPrefixedRedisKey('refresh:', ctx.state.user.refreshToken)}`)
+			await redisClient.del(`${process.env['REDIS_KEY']}${buildPrefixedRedisKey('refresh:', ctx.state.user.refreshToken)}`)
 
 			const accessToken = ctx.state.user?.accessToken || ''
 			if (accessToken !== '') {
-				await redisClient.del(`${process.env.REDIS_KEY}${buildPrefixedRedisKey('access:', accessToken)}`)
+				await redisClient.del(`${process.env['REDIS_KEY']}${buildPrefixedRedisKey('access:', accessToken)}`)
 			}
 
 			// delete cookies

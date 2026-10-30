@@ -24,8 +24,8 @@ export const refresh = {
 		// generates the 2 new tokens
 		let accessToken = generateAccessToken()
 		let refreshToken = generateRefreshToken()
-		const keyAccess = `${process.env.REDIS_KEY}access:${accessToken}`
-		const keyRefresh = `${process.env.REDIS_KEY}refresh:${refreshToken}`
+		const keyAccess = `${process.env['REDIS_KEY']}access:${accessToken}`
+		const keyRefresh = `${process.env['REDIS_KEY']}refresh:${refreshToken}`
 
 		let accessTokenData = ctx.state.user
 		const oldRefresh = ctx.state.user.refreshToken
@@ -48,7 +48,7 @@ export const refresh = {
 			setLoginCookies(ctx, refreshToken)
 
 			// deletes the refresh token used to make this call
-			await redisClient.del(`${process.env.REDIS_KEY}${oldRefresh}`)
+			await redisClient.del(`${process.env['REDIS_KEY']}${oldRefresh}`)
 
 			status = true
 		} catch (e: unknown) {

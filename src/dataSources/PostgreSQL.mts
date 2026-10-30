@@ -7,21 +7,21 @@ const { Client, Pool } = pg
 dotenv.config()
 
 export const pgClient = new Client({
-	user: `${process.env.POSTGRESQL_USER}`,
-	password: `${process.env.POSTGRESQL_PWD}`,
-	host: `${process.env.POSTGRESQL_HOST}`,
-	port: parseInt(`${process.env.POSTGRESQL_PORT}`, 10),
-	database: `${process.env.POSTGRESQL_DBNAME}`
+	user: `${process.env['POSTGRESQL_USER']}`,
+	password: `${process.env['POSTGRESQL_PWD']}`,
+	host: `${process.env['POSTGRESQL_HOST']}`,
+	port: parseInt(`${process.env['POSTGRESQL_PORT']}`, 10),
+	database: `${process.env['POSTGRESQL_DBNAME']}`
 })
 
 export const pgPool = new Pool({
-	user: `${process.env.POSTGRESQL_USER}`,
-	password: `${process.env.POSTGRESQL_PWD}`,
-	host: `${process.env.POSTGRESQL_HOST}`,
-	port: parseInt(`${process.env.POSTGRESQL_PORT}`, 10),
-	database: `${process.env.POSTGRESQL_DBNAME}`,
-	max: parseInt(`${process.env.POSTGRESQL_POOL_MAX}`, 10),
-	idleTimeoutMillis: parseInt(`${process.env.POSTGRESQL_IDLE_TIMEOUT}`, 10)
+	user: `${process.env['POSTGRESQL_USER']}`,
+	password: `${process.env['POSTGRESQL_PWD']}`,
+	host: `${process.env['POSTGRESQL_HOST']}`,
+	port: parseInt(`${process.env['POSTGRESQL_PORT']}`, 10),
+	database: `${process.env['POSTGRESQL_DBNAME']}`,
+	max: parseInt(`${process.env['POSTGRESQL_POOL_MAX']}`, 10),
+	idleTimeoutMillis: parseInt(`${process.env['POSTGRESQL_IDLE_TIMEOUT']}`, 10)
 })
 
 // the pool will emit an error on behalf of any idle clients

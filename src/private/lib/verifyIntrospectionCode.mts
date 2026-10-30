@@ -24,7 +24,7 @@ export const verifyIntrospectionCode = (headerValue: string | undefined): boolea
 	if (!isIntrospectionBypassAllowed()) {
 		return false
 	}
-	const code = process.env.INTROSPECTION_CODE
+	const code = process.env['INTROSPECTION_CODE']
 	if (typeof code !== 'string' || code.length === 0) {
 		return false
 	}

@@ -16,4 +16,4 @@
  * Read at call time, never captured in a module-level constant: the ESM module cache would freeze a
  * constant at first import, and both callers here run at module load of `dataSources/Redis.mts`.
  */
-export const isRedisTlsRequired = (): boolean => process.env.REDIS_TLS === 'true'
+export const isRedisTlsRequired = (): boolean => process.env['REDIS_TLS'] === 'true'

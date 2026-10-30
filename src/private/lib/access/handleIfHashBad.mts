@@ -8,8 +8,8 @@ interface IHandleIfHashBadArgs {
 	uId: mongoose.Types.ObjectId
 	uEmail: string
 	hash: string
-	requestTimes?: number // but the check is already performed
-	dbHash?: string
+	requestTimes?: number | undefined // but the check is already performed
+	dbHash?: string | undefined
 }
 
 /**

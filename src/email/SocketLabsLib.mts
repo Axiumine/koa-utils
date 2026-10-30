@@ -37,14 +37,14 @@ export class SocketLabsLib {
 	constructor(htmlHeader1: string = '', htmlHeader2: string = '', htmlFooter: string = '') {
 		this.client = new SocketLabsClient(
 			/* c8 ignore next -- env fallback '0' covered only when SOCKETLABS_SERVER_ID is unset */
-			parseInt(process.env.SOCKETLABS_SERVER_ID || '0'),
-			`${process.env.SOCKETLABS_SERVER_APIKEY}`,
+			parseInt(process.env['SOCKETLABS_SERVER_ID'] || '0'),
+			`${process.env['SOCKETLABS_SERVER_APIKEY']}`,
 			{ requestTimeout: 120, numberOfRetries: 3 }
 		)
 		this.StringObj = new StringLib()
-		this.platformName = `${process.env.PLATFORM_NAME}`
-		this.linkBase = `${process.env.APP_DOMAIN}`
-		this.emailFrom = `${process.env.EMAIL_FROM}`
+		this.platformName = `${process.env['PLATFORM_NAME']}`
+		this.linkBase = `${process.env['APP_DOMAIN']}`
+		this.emailFrom = `${process.env['EMAIL_FROM']}`
 
 		this.emailHtmlHeader1 = htmlHeader1 === '' ? this.htmlHeader1() : htmlHeader1
 		this.emailHtmlHeader2 = htmlHeader2 === '' ? this.htmlHeader2() : htmlHeader2
@@ -210,7 +210,7 @@ SendResponse {
 		const textBody = 'error 500 ' + err
 		const htmlBody = '<p>error 500 <br><br>' + err + '</p>'
 
-		return await this.sendTemplate(`${process.env.DEV_TEAM_EMAIL}`, `${this.platformName} error 500`, textBody, htmlBody)
+		return await this.sendTemplate(`${process.env['DEV_TEAM_EMAIL']}`, `${this.platformName} error 500`, textBody, htmlBody)
 	}
 
 	/**
@@ -419,7 +419,7 @@ SendResponse {
 			').' +
 			this.getHtmlFooter()
 
-		return await this.sendTemplate(`${process.env.DEV_TEAM_EMAIL}`, subject, messageTxt, messageHtml)
+		return await this.sendTemplate(`${process.env['DEV_TEAM_EMAIL']}`, subject, messageTxt, messageHtml)
 	}
 
 	getHtmlHeader(title: string) {

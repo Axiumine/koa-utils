@@ -20,7 +20,8 @@ export async function infoUserForLoginSQL(email: string): Promise<InfoUserForLog
 		}
 	})) as InfoUserForLoginSQL[]
 
-	if (ret.length === 0) throw throwErrorWrongUserInput('User does not exist')
+	const [first] = ret
+	if (first === undefined) throw throwErrorWrongUserInput('User does not exist')
 
-	return ret[0]
+	return first
 }

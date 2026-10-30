@@ -1,0 +1,15 @@
+{
+	// Type-check gate only (yarn typecheck): never emits, never used by the build.
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"exactOptionalPropertyTypes": true,
+		// tsconfig.json keeps skipLibCheck false on purpose (the published .d.mts are checked against consumers' types).
+		// Under exactOptionalPropertyTypes the sequelize .d.ts reports 2 errors we cannot fix from here, so this gate skips lib checks.
+		"skipLibCheck": true
+	},
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.mts"
+	]
+}

@@ -17,7 +17,7 @@
  * coherent while the library and the app agree on which environments are permitted to use it.
  */
 export function isIntrospectionBypassAllowed(): boolean {
-	const nodeEnv = process.env.NODE_ENV
+	const nodeEnv = process.env['NODE_ENV']
 
 	return nodeEnv === 'development' || nodeEnv === 'test'
 }
