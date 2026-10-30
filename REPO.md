@@ -105,7 +105,7 @@ Outside `src/`: `docs/code/` is the per-area reference (index `docs/code/README.
 | `yarn type-coverage` | `type-coverage` at least 99.5 (non-strict) and at least 96.7 (`--strict`) |
 | `yarn fta` | FTA maintainability score per file, cap in `fta.json` |
 | `yarn check:static` | all the static gates in order: `caps`, `lint:check`, `typecheck`, `typecheck:scripts`, `knip`, `type-coverage`, `fta`. Single source for the pre-commit hook, the pre-push hook and the CI step `Static gates` |
-| `yarn mutation` | `patch-package && stryker run`: full StrykerJS mutation run in a sandbox copy (about 30 min); report in `reports/mutation/`; advisory, `thresholds.break` in `stryker.config.json` is the floor |
+| `yarn mutation` | `patch-package && stryker run`: full StrykerJS mutation run in a sandbox copy (about 13 min); report in `reports/mutation/`; the weekly CI run is advisory, `thresholds.break` in `stryker.config.json` is 100 (100% of non-disabled mutants; 15 `Stryker disable` comments in `src`) |
 | `yarn mutation:changed [base-ref]` | mutate only the `src/**/*.mts` files changed against the merge base (default `origin/main`, else `HEAD~1`); `scripts/mutation-changed.sh` |
 | `yarn leak:check` | memory-leak tripwire (`scripts/leak-check.mts`, needs `yarn build` first); CI weekly and on dispatch only, advisory |
 | `yarn test` | `build` + `build:tests` + `mocha` — no coverage check |
