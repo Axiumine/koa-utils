@@ -32,6 +32,9 @@ exclude:
       - node_modules
       - test
       - .qodana
+      # StrykerJS output (stryker.config.json): the HTML report bundles generated JS.
+      - reports
+      - .stryker-tmp
 
 failureConditions:
   severityThresholds:

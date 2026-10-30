@@ -29,6 +29,7 @@ export const signUp = {
 		checkPwdLen(password)
 
 		const session = await mongoose.startSession()
+		// Stryker disable next-line BooleanLiteral: uExist is assigned from userExist() at the top of the transaction callback before its only read, so the initial value is never observed
 		let uExist = false
 		try {
 			await session.withTransaction(async () => {

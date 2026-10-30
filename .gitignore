@@ -53,3 +53,7 @@ TODO
 
 # ESLint cache
 .eslintcache
+
+# StrykerJS
+.stryker-tmp/
+reports/

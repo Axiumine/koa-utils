@@ -27,6 +27,7 @@ export interface ICreateAbandonUserArgs {
  */
 export const createAbandonUser = ({ model, paths, mode, deletedValue = true }: ICreateAbandonUserArgs): TDeleteUserByEmail => {
 	if (mode === 'keep') {
+		// Stryker disable next-line BlockStatement: the body is only `return undefined`, and an empty async function body also resolves undefined.
 		return async function keepUser(): Promise<void> {
 			// Nothing to do: the caller disposes of abandoned registrations themselves.
 			return undefined

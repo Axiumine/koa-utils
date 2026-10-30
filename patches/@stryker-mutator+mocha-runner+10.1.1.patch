@@ -1,0 +1,36 @@
+diff --git a/node_modules/@stryker-mutator/mocha-runner/dist/src/lib-wrapper.js b/node_modules/@stryker-mutator/mocha-runner/dist/src/lib-wrapper.js
+index 597ac78..1ae1d40 100644
+--- a/node_modules/@stryker-mutator/mocha-runner/dist/src/lib-wrapper.js
++++ b/node_modules/@stryker-mutator/mocha-runner/dist/src/lib-wrapper.js
+@@ -24,11 +24,20 @@ const resolveMocha = async () => {
+ };
+ const { mocha, require, mochaRoot } = await resolveMocha();
+ // https://github.com/mochajs/mocha/blob/master/lib/cli/run-helpers.js#L132
+-const runHelpers = require(`${mochaRoot}/lib/cli/run-helpers`);
++// Mocha 12 ships these CLI helpers as .cjs files, which require() does not resolve without the extension.
++const requireCli = (name) => {
++    try {
++        return require(`${mochaRoot}/lib/cli/${name}`);
++    }
++    catch {
++        return require(`${mochaRoot}/lib/cli/${name}.cjs`);
++    }
++};
++const runHelpers = requireCli('run-helpers');
+ let collectFiles;
+ async function resolveLoadOptions() {
+     try {
+-        return require(`${mochaRoot}/lib/cli/options`).loadOptions;
++        return requireCli('options').loadOptions;
+     }
+     catch {
+         // Since Mocha 12 the cli is distributed as ECMAScript modules
+@@ -43,7 +52,7 @@ collectFiles = runHelpers.handleFiles;
+ if (!collectFiles) {
+     // Might be moved:
+     // https://github.com/mochajs/mocha/commit/15b96afccaf508312445770e3af1c145d90b28c6#diff-39b692a81eb0c9f3614247af744ab4a8
+-    collectFiles = require(`${mochaRoot}/lib/cli/collect-files`);
++    collectFiles = requireCli('collect-files');
+ }
+ /**
+  * Wraps Mocha class and require for testability

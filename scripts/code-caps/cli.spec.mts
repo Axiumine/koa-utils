@@ -448,6 +448,13 @@ describe('code caps cli', () => {
 		it('resolves the repo root from its own location, so the real tree and baseline are read', () => {
 			const result = spawnSync(process.execPath, [entry], { encoding: 'utf8', cwd: os.tmpdir() })
 			expect(result.stderr).to.not.contain('cannot be read')
+			if (import.meta.dirname.includes('.stryker-tmp')) {
+				// Inside the Stryker sandbox src/ is instrumented: mutant switches inflate function and class sizes past the
+				// caps, so the verdict is 1 there. Root resolution is still proven: the tree and baseline were read (no
+				// 'cannot be read'), and the real run asserts the clean verdict.
+				expect(result.status).to.be.oneOf([0, 1])
+				return
+			}
 			expect(result.stdout).to.contain('code caps ok')
 			expect(result.status).to.equal(0)
 		})

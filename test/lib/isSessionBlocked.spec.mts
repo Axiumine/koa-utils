@@ -13,4 +13,10 @@ describe('isSessionBlocked', () => {
 	it('returns false when neither flag is set', () => {
 		expect(isSessionBlocked({})).to.equal(false)
 	})
+
+	it('returns false, never throws, for a missing session object', () => {
+		// optional chaining guard: nullish redData from untyped caller → not blocked
+		expect(isSessionBlocked(undefined as never)).to.equal(false)
+		expect(isSessionBlocked(null as never)).to.equal(false)
+	})
 })
