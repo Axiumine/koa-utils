@@ -73,5 +73,28 @@ export default [
 			'max-depth': ['error', 3],
 			complexity: ['error', 10]
 		}
+	},
+	{
+		// Node-run tooling (type stripping, not compiled): same parser setup as the spec block. The typed, sonarjs and
+		// security presets above stay src-only. Size budget mirrors the spec block; `scripts/check-code-caps.mts` is the real gate.
+		files: ['scripts/**/*.mts'],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				ecmaVersion: 'latest',
+				sourceType: 'module'
+			}
+		},
+		plugins: {
+			'@typescript-eslint': tsEslint
+		},
+		linterOptions: {
+			reportUnusedDisableDirectives: 'off'
+		},
+		rules: {
+			'max-params': ['error', 4],
+			'max-depth': ['error', 3],
+			complexity: ['error', 10]
+		}
 	}
 ];

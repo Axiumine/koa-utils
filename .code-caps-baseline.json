@@ -1,0 +1,4 @@
+{
+	"params|src/email/SocketLabsLib.mts|SocketLabsLib>sendEmailReset": 5,
+	"params|src/email/SocketLabsLib.mts|SocketLabsLib>sendEmailVerify": 5
+}
