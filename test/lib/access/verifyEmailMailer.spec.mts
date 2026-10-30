@@ -120,6 +120,30 @@ describe('throttleMailer', () => {
 		expect(inner.accountDisabled.callCount).to.equal(1)
 	})
 
+	it('keys each debounced kind as <method>:<address>', async () => {
+		const seen: string[] = []
+		const mailer = throttleMailer(inner, (key) => {
+			seen.push(key)
+			return true
+		})
+
+		await mailer.emailAlreadyValid('a@test.com')
+		await mailer.wrongHash('a@test.com', 2)
+		await mailer.tooMuchVerifyRequests('a@test.com')
+		await mailer.hashReqTooOld('a@test.com')
+		await mailer.accountDisabled('a@test.com')
+		await mailer.sendWelcome('a@test.com')
+
+		// sendWelcome bypasses the throttle → absent from the keys
+		expect(seen).to.deep.equal([
+			'emailAlreadyValid:a@test.com',
+			'wrongHash:a@test.com',
+			'tooMuchVerifyRequests:a@test.com',
+			'hashReqTooOld:a@test.com',
+			'accountDisabled:a@test.com'
+		])
+	})
+
 	it('never debounces sendWelcome', async () => {
 		const mailer = throttleMailer(inner, createMailThrottle({ windowMs: 1000 }))
 

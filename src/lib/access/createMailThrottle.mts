@@ -49,6 +49,7 @@ export const createMailThrottle = ({
 		// Delete before the set below so the map stays ordered by send time, oldest first.
 		sentAt.delete(key)
 
+		// Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,CallExpression: the sweep only drops entries aged >= windowMs, which never block a send, and the eviction below still caps the map at maxKeys, so changing it alters only how many dead entries stay, never a returned value.
 		if (sentAt.size >= maxKeys) {
 			for (const [tracked, at] of sentAt) {
 				if (now - at >= windowMs) {
@@ -56,6 +57,7 @@ export const createMailThrottle = ({
 				}
 			}
 		}
+		// Stryker restore ConditionalExpression,EqualityOperator,BlockStatement,CallExpression
 
 		if (sentAt.size >= maxKeys) {
 			// Still full, so every tracked key is inside its window: drop the oldest — the first key the

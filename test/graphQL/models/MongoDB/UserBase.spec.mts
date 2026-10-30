@@ -40,4 +40,84 @@ describe('graphQL/models/MongoDB/UserBase', () => {
 		expect(path.cast(false)).to.equal(false)
 		expect(path.cast(true)).to.equal(true)
 	})
+
+	// path → [instance, required]. Required flags = observable contract: a flipped flag either lets a
+	// half-built row in or refuses a valid one.
+	const FIELDS: Record<string, [string, boolean]> = {
+		login: ['Embedded', true],
+		'login.email': ['String', true],
+		'login.password': ['String', true],
+		'login.firstLogin': ['Date', false],
+		'login.lastLogin': ['Date', false],
+		account: ['Embedded', true],
+		'account.email': ['Embedded', true],
+		'account.email.valid': ['Boolean', true],
+		'account.email.dateLastReq': ['Date', false],
+		'account.email.requestTimes': ['Number', false],
+		'account.email.hash': ['String', false],
+		'account.email.newEmailTmp': ['String', false],
+		'account.onboardingStep': ['String', false],
+		'account.onboardingDone': ['Boolean', false],
+		'account.rememberMe': ['Boolean', false],
+		'account.registrationDate': ['Date', true],
+		'account.accountValidDate': ['Date', false],
+		'account.newsletter': ['Boolean', false],
+		'account.resetDateReq': ['Date', false],
+		'account.resetHash': ['String', false],
+		'account.disabled': ['Boolean', false],
+		'account.deleted': ['Boolean', false],
+		personalData: ['Embedded', false],
+		'personalData.name': ['String', true],
+		__v: ['Number', false]
+	}
+
+	for (const [path, [instance, required]] of Object.entries(FIELDS)) {
+		it(`${path} is a ${required ? 'required' : 'optional'} ${instance}`, () => {
+			const schemaType = UserBase.schema.path(path)
+
+			expect(schemaType, `${path} missing`).to.exist
+			expect(schemaType.instance).to.equal(instance)
+			expect(schemaType.isRequired).to.equal(required)
+		})
+	}
+
+	it('declares exactly these top-level and nested paths, nothing more', () => {
+		const declared = [...Object.keys(UserBase.schema.paths), ...Object.keys(UserBase.schema.singleNestedPaths)]
+		const expected = [...Object.keys(FIELDS), '_id']
+
+		expect([...new Set(declared)].sort()).to.deep.equal([...expected].sort())
+	})
+
+	it('sub-documents carry no _id of their own', () => {
+		const doc = new UserBase({
+			login: { email: 'a@test.com', password: 'x' },
+			account: { email: { valid: true }, registrationDate: new Date() },
+			personalData: { name: 'n' }
+		})
+
+		expect(doc.toObject().login).to.not.have.property('_id')
+		expect(doc.toObject().account).to.not.have.property('_id')
+		expect(doc.toObject().account.email).to.not.have.property('_id')
+		expect(doc.toObject().personalData).to.not.have.property('_id')
+	})
+
+	it('an empty document fails validation on login and account only', async () => {
+		let thrown: { errors: Record<string, unknown> } | undefined
+		try {
+			await new UserBase({}).validate()
+		} catch (e) {
+			thrown = e as { errors: Record<string, unknown> }
+		}
+
+		expect(Object.keys(thrown?.errors ?? {}).sort()).to.deep.equal(['account', 'login'])
+	})
+
+	it('a fully populated document validates', async () => {
+		const doc = new UserBase({
+			login: { email: 'a@test.com', password: 'x' },
+			account: { email: { valid: false }, registrationDate: new Date() }
+		})
+
+		await doc.validate()
+	})
 })
