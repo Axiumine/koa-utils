@@ -23,4 +23,52 @@ describe('private/graphQL/models/MongoDB/private/UserAdminKoaUtils', () => {
 		expect(UserAdminKoaUtils.schema.path('account.disabled').instance).to.equal('Boolean')
 		expect(UserAdminKoaUtils.schema.path('account.deleted').instance).to.equal('Boolean')
 	})
+
+	// Schema shape = contract. Table: path → [instance, required]. Mutants flip required, drop type.
+	const SHAPE: Array<[string, string, boolean]> = [
+		['login', 'Embedded', true],
+		['login.email', 'String', true],
+		['login.password', 'String', true],
+		['login.firstLogin', 'Date', false],
+		['login.lastLogin', 'Date', false],
+		['account', 'Embedded', true],
+		['account.email', 'Embedded', true],
+		['account.email.valid', 'Boolean', true],
+		['account.email.dateLastReq', 'Date', false],
+		['account.email.requestTimes', 'Number', false],
+		['account.email.hash', 'String', false],
+		['account.email.newEmailTmp', 'String', false],
+		['account.rememberMe', 'Boolean', false],
+		['account.registrationDate', 'Date', true],
+		['account.accountValidDate', 'Date', false],
+		['account.newsletter', 'Boolean', false],
+		['account.resetDateReq', 'Date', false],
+		['account.disabled', 'Boolean', false],
+		['account.deleted', 'Boolean', false],
+		['personalData', 'Embedded', true],
+		['personalData.name', 'String', true],
+		['personalData.surname', 'String', true],
+		['__v', 'Number', false]
+	]
+
+	for (const [path, instance, required] of SHAPE) {
+		it(`schema path ${path} is ${instance}, ${required ? 'required' : 'optional'}`, () => {
+			const schemaType = UserAdminKoaUtils.schema.path(path)
+			expect(schemaType.instance).to.equal(instance)
+			expect(schemaType.isRequired).to.equal(required)
+			expect(schemaType.options['required']).to.equal(required)
+		})
+	}
+
+	it('nested objects declare _id:false → hydrated doc has no _id on login, account, account.email, personalData', () => {
+		const doc = new UserAdminKoaUtils({
+			login: { email: 'a@b.c', password: 'x' },
+			account: { email: { valid: true }, registrationDate: new Date(0) },
+			personalData: { name: 'n', surname: 's' }
+		}).toObject() as unknown as Record<string, Record<string, unknown>>
+		expect(doc['login']).to.not.have.property('_id')
+		expect(doc['account']).to.not.have.property('_id')
+		expect(doc['account']?.['email']).to.not.have.property('_id')
+		expect(doc['personalData']).to.not.have.property('_id')
+	})
 })

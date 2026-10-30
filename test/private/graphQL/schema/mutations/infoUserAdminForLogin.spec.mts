@@ -52,4 +52,23 @@ describe('infoUserAdminForLogin', () => {
 
 		await expectGraphQLErrorAsync(() => infoUserAdminForLogin('missing@test.com', session), 401, 'Unauthorized')
 	})
+
+	it('projection selects exactly the six fields _finalizeLoginCheck + the password check read', async () => {
+		// Projected read: field outside projection silently absent under .lean()/hydration. Pin the full list.
+		const query = makeQuery({})
+		sinon.stub(UserAdminKoaUtils, 'findOne').returns(query as never)
+
+		await infoUserAdminForLogin('who@test.com', {} as ClientSession)
+
+		const selected = (query.select.firstCall.args[0] as string).split(/\s+/).filter(Boolean)
+		expect(selected).to.have.members([
+			'_id',
+			'login.password',
+			'login.lastLogin',
+			'account.email.valid',
+			'account.deleted',
+			'account.disabled'
+		])
+		expect(selected).to.have.length(6)
+	})
 })

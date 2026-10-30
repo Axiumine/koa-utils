@@ -5,6 +5,7 @@ import { throwInternalError } from '@throw/throwInternalError.mjs'
 import * as dotenv from 'dotenv'
 import { Types } from 'mongoose'
 
+// Stryker disable next-line CallExpression: the imported dataSources/Redis.mjs already runs dotenv.config() at load, before this body, and a second call never overrides.
 dotenv.config()
 
 export async function setRedisLoginSession(id: Types.ObjectId, accessToken: string, accTokenExp: number, refreshToken: string) {

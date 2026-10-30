@@ -6,8 +6,19 @@
  */
 import { setLastLoginSQL } from '@private/graphQL/schema/mutations/setLastLoginSQL.mjs'
 import { sequelize } from '@dataSources/MariaDB.mjs'
+import * as Sentry from '@sentry/node'
 import { expect } from 'chai'
 import sinon from 'sinon'
+
+// Sentry export sealed → not stubbable. Observe via fake client on current scope: Sentry.captureX → scope → client.captureX.
+function spyOnSentry() {
+	const captureException = sinon.stub()
+	const captureMessage = sinon.stub()
+	const scope = Sentry.getCurrentScope()
+	const previous = scope.getClient()
+	scope.setClient({ captureException, captureMessage } as never)
+	return { captureException, captureMessage, restore: () => scope.setClient(previous as never) }
+}
 
 describe('setLastLoginSQL', () => {
 	afterEach(() => {
@@ -36,5 +47,31 @@ describe('setLastLoginSQL', () => {
 		const result = await setLastLoginSQL(7)
 
 		expect(result).to.equal(false)
+	})
+
+	it('query rejection: reports the original error to Sentry, once', async () => {
+		const boom = new Error('sql down')
+		sinon.stub(sequelize, 'query').rejects(boom)
+		const sentry = spyOnSentry()
+		try {
+			await setLastLoginSQL(7)
+
+			expect(sentry.captureException.calledOnce).to.equal(true)
+			expect(sentry.captureException.firstCall.args[0]).to.equal(boom)
+		} finally {
+			sentry.restore()
+		}
+	})
+
+	it('happy path: nothing reported to Sentry', async () => {
+		sinon.stub(sequelize, 'query').resolves()
+		const sentry = spyOnSentry()
+		try {
+			await setLastLoginSQL(7)
+
+			expect(sentry.captureException.called).to.equal(false)
+		} finally {
+			sentry.restore()
+		}
 	})
 })

@@ -14,6 +14,7 @@ import {
 	createAssertVerifyEmailAllowed
 } from '../../../../dist/private/lib/access/assertVerifyEmailAllowed.mjs'
 import { DEFAULT_VERIFY_EMAIL_PATHS } from '@lib/access/accessPaths.mjs'
+import { EMAIL_CHECK_LINK } from '@private/lib/access/Constants.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { expect } from 'chai'
@@ -172,4 +173,30 @@ describe('assertVerifyEmailAllowed', () => {
 		const uId = await assertVerifyEmailAllowed(makeUser(), EMAIL, GOOD_HASH)
 		expect(uId).to.be.instanceOf(Types.ObjectId)
 	})
+
+	for (const [label, emailOverrides] of [
+		['requestTimes', { requestTimes: undefined }],
+		['dateLastReq', { dateLastReq: undefined }]
+	] as const) {
+		it(`stored hash without ${label} → handleBadDB halts the chain with EMAIL_CHECK_LINK before the strike counter`, async () => {
+			// Mutation: handleBadDB call deleted → incomplete row flows into the guards (all stubbed here) and is honoured.
+			const spy = () => sinon.stub().resolves()
+			const guards = {
+				handleIfEmailAlreadyValid: spy(),
+				handleIfHashBad: spy(),
+				handleIfMoreThan3DaysPassed: spy(),
+				handleIfTooMuchRequestsTimes: spy(),
+				handleIfAccountDeleted: spy(),
+				handleIfAccountDisabled: spy()
+			}
+			const chain = createAssertVerifyEmailAllowed({ paths: DEFAULT_VERIFY_EMAIL_PATHS, ...guards } as never)
+
+			const caught = (await expectRejects(() => chain(makeUser({ emailOverrides }), EMAIL, GOOD_HASH))) as Error
+
+			expect(caught.message).to.equal(EMAIL_CHECK_LINK)
+			expect(guards.handleIfEmailAlreadyValid.calledOnce).to.equal(true)
+			expect(guards.handleIfTooMuchRequestsTimes.called).to.equal(false)
+			expect(guards.handleIfHashBad.called).to.equal(false)
+		})
+	}
 })
