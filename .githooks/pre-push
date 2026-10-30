@@ -10,6 +10,9 @@
 #     scripts/semgrep-canary.sh). Too slow-ish for every commit, cheap enough per push.
 #   - Nothing else. Coverage and Qodana stay in pre-commit; CI is the final backstop.
 #
+# The ratchet files are also compared with origin/main (`yarn ratchet:against`): a hook that only
+# reads the working tree cannot tell a lowered baseline from a regrown one.
+#
 # Same rules as pre-commit: fail closed, one fixing command per missing
 # prerequisite, never pull an image inside the hook, no network (no registry
 # packs: scripts/semgrep.sh runs custom rules only without --registry), and no
@@ -94,6 +97,17 @@ check_prereqs() {
 			"yarn install"
 	fi
 
+	# The ratchet comparison needs main to be known locally. Fetching is the developer's command, not the hook's.
+	if ! git rev-parse --verify --quiet 'origin/main^{commit}' > /dev/null 2>&1; then
+		push_block "origin/main is not known locally — the ratchet files cannot be compared with main." \
+			"git fetch origin main"
+	fi
+	RATCHET_BASE="$(git merge-base origin/main HEAD 2> /dev/null || true)"
+	if [ -z "$RATCHET_BASE" ]; then
+		push_block "no merge base between origin/main and HEAD — the ratchet files cannot be compared with main." \
+			"git fetch origin main"
+	fi
+
 	if ! command -v python3 > /dev/null 2>&1; then
 		push_block "python3 not found in PATH — scripts/semgrep-canary.sh parses semgrep's JSON with it." \
 			"# install python3, then re-run the push"
@@ -167,6 +181,21 @@ Fix the first failure printed above. This hook re-runs the gates pre-commit
 runs, so a failure here usually means a commit was made with --no-verify.
 Never raise a cap, a baseline value or a threshold to pass: fix the code.
 Bypass once (CI will still block): git push --no-verify
+EOF
+	exit 1
+fi
+
+# Honor-system closer: .code-caps-baseline.json and eslint-suppressions.json may only get stricter than main
+# (no new key, no higher value). Compared with the merge base, so a branch that is behind main is not punished
+# for values main lowered since. Not part of check:static, which has no ref to compare with.
+echo "pre-push: checking the ratchet files against origin/main (yarn ratchet:against)…"
+if ! yarn -s ratchet:against "$RATCHET_BASE"; then
+	cat >&2 << 'EOF'
+
+pre-push: BLOCKED — .code-caps-baseline.json or eslint-suppressions.json is looser than main.
+
+Read the NEW / HIGHER lines above. Fix the code so the entry can go away or shrink.
+Never add or raise an entry to pass: both files only ever shrink.
 EOF
 	exit 1
 fi

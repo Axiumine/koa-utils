@@ -48,6 +48,17 @@ jobs:
       - name: Static gates
         run: yarn check:static
 
+      # Pull requests only: the ratchet files (.code-caps-baseline.json, eslint-suppressions.json) may get stricter than
+      # main but never looser. Without this comparison both are honor-system files anyone could regrow. The repository is
+      # public, so the fetch needs no credential (checkout runs with persist-credentials: false). Fetches the tip only.
+      - name: Fetch main for the ratchet comparison
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+
+      - name: Ratchets are no looser than main
+        if: github.event_name == 'pull_request'
+        run: yarn -s ratchet:against origin/main
+
       # Mocha report in the log; fails below 100% on lines, statements, functions or branches.
       - name: Tests and coverage gate
         run: yarn test:coverage
