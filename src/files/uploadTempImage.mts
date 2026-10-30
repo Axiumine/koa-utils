@@ -12,6 +12,7 @@ import { validateJpgPngMimeType } from './validateMimeTypeImages.mjs'
  * @param img
  */
 export async function uploadTempImage(img: Promise<IFileUpload>): Promise<IUploadTemp> {
+	// Stryker disable next-line StringLiteral: initial value is overwritten by the reEncodeToWebp assignment in the try block before the only read (return); every other path throws.
 	let storedTempFile = ''
 
 	try {

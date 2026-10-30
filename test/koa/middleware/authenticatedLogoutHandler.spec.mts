@@ -1,5 +1,8 @@
 import { authenticatedLogoutHandler } from '../../../dist/koa/middleware/authenticatedLogoutHandler/index.mjs'
 import { expect } from 'chai'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import Keygrip from 'keygrip'
 import sinon from 'sinon'
 import * as RedisMod from '../../../dist/dataSources/Redis.mjs'
@@ -224,6 +227,59 @@ describe('authenticatedLogoutHandler', () => {
 		expect(state.user.accessToken).to.be.undefined
 		// only refresh lookup: malformed token never reach Redis
 		expect(hGet.callCount).to.equal(1)
+	})
+
+	it('looks both sessions up under REDIS_KEY + token, reading the "id" field', async () => {
+		const savedRedisKey = process.env['REDIS_KEY']
+		process.env['REDIS_KEY'] = 'pfx-test:'
+		try {
+			const hGet = sinon.stub(RedisMod.redisClient, 'hGet').resolves('uid')
+			const mw = authenticatedLogoutHandler(keys)
+			const ctx = {
+				request: { header: { cookie: VALID_COOKIE, authorization: `Bearer access:${ACCESS_UUID}` } },
+				state: {}
+			} as never
+			await mw(ctx, async () => undefined)
+			expect(hGet.args).to.deep.equal([
+				[`pfx-test:${REDIS_REFRESH_KEY}`, 'id'],
+				[`pfx-test:access:${ACCESS_UUID}`, 'id']
+			])
+		} finally {
+			if (savedRedisKey === undefined) delete process.env['REDIS_KEY']
+			else process.env['REDIS_KEY'] = savedRedisKey
+		}
+	})
+
+	it('ignores a different 14-char prefix followed by a valid v4 uuid (startsWith pins the exact prefix)', async () => {
+		// "Bearer refrsh:" same length as "Bearer access:" + valid uuid tail → only the startsWith check can reject it.
+		const hGet = sinon.stub(RedisMod.redisClient, 'hGet').resolves('uid')
+		const mw = authenticatedLogoutHandler(keys)
+		const ctx = {
+			request: { header: { cookie: VALID_COOKIE, authorization: `Bearer refrsh:${ACCESS_UUID}` } },
+			state: {}
+		} as never
+		await mw(ctx, async () => undefined)
+		const state = (ctx as never as { state: { user: { refreshToken: string; accessToken?: string } } }).state
+		expect(state.user.accessToken).to.be.undefined
+		expect(hGet.callCount).to.equal(1)
+	})
+
+	it('importing the module loads the env file from the working directory (dotenv.config)', async () => {
+		const key = 'KOA_UTILS_MUTATION_LOGOUT_DOTENV_PROBE'
+		const dir = mkdtempSync(join(tmpdir(), 'koa-utils-logout-dotenv-'))
+		const cwd = process.cwd()
+		writeFileSync(join(dir, '.env'), `${key}=loaded\n`)
+		const modUrl = new URL('../../../dist/koa/middleware/authenticatedLogoutHandler/index.mjs', import.meta.url)
+		try {
+			process.chdir(dir)
+			// fresh module instance → module body (dotenv.config) runs again
+			await import(`${modUrl.href}?dotenv-probe=${Date.now()}`)
+			expect(process.env[key]).to.equal('loaded')
+		} finally {
+			process.chdir(cwd)
+			delete process.env[key]
+			rmSync(dir, { recursive: true, force: true })
+		}
 	})
 
 	it('throws 204 (AlreadyDone) when refresh token not in Redis', async () => {
