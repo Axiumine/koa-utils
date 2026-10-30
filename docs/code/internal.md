@@ -79,6 +79,46 @@ With `REDIS_TLS=true` the URL must carry the `rediss:` scheme. Anything else thr
 | `new URL(url)` throws | `[Redis] REDIS_TLS is enabled but REDIS_URL is not a valid URL — a rediss:// URL is required.` |
 | protocol is not `rediss:` | `` [Redis] REDIS_TLS is enabled but REDIS_URL uses scheme "<protocol>" — rediss:// required. `` |
 
+## `email/` — message builders and HTML escaping
+
+`SocketLabsLib` (public, [email.md](./email.md)) is a thin dispatcher: the subject, text part and HTML part of each mail are built by pure functions in `src/private/email/`, which return an `IEmailContent` (`{ subject, textBody, htmlBody }`). Every value a builder places in `htmlBody` is escaped for its context with `escapeHtml`; `textBody` and `subject` carry the raw value. The fixed copy of each mail is unchanged from before the split.
+
+**Import:** _internal — not exported_
+
+### `escapeHtml`
+
+```ts
+export function escapeHtml(value: string | number): string
+```
+
+The only escaping helper of the mail templates. Converts the value with `String()` (a number is accepted, and a non-string a JS caller passes is stringified like the old concatenation did), then replaces `&` first, then `<`, `>`, `"` and `'` with `&amp;`, `&lt;`, `&gt;`, `&quot;` and `&#39;`. The result is safe in element content and in a single- or double-quoted attribute value. Other characters, non-ASCII included, are untouched. It is not a URL encoder.
+
+### `messageParts`
+
+- `fixName(name: string): string` — `` ` ${name}` `` or `''` for the empty name (raw; callers escape it for the HTML part).
+- `htmlLink(link: string, linkText = ''): string` — `StringLib.makeLink(escapeHtml(link), escapeHtml(linkText))`: the URL is escaped as an attribute value and as visible text, so a quote, `<` or `&` in the address, hash or base cannot leave the `href`.
+- `confirmationLink(linkBase, linkPath, emailTo, hash): string` — `<base><path>/<encodeURI(emailTo)>/<hash>`; every trailing slash of the base and every leading slash of the path are dropped, one leading slash is added to the path. The trailing-slash strip is a loop on `endsWith`, because `/\/+$/` backtracks quadratically on long slash runs.
+
+### `htmlFrame`
+
+`FALLBACK_HEADER_1`, `FALLBACK_HEADER_2` and `FALLBACK_FOOTER` are the default wrapper around every HTML part (doctype, head up to `<title>`, the rest through the opening paragraph, the closing tags). `orFallback(custom, fallback)` returns `custom` unless it is `''`. `standaloneHeader(title)` is the full-document opening used by `getHtmlHeader` and by the two legacy mails that build their own document; it escapes `title`.
+
+### `accountMessages`, `resetMessages`, `noticeMessages`
+
+Builders, one per mail: `verifyMessage`, `changeVerifyMessage`, `welcomeMessage`, `subscriptionMessage`, `otpMessage` (account); `resetMessage`, `resetConfirmationMessage`, `resetConfirmationHashMessage` (reset); `ACCOUNT_DISABLED`, `ACCOUNT_BANNED`, `EMAIL_ALREADY_VALID`, `HASH_REQ_TOO_OLD`, `TOO_MUCH_VERIFY_REQUESTS` (constants), `wrongHashMessage`, `alertDevMessage`, `postReportedMessage` (notice). Builders that take a link receive the finished URL and show it raw in `textBody` and escaped in `htmlBody`. `wrongHashMessage(times)` throws `throwInternalError()` when `times > 5`, as `SocketLabsLib.wrongHash` always did. A new interpolated value in any builder must go through `escapeHtml` (or `htmlLink` for a URL) in the HTML part.
+
+### `orFalse`
+
+```ts
+export async function orFalse(send: () => Promise<boolean>): Promise<boolean>
+```
+
+Runs the send; a rejection or a synchronous throw is reported with `Sentry.captureException(e)` and the result is `false`. Used by `sendOTP` and `sendResetPwdConfirmationHash`.
+
+### `IEmailContent`
+
+Type-only interface `{ subject: string; textBody: string; htmlBody: string }`, excluded from coverage and mutation like the other `I*.mts` files.
+
 ## `files/` — image re-encode & MIME sniffing
 
 ### `reEncode`

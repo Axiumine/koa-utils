@@ -28,9 +28,6 @@
     },
     "sonarjs/fixme-tag": {
       "count": 1
-    },
-    "sonarjs/super-linear-regex": {
-      "count": 2
     }
   },
   "src/files/storeUploadAsTemp.mts": {
