@@ -1,6 +1,7 @@
 # @axiumine/koa-utils
 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Axiumine/koa-utils/badge)](https://scorecard.dev/viewer/?uri=github.com/Axiumine/koa-utils)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16094/badge)](https://www.bestpractices.dev/projects/16094)
 
 TypeScript utility library for Koa + GraphQL backends. Ships authentication middleware, GraphQL error helpers, data-source connectors (MongoDB, MariaDB, PostgreSQL, Redis), file upload pipeline (ClamAV + sharp re-encode), and transactional email via SocketLabs.
 
