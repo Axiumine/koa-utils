@@ -20,7 +20,7 @@ Before you create or edit **any** `CLAUDE.md` in this repo, root or nested:
 
 3. **Ultra means:** abbreviate prose words (DB, auth, config, req, res, fn, impl), strip conjunctions, `X → Y` for causality, one word wherever one word carries it. **Never abbreviate or reword code symbols, function names, API names, error strings, env vars, file paths, or command lines.** They are quoted verbatim or they are wrong.
 4. **Auto-Clarity overrides ultra, and it is not optional here.** Write full, unambiguous sentences for: security invariants, destructive or irreversible steps, and ordered multi-step sequences where a dropped conjunction flips the meaning. A security rule compressed into ambiguity is a defect, not a style win. The "Security invariants" section below is the worked example.
-5. **Scope is `CLAUDE.md` plus comments in `test/**/*.mts`.** Test comments carry their own rules — see `test/CLAUDE.md`. `README.md`, `REPO.md`, `docs/code/*.md`, `CHANGELOG.md` and every comment under `src/` stay normal prose: those are consumer-facing.
+5. **Scope is `CLAUDE.md` plus comments in `test/**/*.mts`** and, by convention only, in `test/property/*.ts` (the gate script matches `.mts` only). Test comments carry their own rules — see `test/CLAUDE.md`. `README.md`, `REPO.md`, `docs/code/*.md`, `CHANGELOG.md`, `SECURITY.md`, `CONTRIBUTING.md`, `docs/*.md` and every comment under `src/` stay normal prose: those are consumer-facing.
 6. **This rule is machine-enforced, so step 1 is not optional.** Two `PreToolUse` hooks in `.claude/settings.json` run `scripts/caveman-gate.sh`. The `Skill` matcher records that `caveman:caveman` was invoked in this session; the `Write|Edit` matcher denies any write whose target is named `CLAUDE.md`, or sits under `test/` with a `.mts` extension, when either the skill is not installed or it has not been invoked. The gate fails closed — a prerequisite it cannot verify is a deny, never a warn-and-continue, same standing as the coverage and Qodana gates. The escape hatch is `SKIP_CAVEMAN_GATE=1`, owner only. Do not delete the hooks or the script to unblock a write; invoke the skill instead.
 
 ## What this is
@@ -80,6 +80,9 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 | `src/lib/Redis/**` + remaining `src/lib/` utilities | `docs/code/lib-utilities.md` |
 | `src/private/**` | `docs/code/internal.md` |
 | Any file added/removed/moved under `src/` | `REPO.md` |
+| New file under `.github/` or new root doc (`SECURITY.md`, `CONTRIBUTING.md`, ...) | `REPO.md` |
+| Major `version` bump | `SECURITY.md` supported-versions table |
+| `.github/workflows/release.yml` | `CLAUDE.md` (Release pipeline section) + `docs/verify-release.md` |
 | Public API surface, install steps, `engines`, usage examples | `README.md` |
 | New `docs/code/*.md` page, or `version` in `package.json` | `docs/code/README.md` (index table + "Current version") |
 | Repo-wide agent rule: scripts, thresholds, aliases, gates, publish policy | `CLAUDE.md` (this file) |
@@ -97,19 +100,20 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - No dropping `--no-stats` from `yarn reindex` or `"noStats": true` from `.gitnexusrc` to "show graph size".
 - No editing `dist/`, `node_modules/`, `yarn.lock`, `skills-lock.json`, `.npmrc`, `.yarnrc` unasked. `.npmrc` hold publish token.
 - No committing `yarn.lock` with `resolved` host ≠ `registry.npmjs.org`. No hand-fixing a proxy-flavoured copy — clean filter handle it. No removing `.gitattributes`, `scripts/lockfile-registry-filter.sh`, or the filter git config to silence the hook.
-- No `.ts` files — ext is `.mts`. No `import x from './y'` — write `'./y.mjs'`.
+- No `.ts` files — ext is `.mts`. Exceptions: `scripts/semgrep-canaries/**` (Semgrep fixtures), `test/property/*.spec.ts` (fast-check; Scorecard Fuzzing scan `*.ts` / `*.tsx` only, never `.mts`; knob `FC_NUM_RUNS`; comments stay caveman ultra; see `test/CLAUDE.md`). No `import x from './y'` — write `'./y.mjs'`.
 - No `dependencies` in `package.json`. Zero runtime deps, all `peerDependencies` → consumer control versions. 19 peers: 7 hard (`@node-rs/bcrypt`, `@sentry/node`, `dotenv`, `graphql`, `mongoose`, `redis`, `uuid`), 12 `optional` via `peerDependenciesMeta`.
 - No breaking the optional-peer invariant. `optional` = claim about load path, not warning mute. True only while dep reachable solely through subpath consumer opt into by importing it. Two ways to break, both silent, both hit every consumer: add root `"."` key to `exports` (1 import drag whole graph in), or import an optional dep from a module every subpath reach. Need it on a common path → lazy `await import('pkg')`, like `src/private/files/_validateMimeType.mts` do for `file-type`. `.d.mts` carry same boundary — `dataSources/PostgreSQL` types name `sequelize`, so `skipLibCheck: false` consumer of that subpath still need it installed.
 - No moving a peer between hard and `optional` by guess. Walk `exports` transitively over built `dist/` first, count subpaths reaching it, then decide. Hard ≠ "every subpath load it" — none do; widest is `graphql`, 71 of 148.
 - No `*` range in `peerDependencies`. `*` accept any major → `sharp` 0.34 → 1.0 install silent, break at runtime, no warning. Upper bound only, no floor: `"sharp": "<1"`, `"mongoose": "<10"`, `"redis": "<7"`. `keygrip` keep own `^1.1.0`.
 - No peer upper bound derived from `devDependencies` alone. Pin record what repo build against, not what npm serve. Bound below npm `latest` → hard peer reject the default install: Yarn 1 `has incorrect peer dependency`, npm 7+ `ERESOLVE`, install fail. Shipped exactly that in 5.7.1 — `"graphql": "<17"` vs published 17.x, `"redis": "<6"` vs published 6.x. Procedure, both steps required, in order: first read the published major with `npm view <pkg> version --registry=https://registry.npmjs.org/`; then set the bound at the major above whichever is higher, the repo pin or that published version. Raising a bound over a major the repo never built is a claim of compatibility — swap the new major into `node_modules`, run `yarn test:coverage` green, restore, and only then write the range. Never widen a bound merely to clear an `ERESOLVE`.
 - No floor added to a peer range. Floor assert a minimum never tested here → working consumer get `has incorrect peer dependency`, npm 7+ `ERESOLVE`, for a combo fine yesterday. Range change must warn nobody already installed.
+- Dependabot never bump `peerDependencies`; peer rules above unchanged. It read `devDependencies` only, but textual-replace a bumped dev line inside the `peerDependencies` block too when text identical. Dependabot PR editing a peer line → reject. New peer in `package.json` → add `ignore` entry (`version-update:semver-major`) in `.github/dependabot.yml`. `keygrip` ignored whole for that reason.
 - No `.mjs.map` in published tarball. `files` negate `dist/**/*.mjs.map` + `dist/**/*.js.map`. `tsconfig.json` carry `"inlineSources": true` → every map embed whole original `.mts` as `sourcesContent`, `src/private/**` included, 363 kB / 190 files. Build keep emitting them → local `--enable-source-maps` keep working, only publish surface narrow. Verify `npm pack --dry-run` → 0 `.map`. Never drop negation.
 - No `console.debug` in `src/`, no commented-out `console.*` left behind — owner cleared both in 5.6.0. `console.info` / `console.error` / `console.log` stay put (`src/dataSources/**`, `src/files/scanVirus.mts`, upload helpers): they carry conn + error reporting. Debug via breakpoint or temp local edit.
 - No constant replacing `accessTokenExpiry()` 30–90 min jitter.
 - No barrel `index.mts`, root or any subdir — exports per-file by design.
 - No import from `src/private/**` outside package. No `private/*` in `package.json` `exports`.
-- No `yarn upload` / `npm publish` / `npm deprecate` unless user explicitly ask. Outward-facing, consumer-visible, owner call.
+- No `yarn upload` / `npm publish` / `npm deprecate` / `gh release create` / `gh release edit` / `gh workflow run release.yml` unless user explicitly ask. Outward-facing, consumer-visible, owner call. Publishing a GitHub release starts `release.yml`, which publishes to npm once the owner approves environment `npm-publish`.
 - No destructive git (`reset --hard`, `clean -fd`, force-push) without confirmation.
 - **Never commit on `main`.** Ordered sequence, full prose by Rule 0 §4. Before the first edit of a task, run `git switch -c <type>/<slug>` and commit on that branch. Merging into `main` is the owner's decision alone: never merge, fast-forward, squash or rebase onto `main` unless the owner asks for it in that message. Being checked out on `main` is not permission to commit to it, and an instruction to "commit and push" means commit the branch and push the branch. Branch name reach the merge subject → banned-word check apply to it too, see *Owner / style*.
 - Mocha = runner. No swap.
@@ -125,13 +129,21 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - `yarn build` — prod ESM build (`yarn clean && yarn build:esm`). `tspc` (ts-patch) apply `typescript-transform-paths` → emitted `.mjs` carry relative imports.
 - `yarn build:all` — ESM + CJS dual. Only when explicitly needed.
 - `yarn lint` — `eslint --fix` then `prettier --write 'src/**/*.mts'`. Run after every multi-file edit.
+- `yarn lint:check` — `eslint` then `prettier --check 'src/**/*.mts'`. Read-only, no fix. CI run it (`ci.yml`, step `Coding standard`) → red CI = run `yarn lint`.
 - `yarn clean` — wipe `dist/`.
 - `yarn test` — `build` + `build:tests` + mocha. No coverage check.
 - `yarn test:coverage` — same via c8, **fail below 100%** on any file. This command decide change finished. Feed Qodana coverage gate too.
 - `yarn hooks:install` — set `core.hooksPath .githooks` **and** install lockfile registry filter. Idempotent, no-op outside git repo, run from `prepare`.
 - `yarn reindex` — `node .gitnexus/run.cjs analyze --no-stats`.
 - `yarn qodana` / `yarn qodana:cli` — `test:coverage` → Qodana scan → open report.
-- `yarn upload` — `npm publish --registry=https://registry.npmjs.org/`. Flag load-bearing, see below. Owner ask only.
+- `yarn upload` — `npm publish --registry=https://registry.npmjs.org/`. Flag load-bearing, see below. Owner ask only. Manual fallback path: no provenance, no release assets. Per version ONE path: `yarn upload` XOR `release.yml`. 2nd fail, version already on npm.
+
+## PR flow — branch → PR → merge commit
+
+- Work land via PR from the `<type>/<slug>` branch. Owner merge with merge commit: `gh pr merge <n> --merge`. Never squash, never rebase → Scorecard Maintained + Code-Review count branch commits + merge commit, squash collapse them.
+- Agent push branch / `gh pr create` only when owner ask in that message. Merge stay owner call, see *Never*.
+- When the main ruleset is enabled: direct push to `main` rejected, owner included → "merge branch then push `main`" habit stop working. Owner-only bypass `gh pr merge <n> --merge --admin`, after `Test coverage` green.
+- Required check = `Test coverage` (job `name:` in `.github/workflows/ci.yml`). Rename job → update ruleset same change, else every PR block on a context nothing report.
 
 ## npm proxy — `yarn.lock` stay public
 
@@ -157,6 +169,34 @@ Maintainer install via LAN Verdaccio (`http://yarnproxy.gio.lan:4873/`, gitignor
 - Escape hatch `SKIP_QODANA=1 git commit`, narrower than `--no-verify` (keep coverage + lockfile gates). Owner only.
 - Exit code cover infra failure as well as findings. Red hook + empty report = infra, not finding. Check `.qodana/results/report/index.html` before believing block.
 - CI: `gh run list --workflow=qodana.yml` → `gh run view <id> --log-failed`. Red ≠ finding. Look for `can't pull image` / `couldn't create the container` first → `gh run rerun <id> --failed`.
+- `release.yml` `verify` require green `qodana.yml` run on tagged SHA → release-workflow path CI-gated. `yarn upload` path still gated by pre-commit hook only.
+
+## CI workflows — `.github/workflows/`
+
+The next four rules are supply-chain security invariants, so they are written in full sentences on purpose (Rule 0 §4). Scorecard scores them (Pinned-Dependencies, Token-Permissions), and a violation is also a real attack surface.
+
+- Every `uses:` reference is pinned to a full 40-character commit SHA followed by a comment naming the release, for example `uses: actions/checkout@<sha> # v7.0.1`. Never pin by tag or branch, and never call a reusable workflow by tag. Before writing a new SHA, confirm it with `gh api` against the tag, dereferencing annotated tags.
+- Every workflow has a top-level `permissions: contents: read`. A write scope (`security-events`, `id-token`, `checks`, `pull-requests`) is granted only at job level, and only to the one job that needs it. Never grant a write scope at workflow level.
+- No workflow runs `npm install`, `pip install` or `curl ... | bash`. Dependencies come from `yarn install --frozen-lockfile` or from a pinned action or image.
+- Never put an expression such as `${{ github.event.* }}` inside a `run:` script, because event payload text is attacker-controlled. Pass it through `env:` and read the shell variable.
+
+- YAML in `.github/` = 2 spaces, overrides `.editorconfig` tabs (tab invalid in YAML).
+- `qodana-action` bump (hand or Dependabot) travels with `qodana.yaml` `linter:` and `--linter` arg in `qodana.yml` → all same version, else CI + hook scan different images. Dependabot cannot bump the two → check by hand.
+- `SEMGREP_IMAGE` (tag + `@sha256` digest) identical in `semgrep.yml` and `release.yml`. Change both same commit.
+
+## Release pipeline — `.github/workflows/release.yml`
+
+Owner only. Agent never trigger it, see *Never*.
+
+- Trigger: owner publish GitHub release `vX.Y.Z`. `workflow_dispatch` = dry run, `verify` job only. Never add `push` / `pull_request` / `schedule` trigger.
+- `verify`: tag == `v` + `package.json` `version`; stable `x.y.z`; tag commit ∈ `origin/main`; version absent on npm; green `qodana.yml` run for SHA; `yarn test:coverage`; semgrep canary + scan; `yarn build`; `npm pack --ignore-scripts`; tarball allowlist `dist/` `LICENSE` `README.md` `package.json`, 0 `.map`.
+- `publish`: env `npm-publish` (reviewer = owner), OIDC trusted publishing, provenance. `release-assets`: `actions/attest-build-provenance` → upload `<tgz>.intoto.jsonl` + `<tgz>` to the release.
+- Why `.intoto.jsonl`: Scorecard Signed-Releases = 10 only if each of 5 newest releases-with-assets carry asset ending `.intoto.jsonl`. Name check only, content unread. `.sig` / `.sigstore.json` = 8 max.
+- Consumer verify: `gh attestation verify <tgz> --bundle <tgz>.intoto.jsonl --repo Axiumine/koa-utils` → `docs/verify-release.md`. `slsa-verifier` not read this format.
+- Release order (owner): bump `version` + `CHANGELOG.md` + `docs/code/README.md` (+ `SECURITY.md` table on major) → merge `main` → wait green `qodana.yml` → push signed tag `vX.Y.Z` → `gh release create vX.Y.Z --verify-tag --notes-file <file>` → approve `npm-publish` → run green → `npm view` + `gh attestation verify`. Release target = `main`, never a `release/*` branch.
+- Version published via `yarn upload` → no GitHub release for it: `release.yml` would fail its npm guard.
+
+Security invariants of `release.yml`, written in full sentences on purpose. The `publish` job holds the npm OIDC token, so it must never check out the repository and must never install dependencies; it only publishes the tarball that `verify` built and tested, after re-checking its sha256. Every action in the workflow is pinned by full commit SHA with a `# vX.Y.Z` comment and never by tag. The workflow never stores an npm token: authentication is OIDC trusted publishing only, bound on npmjs.com to the file name `release.yml` and the environment `npm-publish`, so renaming either one breaks publishing until the trusted publisher is recreated. The environment `npm-publish` must keep its required reviewer and its tag-only deployment rule, otherwise a branch carrying an edited copy of the workflow could request the OIDC token. The `registry-url` of the `publish` job stays `https://registry.npmjs.org` without a trailing slash, because Scorecard's Packaging check compares that exact string. GitHub immutable releases must stay disabled, because the assets are attached after the release is published and an immutable release would reject them. A GitHub release is created only to publish a new version through this workflow, because the workflow is what attaches the `.intoto.jsonl` provenance asset. A release that holds assets but no `.intoto.jsonl` scores 0 on Signed-Releases, so never attach, replace or delete release assets by hand. Never back-fill releases for old tags, and never create a release for an already published version: it starts the workflow, which then fails its guard.
 
 ## Deprecating superseded versions
 
