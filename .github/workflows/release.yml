@@ -1,0 +1,280 @@
+name: Release
+
+# Publishes @axiumine/koa-utils to npm (trusted publishing, OIDC, provenance)
+# and attaches the exact published tarball plus its SLSA provenance to the
+# GitHub release.
+#
+# Trigger: the owner publishes a GitHub release for a v* tag. Nothing here runs
+# on push or pull_request. workflow_dispatch is a dry run: it runs the verify
+# job (tests, SAST, pack) and skips every job that can publish.
+#
+# The npm trusted publisher on npmjs.com is bound to this exact file name
+# (release.yml) and to the npm-publish environment. Renaming either one breaks
+# publishing until the trusted publisher is recreated.
+#
+# Trust model: no secret is stored anywhere. The only credentials are the
+# per-job GITHUB_TOKEN and the OIDC token of the publish and release-assets
+# jobs. The npm-publish environment must keep a required reviewer and a
+# deployment rule limited to tags v*, otherwise a branch carrying an edited copy
+# of this file could request the OIDC token.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Keep in step with semgrep.yml. The canary below proves a bump did not
+  # silently break detection.
+  SEMGREP_IMAGE: semgrep/semgrep:1.169.0@sha256:2b33f46ba66cf8cc2ad59ccfa7d22951fd00c632c38f1339e84ec8e6e641a942
+
+jobs:
+  verify:
+    name: Verify and pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read # read the Qodana run of this commit
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          # Release builds never restore a cache: a poisoned cache would end up in the tarball.
+          package-manager-cache: false
+
+      - name: Check the release matches package.json and main
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          if [ "${TAG}" != "v${version}" ]; then
+            echo "::error::Release tag ${TAG} does not match package.json version v${version}"
+            exit 1
+          fi
+          if [ "${PRERELEASE}" = "true" ] || ! [[ "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Only stable x.y.z releases are published from CI. Publish a prerelease by hand."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "::error::${TAG} is not on main. Merge into main first, then tag."
+            exit 1
+          fi
+          if lookup="$(npm view "@axiumine/koa-utils@${version}" version --registry=https://registry.npmjs.org/ 2>&1)"; then
+            echo "::error::@axiumine/koa-utils@${version} is already on npm (${lookup})"
+            exit 1
+          elif ! grep -q 'E404' <<< "${lookup}"; then
+            echo "::error::npm registry lookup failed: ${lookup}"
+            exit 1
+          fi
+
+      # qodana.yml reports after the fact; this makes it a gate before publish.
+      - name: Require a green Qodana run for this commit
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          green="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/qodana.yml/runs?head_sha=${GITHUB_SHA}&per_page=20" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success")] | length')"
+          if [ "${green}" -lt 1 ]; then
+            echo "::error::No green qodana.yml run for ${GITHUB_SHA}. Wait for it or re-run it, then re-run this workflow."
+            exit 1
+          fi
+
+      # --ignore-scripts: no dependency lifecycle script runs in the job that builds the
+      # published bytes, and the repo prepare script (hooks:install plus a second build)
+      # stays out of CI. yarn test:coverage and the pack step below build explicitly.
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile --ignore-scripts
+
+      - name: Run tests with coverage
+        run: yarn test:coverage
+
+      - name: Semgrep canary
+        run: ./scripts/semgrep-canary.sh
+
+      - name: Semgrep scan
+        run: ./scripts/semgrep.sh
+
+      - name: Build and pack
+        id: pack
+        run: |
+          set -euo pipefail
+          yarn build
+          dest="${RUNNER_TEMP}/pack"
+          mkdir -p "${dest}"
+          npm pack --ignore-scripts --pack-destination "${dest}" > /dev/null
+          shopt -s nullglob
+          files=("${dest}"/*.tgz)
+          if [ "${#files[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one tarball, found ${#files[@]}"
+            exit 1
+          fi
+          tarball="$(basename "${files[0]}")"
+          version="$(node -p "require('./package.json').version")"
+          if [ "${tarball}" != "axiumine-koa-utils-${version}.tgz" ]; then
+            echo "::error::Unexpected tarball name ${tarball} for version ${version}"
+            exit 1
+          fi
+          listing="$(tar -tzf "${files[0]}")"
+          if grep -qE '\.map$' <<< "${listing}"; then
+            echo "::error::Source maps must not ship in the tarball"
+            exit 1
+          fi
+          unexpected="$(grep -vE '^package/(dist/.+|LICENSE|README\.md|package\.json)$' <<< "${listing}" || true)"
+          if [ -n "${unexpected}" ]; then
+            echo "::error::Unexpected files in the tarball:"
+            echo "${unexpected}"
+            exit 1
+          fi
+          if ! grep -q '^package/dist/' <<< "${listing}"; then
+            echo "::error::The tarball has no dist/ files"
+            exit 1
+          fi
+          sha256="$(sha256sum "${files[0]}" | cut -d' ' -f1)"
+          {
+            echo "tarball=${tarball}"
+            echo "sha256=${sha256}"
+          } >> "${GITHUB_OUTPUT}"
+          {
+            echo "### ${tarball}"
+            echo ""
+            echo "sha256: \`${sha256}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload tarball
+        if: github.event_name == 'release'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package
+          path: ${{ runner.temp }}/pack/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish to npm
+    needs: verify
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Required reviewer lives on this environment. The npm trusted publisher is bound to its name.
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing and the provenance signature
+    steps:
+      # No checkout and no dependency install in this job: it holds the OIDC token.
+      - name: Download tarball
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: package
+          path: pack
+
+      - name: Check the tarball is the one that was verified
+        env:
+          TARBALL: ${{ needs.verify.outputs.tarball }}
+          SHA256: ${{ needs.verify.outputs.sha256 }}
+        run: echo "${SHA256}  pack/${TARBALL}" | sha256sum --check --strict
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
+      # Independent of the verify job: the package inside the tarball must be this
+      # package at exactly the version of the tag that started the run.
+      - name: Check the tarball is this package at the tagged version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          TARBALL: ${{ needs.verify.outputs.tarball }}
+        run: |
+          set -euo pipefail
+          manifest="$(tar -xzOf "pack/${TARBALL}" package/package.json)"
+          name="$(node -p "JSON.parse(process.argv[1]).name" "${manifest}")"
+          version="$(node -p "JSON.parse(process.argv[1]).version" "${manifest}")"
+          if [ "${name}" != "@axiumine/koa-utils" ] || [ "v${version}" != "${TAG}" ]; then
+            echo "::error::Tarball holds ${name}@${version}, expected @axiumine/koa-utils at ${TAG}"
+            exit 1
+          fi
+
+      - name: Publish
+        env:
+          TARBALL: ${{ needs.verify.outputs.tarball }}
+        run: npm publish "./pack/${TARBALL}" --provenance --access public --registry=https://registry.npmjs.org/
+
+  release-assets:
+    name: Attach signed release assets
+    needs: [verify, publish]
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # gh release upload
+      id-token: write # keyless signing of the provenance
+      attestations: write # store the attestation next to the repository
+    steps:
+      - name: Download tarball
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: package
+          path: pack
+
+      - name: Check the tarball is the one that was published
+        env:
+          TARBALL: ${{ needs.verify.outputs.tarball }}
+          SHA256: ${{ needs.verify.outputs.sha256 }}
+        run: echo "${SHA256}  pack/${TARBALL}" | sha256sum --check --strict
+
+      - name: Attest build provenance
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: pack/${{ needs.verify.outputs.tarball }}
+
+      - name: Verify and upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+          TARBALL: ${{ needs.verify.outputs.tarball }}
+          BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          # Signed-Releases looks for *.intoto.jsonl. The attestation bundle is a
+          # JSON-lines Sigstore bundle carrying a SLSA provenance statement.
+          provenance="pack/${TARBALL}.intoto.jsonl"
+          cp "${BUNDLE}" "${provenance}"
+          gh attestation verify "pack/${TARBALL}" --bundle "${provenance}" --repo "${GITHUB_REPOSITORY}"
+          # Provenance first: the release never shows an unsigned tarball.
+          gh release upload "${TAG}" "${provenance}" --clobber --repo "${GITHUB_REPOSITORY}"
+          gh release upload "${TAG}" "pack/${TARBALL}" --clobber --repo "${GITHUB_REPOSITORY}"
+          # Fail the job unless the release now lists both assets.
+          assets="$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name')"
+          for expected in "${TARBALL}.intoto.jsonl" "${TARBALL}"; do
+            if ! grep -Fxq "${expected}" <<< "${assets}"; then
+              echo "::error::Release ${TAG} is missing the asset ${expected}"
+              exit 1
+            fi
+          done
