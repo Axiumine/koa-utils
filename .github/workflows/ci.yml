@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Mondays 05:17 UTC: the periodic dependency audit
+    - cron: '17 5 * * 1'
+
+# Least privilege: every job only reads the repo. No secret is used, so the same
+# jobs run green on Dependabot and fork PRs (qodana.yml needs QODANA_TOKEN, which
+# those PRs never receive).
+permissions:
+  contents: read
+
+jobs:
+  test:
+    # This job name is the status-check context the main-protection ruleset requires
+    # (integration_id 15368 = GitHub Actions). Renaming it without editing the ruleset
+    # leaves every PR "Expected: waiting for status".
+    name: Test coverage
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # ESLint (@axiumine/eslint-config-be + size budget) and Prettier, read-only.
+      - name: Coding standard
+        run: yarn lint:check
+
+      # Mocha report in the log; fails below 100% on lines, statements, functions or branches.
+      - name: Tests and coverage gate
+        run: yarn test:coverage
+
+      # Two clean builds must produce the same bytes (docs/verify-release.md depends on it).
+      - name: Build is deterministic
+        run: |
+          yarn build > /dev/null
+          (cd dist && find . -type f | LC_ALL=C sort | xargs sha256sum) > "$RUNNER_TEMP/build-a.sum"
+          yarn build > /dev/null
+          (cd dist && find . -type f | LC_ALL=C sort | xargs sha256sum) > "$RUNNER_TEMP/build-b.sum"
+          diff "$RUNNER_TEMP/build-a.sum" "$RUNNER_TEMP/build-b.sum"
+
+      # `files` negates *.map; inlineSources would otherwise ship every original .mts.
+      - name: Tarball ships no source maps
+        run: |
+          npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP" > /dev/null
+          maps=$(tar tzf "$RUNNER_TEMP"/axiumine-koa-utils-*.tgz | grep -c '\.map$' || true)
+          echo "source maps in tarball: $maps"
+          test "$maps" -eq 0
+          echo "tarball sha1: $(shasum "$RUNNER_TEMP"/axiumine-koa-utils-*.tgz | cut -d' ' -f1)" >> "$GITHUB_STEP_SUMMARY"
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      # Gate: what the package ships to consumers. It declares no runtime dependencies, so this must stay clean.
+      - name: Audit shipped dependencies
+        run: yarn audit --groups dependencies
+
+      # Monitor: the development tree is not shipped. Findings are listed for triage, they do not fail the run.
+      - name: Audit development tree
+        run: |
+          {
+            echo '### yarn audit (devDependencies, high and above)'
+            echo '```'
+            yarn audit --groups devDependencies --level high || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,107 @@
+version: 2
+
+# Scorecard "Dependency-Update-Tool" looks only for this file's existence (10/10).
+# The rest is policy for THIS repo:
+#
+#   - Dependabot's npm parser reads dependencies, devDependencies and
+#     optionalDependencies. It does NOT read peerDependencies, and this package
+#     ships zero `dependencies`, so only the devDependencies are ever bumped.
+#   - versioning-strategy is pinned to `increase` on purpose. With the default
+#     `auto`, Dependabot detects this package as a library (name + version, not
+#     private, and the npm description matches) and picks `widen`, which would
+#     rewrite "^9.9.1" into ">=9.9.1 <11". devDependencies are the pins the
+#     repo is built and tested against; they must stay plain carets.
+#   - peerDependencies are never edited by design, but dependabot-core does a
+#     textual replace of a bumped devDependency line inside the
+#     peerDependencies block too. Today no dev line equals a peer line
+#     ("^9.9.1" vs "<10"), so nothing matches. The ignore list below keeps it
+#     that way: no MAJOR bump for any package that is also a peer (a major dev
+#     bump would build against a version the peer range never claimed), and
+#     `keygrip` (peer "^1.1.0", no dev pin) is ignored outright so a future dev
+#     pin of the same text cannot rewrite the peer line.
+#   - Raising a peer bound stays a manual owner decision (see the peer rules in
+#     the agent rule file): npm view, swap the major into node_modules, green
+#     `yarn test:coverage`, then edit the range.
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Rome
+    versioning-strategy: increase
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+      semver-minor-days: 7
+      semver-patch-days: 3
+    commit-message:
+      prefix: chore
+      prefix-development: chore
+      include: scope
+    groups:
+      dev-minor-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: keygrip
+      - dependency-name: "@node-rs/bcrypt"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@sentry/node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@socketlabs/email"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: clamscan
+        update-types: ["version-update:semver-major"]
+      - dependency-name: dotenv
+        update-types: ["version-update:semver-major"]
+      - dependency-name: file-type
+        update-types: ["version-update:semver-major"]
+      - dependency-name: fs-extra
+        update-types: ["version-update:semver-major"]
+      - dependency-name: graphql
+        update-types: ["version-update:semver-major"]
+      - dependency-name: koa
+        update-types: ["version-update:semver-major"]
+      - dependency-name: mariadb
+        update-types: ["version-update:semver-major"]
+      - dependency-name: mongoose
+        update-types: ["version-update:semver-major"]
+      - dependency-name: pg
+        update-types: ["version-update:semver-major"]
+      - dependency-name: redis
+        update-types: ["version-update:semver-major"]
+      - dependency-name: reflect-metadata
+        update-types: ["version-update:semver-major"]
+      - dependency-name: sequelize
+        update-types: ["version-update:semver-major"]
+      - dependency-name: sequelize-typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: sharp
+        update-types: ["version-update:semver-major"]
+      - dependency-name: uuid
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:30"
+      timezone: Europe/Rome
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch

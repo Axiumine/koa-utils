@@ -94,6 +94,7 @@ Area-scoped agent rules live in nested `CLAUDE.md` files, loaded on demand when 
 | `yarn prepare:all` | `rm -rf dist && yarn build:all` |
 | `yarn hooks:install` | `git config core.hooksPath .githooks` (no-op outside a git repo) |
 | `yarn lint` | `eslint --fix` + `prettier --write 'src/**/*.mts'` |
+| `yarn lint:check` | `eslint` + `prettier --check 'src/**/*.mts'` — read-only variant of `lint`, run by `ci.yml` |
 | `yarn test` | `build` + `build:tests` + `mocha` — no coverage check |
 | `yarn test:watch` | `mocha --watch` |
 | `yarn test:coverage` | `build` + `build:tests` + `c8 mocha` — fails below 100% coverage on any file |
@@ -277,3 +278,9 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - `deploy-local.sh` — maintainer-only. Builds, then rsyncs `dist/` into every consumer's `node_modules/@axiumine/koa-utils` inside one workspace, so an unpublished version can be exercised against the real services first. `npm publish` is a one-way door; this is not a release step and touches nothing outside the local machine.
 - `scripts/migrate-account-disabled-to-boolean.mjs` — one-shot data migration for consumers. Rewrites `account.disabled`/`account.deleted` from string to boolean in the `user` and `userAdmin` collections. Dry run unless `--apply`; needs `MONGO_URI`. Required once when upgrading from **5.0.3 or earlier** — see the "Migration required" section in `CHANGELOG.md`.
 - `CODEOWNERS` — single owner `@giovannimanzoni`.
+- `.github/workflows/` — GitHub Actions, all with top-level `permissions: contents: read` and every third-party action pinned by commit SHA with a `# vX.Y.Z` comment.
+  - `ci.yml` — job `Test coverage`: `yarn lint:check`, `yarn test:coverage` (100% gate), two clean builds must hash identically, and the `npm pack` tarball must hold no `.map`. Job `Dependency audit`: `yarn audit` gates the shipped dependency groups, the dev tree is only reported. Runs on push and PR to `main`, plus a weekly cron for the audit. Needs no secret.
+  - `qodana.yml` — job `Qodana Ultimate Plus`: `yarn test:coverage`, then the Qodana scan. Needs the `QODANA_TOKEN` secret, so it is skipped on Dependabot PRs.
+  - `semgrep.yml` — job `SAST`: `scripts/semgrep-canary.sh` first, then `scripts/semgrep.sh`. `SEMGREP_IMAGE` is pinned by tag and digest.
+  - `scorecard.yml` — OpenSSF Scorecard analysis: push to `main`, weekly cron, `branch_protection_rule`, manual dispatch. Publishes results to scorecard.dev and uploads SARIF to code scanning.
+- `.github/dependabot.yml` — weekly version updates: npm (devDependencies only, `versioning-strategy: increase`, minor and patch grouped) and `github-actions`. Every package that is also a `peerDependency` is ignored for semver-major bumps, and `keygrip` is ignored whole, so a dev bump can never rewrite a peer range. A new peer in `package.json` needs a matching `ignore` entry. Dependabot cannot bump `SEMGREP_IMAGE`, the `qodana.yaml` `linter:` tag or the `--linter` arg in `qodana.yml`: those stay manual.
