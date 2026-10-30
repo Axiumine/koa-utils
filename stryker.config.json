@@ -1,0 +1,31 @@
+{
+	"$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+	"testRunner": "mocha",
+	"checkers": ["typescript"],
+	"tsconfigFile": "tsconfig.json",
+	"mutate": [
+		"src/**/*.mts",
+		"!src/**/I[A-Z]*.mts",
+		"!src/**/types/*.mts",
+		"!src/**/interfaces/**",
+		"!src/**/*.d.mts",
+		"!src/graphQL/schema/context/TCommonHeaders.mts",
+		"!src/koa/middleware/authenticatedAuthorizationHandler/TCookieRefreshToken.mts",
+		"!src/files/checkForNSFW.mts"
+	],
+	"buildCommand": "bash scripts/mutation-build.sh",
+	"inPlace": false,
+	"coverageAnalysis": "perTest",
+	"incremental": true,
+	"incrementalFile": "reports/stryker-incremental.json",
+	"ignorePatterns": [".claude", ".agents", ".gitnexus", ".qodana", "reports", "coverage", "dist", "dist-test"],
+	"reporters": ["clear-text", "html", "json"],
+	"htmlReporter": { "fileName": "reports/mutation/index.html" },
+	"jsonReporter": { "fileName": "reports/mutation/mutation.json" },
+	"thresholds": { "high": 80, "low": 70, "break": 67 },
+	"timeoutMS": 10000,
+	"timeoutFactor": 2,
+	"symlinkNodeModules": false,
+	"concurrency": 4,
+	"cleanTempDir": "always"
+}

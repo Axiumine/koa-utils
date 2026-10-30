@@ -17,7 +17,7 @@ const securityErrors = Object.fromEntries(Object.keys(security.configs.recommend
 
 export default [
 	{
-		ignores: ['dist/**', 'dist-test/**', 'node_modules/**', '.qodana/**', 'coverage/**']
+		ignores: ['dist/**', 'dist-test/**', 'node_modules/**', '.qodana/**', 'coverage/**', '.stryker-tmp/**', 'reports/**']
 	},
 	...eslintConfig,
 	// typescript-eslint strictTypeChecked, src only. Type information comes from the project set in the base config.
