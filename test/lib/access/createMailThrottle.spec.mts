@@ -114,6 +114,23 @@ describe('createMailThrottle', () => {
 		expect(maySend('c')).to.equal(true)
 		expect(maySend('b')).to.equal(false)
 	})
+
+	it('re-sending a key whose window lapsed moves it behind the keys sent after it', () => {
+		const maySend = createMailThrottle({ windowMs: 1000, maxKeys: 3 })
+
+		expect(maySend('a')).to.equal(true)
+		clock.tick(500)
+		expect(maySend('b')).to.equal(true)
+		clock.tick(501) // a expired (1001ms), b fresh (501ms)
+		// a re-sent while map not full (no sweep) → newest entry, b now oldest. No delete before set → Map keep a first.
+		expect(maySend('a')).to.equal(true)
+		expect(maySend('c')).to.equal(true)
+
+		// full + all fresh → oldest goes. Must be b, not the re-inserted a.
+		expect(maySend('d')).to.equal(true)
+		expect(maySend('a')).to.equal(false)
+		expect(maySend('b')).to.equal(true)
+	})
 })
 
 describe('ALWAYS_MAIL', () => {
