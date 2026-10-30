@@ -22,6 +22,6 @@
 			"@dataSources/*": ["./dist/dataSources/*"]
 		}
 	},
-	"include": ["test/**/*.mts"],
+	"include": ["test/**/*.mts", "test/**/*.ts"],
 	"exclude": ["node_modules", "dist", "dist-test"]
 }
