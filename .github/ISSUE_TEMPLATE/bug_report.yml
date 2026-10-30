@@ -1,0 +1,54 @@
+name: Bug report
+description: Something in @axiumine/koa-utils does not behave as documented.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not use this form for a security vulnerability. Report it privately, see [SECURITY.md](https://github.com/Axiumine/koa-utils/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      description: Output of `npm ls @axiumine/koa-utils`.
+      placeholder: 7.1.0
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Node.js and peer versions
+      description: Node.js version plus the versions of the peers involved (koa, graphql, mongoose, redis, ...).
+      placeholder: Node 24.14.0, koa 3.2.1
+    validations:
+      required: true
+  - type: input
+    id: export
+    attributes:
+      label: Export involved
+      description: The `package.json` export path, for example `@axiumine/koa-utils/koa/middleware/authenticatedResourceHandler`.
+    validations:
+      required: false
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include the exact error message or status code.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: Point to the documented behaviour in `docs/code/` if you can.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest snippet or repository that shows the problem.
+      render: typescript
+    validations:
+      required: true

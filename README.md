@@ -1,5 +1,7 @@
 # @axiumine/koa-utils
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Axiumine/koa-utils/badge)](https://scorecard.dev/viewer/?uri=github.com/Axiumine/koa-utils)
+
 TypeScript utility library for Koa + GraphQL backends. Ships authentication middleware, GraphQL error helpers, data-source connectors (MongoDB, MariaDB, PostgreSQL, Redis), file upload pipeline (ClamAV + sharp re-encode), and transactional email via SocketLabs.
 
 - **Module format:** ESM only (`.mjs` + `.d.mts`)
@@ -7,6 +9,7 @@ TypeScript utility library for Koa + GraphQL backends. Ships authentication midd
 - **TypeScript:** `6.0`
 - **License:** GPL-3.0-or-later
 - **Maintainer:** [Giovanni Manzoni](https://www.giovannimanzoni.com)
+- **Project:** [Contributing](https://github.com/Axiumine/koa-utils/blob/main/CONTRIBUTING.md) · [Governance](https://github.com/Axiumine/koa-utils/blob/main/GOVERNANCE.md) · [Roadmap](https://github.com/Axiumine/koa-utils/blob/main/ROADMAP.md) · [Security policy](https://github.com/Axiumine/koa-utils/blob/main/SECURITY.md) · [Code of Conduct](https://github.com/Axiumine/koa-utils/blob/main/CODE_OF_CONDUCT.md) · [Changelog](https://github.com/Axiumine/koa-utils/blob/main/CHANGELOG.md)
 
 ## Install
 
@@ -43,6 +46,39 @@ The remaining twelve are declared **optional** in `peerDependenciesMeta`. There 
 
 Optionality is a promise about the load path, not a way to silence the warning: it holds only while the dependency stays behind a subpath the consumer opts into. Adding a root `"."` barrel, or importing one of these from a module that every subpath reaches, breaks it for every consumer at once.
 
+## Quick start
+
+A Koa app that refuses every request without a valid access token and answers with the caller's id. It needs a MongoDB and a Redis server you can reach.
+
+```bash
+yarn add @axiumine/koa-utils @node-rs/bcrypt @sentry/node dotenv graphql mongoose redis uuid koa
+printf 'MONGODB_URI=mongodb://localhost:27017/app\nREDIS_URL=redis://localhost:6379\nREDIS_KEY=app:\n' > .env
+```
+
+Save this as `server.mts`:
+
+```ts
+import 'dotenv/config'
+import Koa from 'koa'
+import { MongoDBConnect } from '@axiumine/koa-utils/dataSources/MongoDB'
+import { RedisConnect } from '@axiumine/koa-utils/dataSources/Redis'
+import { tdwKoaErrorHandler } from '@axiumine/koa-utils/koa/tdwKoaErrorHandler'
+import { authenticatedResourceHandler } from '@axiumine/koa-utils/koa/middleware/authenticatedResourceHandler'
+
+await MongoDBConnect()
+await RedisConnect()
+
+const app = new Koa()
+app.use(tdwKoaErrorHandler)
+app.use(authenticatedResourceHandler())
+app.use(async (ctx) => {
+	ctx.body = { userId: String(ctx.state.user.id) }
+})
+app.listen(3000)
+```
+
+Run it with `node server.mts` (an ES module project, `"type": "module"`, Node `^24.14.0`, which strips the types itself). `curl -i localhost:3000` answers `412 Precondition Failed` ("No authorization header."): a request needs `Authorization: Bearer access:<uuid>` with a token that exists in Redis. To obtain one, add the `signUp` and `loginRememberme` mutations from [Usage](#usage) to your GraphQL schema and follow the [Auth flow](#auth-flow).
+
 ## Usage
 
 No barrel — import each helper from its explicit subpath.
@@ -69,7 +105,10 @@ import { authenticatedResourceHandler } from '@axiumine/koa-utils/koa/middleware
 import { authenticatedAuthorizationHandler } from '@axiumine/koa-utils/koa/middleware/authenticatedAuthorizationHandler'
 
 const app = new Koa()
-const keys = new Keygrip([process.env.COOKIE_KEY!])
+// Keygrip signs with HMAC-SHA1 unless told otherwise: pass 'sha256'.
+// Koa signs the refresh cookie with app.keys, so verify with that same instance.
+const keys = new Keygrip([process.env.COOKIE_KEY!], 'sha256')
+app.keys = keys
 
 app.use(tdwKoaErrorHandler)
 app.use(authenticatedResourceHandler())                // resource endpoints
@@ -126,7 +165,7 @@ const verify = createVerifyEmailFlow({
 router.get('/check/verify-email/:email/:hash', verify.routerVerifyEmail())
 ```
 
-Every `paths` key is optional and falls back to the `UserBase` layout, so the package-level exports are exactly these factories with no overrides. See [docs/code/lib-access.md](./docs/code/lib-access.md).
+Every `paths` key is optional and falls back to the `UserBase` layout, so the package-level exports are exactly these factories with no overrides. See [docs/code/lib-access.md](https://github.com/Axiumine/koa-utils/blob/main/docs/code/lib-access.md).
 
 `onAbandon` decides what the two disposal guards — the fifth wrong hash and a link older than 3 days — do to a pending registration. The default `'delete'` removes the row; use `'soft-delete'` or `'keep'` when other collections depend on it, since mongo has no cascade, or pass `deleteUserByEmail` to replace the writer outright. The link is rejected either way.
 
@@ -258,7 +297,10 @@ For the cluster path the `rediss://` scheme on `rootNodes` is not enough on its 
 yarn install
 yarn build        # ESM only — production output
 yarn build:all    # ESM + CJS dual output
+yarn test         # build + build:tests + mocha, no coverage gate
+yarn test:coverage  # same under c8: fails below 100% on lines, statements, functions or branches of any file
 yarn lint         # eslint --fix + prettier --write
+yarn lint:check   # eslint + prettier --check, writes nothing (runs in CI)
 yarn clean
 ```
 
@@ -275,6 +317,14 @@ There is no barrel and no `main` / `module` field.
 `yarn.lock` always resolves against `https://registry.npmjs.org/`, so a plain clone installs with no extra setup.
 
 Maintainers who install through a private npm mirror should not commit its host: a git clean/smudge filter rewrites the `resolved` URLs in both directions, keeping the mirror in the working copy and the public registry in history. `yarn install` configures it (via `prepare` → `hooks:install`); point it at your own mirror with `YARN_PROXY_REGISTRY`. A pre-commit check rejects any lockfile that still names a non-public host.
+
+## Feedback, contributing and security
+
+- **Bugs and feature requests:** open an issue at <https://github.com/Axiumine/koa-utils/issues/new/choose>. Issues are public and searchable.
+- **Contributing code:** fork, branch from `main` and open a pull request; larger changes start with an issue. [CONTRIBUTING.md](https://github.com/Axiumine/koa-utils/blob/main/CONTRIBUTING.md) lists the requirements (tests at 100% coverage, docs in the same change, Conventional Commits, GPL-3.0-or-later). How decisions are made is in [GOVERNANCE.md](https://github.com/Axiumine/koa-utils/blob/main/GOVERNANCE.md); the direction is in [ROADMAP.md](https://github.com/Axiumine/koa-utils/blob/main/ROADMAP.md).
+- **Security vulnerabilities:** never in a public issue. Use GitHub private vulnerability reporting or the email in [SECURITY.md](https://github.com/Axiumine/koa-utils/blob/main/SECURITY.md), which also states the supported versions and response times.
+- **Security model and design:** what the library does and does not protect against is in [docs/security.md](https://github.com/Axiumine/koa-utils/blob/main/docs/security.md); the structure is in [docs/architecture.md](https://github.com/Axiumine/koa-utils/blob/main/docs/architecture.md). How to check a release (signed tag, rebuild, attestation) is in [docs/verify-release.md](https://github.com/Axiumine/koa-utils/blob/main/docs/verify-release.md).
+- **Release notes:** [CHANGELOG.md](https://github.com/Axiumine/koa-utils/blob/main/CHANGELOG.md), one entry per release, with a `Security` section whenever a release fixes a vulnerability.
 
 ## Repository
 
