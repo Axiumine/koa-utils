@@ -129,9 +129,6 @@
   "src/lib/StringLib.mts": {
     "@typescript-eslint/no-useless-constructor": {
       "count": 1
-    },
-    "sonarjs/super-linear-regex": {
-      "count": 2
     }
   },
   "src/lib/db/log/logGraphql.mts": {
