@@ -71,6 +71,9 @@ echo "semgrep: scanning $COUNT files (shadow tree, .mts -> .ts)"
 # the flag, exit 1 with it. Do not remove — it is the only thing that makes this
 # script usable as a gate rather than a report.
 #
+# `--disable-version-check` keeps the custom-rules run offline-safe: without it semgrep contacts its servers to
+# compare versions and waits for a timeout when the network is down (about 2 min measured with `--network none`).
+#
 # `set +e` so a non-zero findings exit code still reaches the path rewrite below;
 # the real exit status is re-applied afterwards.
 set +e
@@ -78,7 +81,7 @@ docker run --rm \
   -v "$SHADOW:/src:ro" \
   -v "$ROOT/.semgrep:/rules:ro" \
   -w /src \
-  "$IMAGE" semgrep "${CONFIGS[@]}" --metrics=off --no-git-ignore --error "${EXTRA[@]+"${EXTRA[@]}"}" \
+  "$IMAGE" semgrep "${CONFIGS[@]}" --metrics=off --disable-version-check --no-git-ignore --error "${EXTRA[@]+"${EXTRA[@]}"}" \
   2>&1 | sed -E 's/\.ts([:"[:space:]]|$)/.mts\1/g'
 STATUS=${PIPESTATUS[0]}
 set -e

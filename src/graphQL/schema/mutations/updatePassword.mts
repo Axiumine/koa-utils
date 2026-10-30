@@ -68,7 +68,7 @@ async function applyPasswordReset(
 	}
 
 	// check if hash is missing or invalid
-	// eslint-disable-next-line security/detect-possible-timing-attacks -- known limit, owner decision pending on crypto.timingSafeEqual, not constant-time; hash is single-use and throttled
+	// eslint-disable-next-line security/detect-possible-timing-attacks -- known limit, owner decision pending on crypto.timingSafeEqual, not constant-time; wrong guesses are not rate-limited (403 only, no strike counter); hash expires after 60 min and is removed on success
 	if (resetPwd.resetHash !== hash /* nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack */) {
 		throw throwForbiddenError() // don't reveal whether the email is present, for privacy
 	}

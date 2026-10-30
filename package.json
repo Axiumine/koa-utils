@@ -32,6 +32,7 @@
 		"caps": "node scripts/check-code-caps.mts",
 		"caps:update": "node scripts/check-code-caps.mts --update",
 		"caps:report": "node scripts/check-code-caps.mts --report",
+		"ratchet:against": "node scripts/check-code-caps.mts --against",
 		"type-coverage": "type-coverage -p tsconfig.json --at-least 99.5 && type-coverage -p tsconfig.json --strict --at-least 96.7",
 		"knip": "knip",
 		"fta": "node node_modules/fta-cli/index.js src -c fta.json",
@@ -737,6 +738,7 @@
 	},
 	"devDependencies": {
 		"@axiumine/eslint-config-be": "^2.0.2",
+		"@eslint-community/eslint-plugin-eslint-comments": "^4.8.1",
 		"@eslint/eslintrc": "^3.3.7",
 		"@eslint/js": "^10.0.1",
 		"@node-rs/bcrypt": "^1.10.9",

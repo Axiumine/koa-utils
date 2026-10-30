@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- single public class kept in one file */
 import { StringLib } from '@lib/StringLib.mjs'
 import * as Sentry from '@sentry/node'
 import { BasicMessage, SocketLabsClient } from '@socketlabs/email'
@@ -28,7 +29,7 @@ export class SocketLabsLib {
 	private readonly platformName: string
 	private readonly linkBase: string
 	private readonly emailFrom: string
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- @socketlabs/email ships no types (untyped module in src/types/socketlabs-email.d.ts), so the client is untyped
 	private client: any
 	private readonly emailHtmlHeader1: string
 	private readonly emailHtmlHeader2: string
@@ -507,7 +508,6 @@ SendResponse {
 			'</html>' +
 			'<body style="margin: 0; padding: 0;">' +
 			' <table align="center" border="0" cellpadding="0" cellspacing="0" width="600">' +
-			// eslint-disable-next-line max-lines -- single public class kept in one file
 			'  <tr>' +
 			'   <td bgcolor="#ffffff" style="padding: 40px 30px 40px 30px;"><p style="color: #000000; font-family: Verdana, sans-serif; font-size: 12pt;">'
 		)
