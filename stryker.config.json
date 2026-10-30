@@ -22,7 +22,7 @@
 	"reporters": ["clear-text", "html", "json"],
 	"htmlReporter": { "fileName": "reports/mutation/index.html" },
 	"jsonReporter": { "fileName": "reports/mutation/mutation.json" },
-	"thresholds": { "high": 80, "low": 70, "break": 67 },
+	"thresholds": { "high": 100, "low": 100, "break": 100 },
 	"timeoutMS": 10000,
 	"timeoutFactor": 2,
 	"symlinkNodeModules": false,
