@@ -141,7 +141,7 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - `yarn check:static` — `caps` → `lint:check` → `typecheck` → `typecheck:scripts` → `typecheck:tests` → `knip` → `type-coverage` → `fta`. Single source: pre-commit, pre-push, CI step `Static gates` all call it. Run before report done.
 - `yarn typecheck` (`tsconfig.check.json`, `exactOptionalPropertyTypes`) / `yarn typecheck:scripts` (`tsconfig.scripts.json`) / `yarn typecheck:tests` (`tsconfig.tests.json`, specs, same flags as `typecheck`) / `yarn knip` / `yarn type-coverage` / `yarn fta` (cap `fta.json` = 50, never raise) — 1 gate each.
 - `yarn caps` — code-size ratchet vs `.code-caps-baseline.json`. `caps:update` only lower. `caps:report` list all.
-- `yarn mutation` — `patch-package && stryker run`. Full run, ~13 min (755 s, 4 workers), sandbox (tree untouched). Report `reports/mutation/index.html`. See *Mutation gate*.
+- `yarn mutation` — `patch-package && stryker run`. Full run, ~13 min (797 s, 4 workers), sandbox (tree untouched). Report `reports/mutation/index.html`. See *Mutation gate*.
 - `yarn mutation:changed [base-ref]` — mutate only `src/**/*.mts` changed vs merge-base (default `origin/main`, else `HEAD~1`). Own incremental file, clear-text report only.
 - `yarn leak:check` — heap tripwire on built `dist/` (`yarn build` first). CI weekly/dispatch only, advisory.
 - Snapshots: `test/__snapshots__/*.json`. Regen `UPDATE_SNAPSHOT=1 yarn test`, only on intentional API change, read diff. See `test/CLAUDE.md`.
@@ -157,7 +157,7 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 
 c8 100% prove lines ran, not that tests assert. Stryker mutate `src/**/*.mts`, rerun tests, survivor = missing assertion. Config `stryker.config.json`: runner `mocha`, checker `typescript`, `coverageAnalysis: perTest`, `incremental` (file `reports/stryker-incremental.json`), `inPlace: false` → sandbox copy in `.stryker-tmp/`, working tree never rewritten. Mutate set mirrors `.c8rc.json` excludes (`I[A-Z]*.mts`, `types/*`, `interfaces/**`, `TCommonHeaders`, `TCookieRefreshToken`, `checkForNSFW`). Build in sandbox: `scripts/mutation-build.sh` (clean + `build:esm` + `build:tests`; links `node_modules` itself because Stryker build run before link).
 
-- Target = 100% of non-disabled mutants. `thresholds.break` = 100 (`high`/`low` too). Full run 2220 mutants → 0 survived, 0 no cov, 1761 killed + 15 timeout, 13 ignored (12 `// Stryker disable` comments in `src`, 1 hides 2 replacements; count: `grep -rn 'Stryker disable' src`), rest compile/runtime errors. Never lower. New `src` code → kill all its mutants, break fail otherwise.
+- Target = 100% of non-disabled mutants. `thresholds.break` = 100 (`high`/`low` too). Full run 2266 mutants → 0 survived, 0 no cov, 1747 killed + 23 timeout, 13 ignored (12 `// Stryker disable` comments in `src`, 1 hides 2 replacements; count: `grep -rn 'Stryker disable' src`), rest compile/runtime errors. Never lower. New `src` code → kill all its mutants, break fail otherwise.
 - Survivor → new assertion in `test/`, never `thresholds` edit.
 - Spec spawn subprocess → forward `globalThis.__stryker__.activeMutant` as env `__STRYKER_ACTIVE_MUTANT__`, else child run original code → mutant survive. Ref `setRedisLoginSession.mutation.spec.mts`.
 - Disable hide every replacement of its mutator, no per-replacement form. Mixed equivalent + killable (`DateLib.timeDiffMin`) → reason name which replacement killable + which spec kill it (apply by hand, watch fail).
