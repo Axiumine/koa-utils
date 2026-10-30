@@ -32,6 +32,18 @@ Every comment in `test/**/*.mts` written caveman ultra. Same spec as `CLAUDE.md`
 - Deeper local fuzz: `FC_NUM_RUNS=100000 yarn test`. Default 500 runs/property.
 - No coverage role: `src/` already 100%. Property spec never replace branch-cover spec in `test/<area>/`.
 
+## Snapshots — `test/__snapshots__/*.json`
+
+- 2 committed JSON, zero-dep (`node:assert` + `test/helpers/snapshot.mts`, no snapshot lib):
+  - `public-api.json` ← `test/package/publicApi.spec.mts`. `exports` key → sorted runtime symbol names, dist modules dynamic-imported.
+  - `graphql-errors.json` ← `test/graphQL/throw/errorCatalog.spec.mts`. Each `throwXxx` → `{ message, extensions }`. Same spec check `docs/code/graphql-errors.md` quote status, title, description (substring, no table parse).
+- Read from repo root via `process.cwd()` → run via `yarn test` / `yarn test:coverage`, not from other cwd.
+- Regen: `UPDATE_SNAPSHOT=1 yarn test`. Only on intentional change.
+- Snapshot diff in PR = API change. Review like code: removed key/symbol = breaking (major), added = additive (minor), changed error title/status/description = observable behaviour → update `docs/code/graphql-errors.md` same commit.
+- Never regen to go green without reading diff. Red snapshot = real API drift until proven otherwise.
+- `publicApi.spec.mts` allowlist (`validateMimeTypePdf`, `checkForNSFW`) = dist files deliberately unexported. Owner decide public or not. New unexported dist file → spec fail → add `exports` key, never grow allowlist unasked.
+- Writer fn `checkSnapshot` tested both branches in `test/helpers/snapshot.spec.mts`.
+
 ## Traps that give green gate over real bug
 
 - **Sealed ESM namespaces.** `sinon.stub()` on `@sentry/node` or `sharp` fail: "ES Modules cannot be stubbed". Assert observable effect instead — Sentry never init'd in suite → `captureException` safe no-op — or drive real lib against fixture.
