@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# koa-utils — pre-push gates: static gates again, Semgrep, Semgrep canaries.
+# koa-utils — pre-push gates: static gates again, Semgrep, Semgrep canaries, mutation of changed files.
 #
 # Runs on the range being pushed, before code leaves the machine. Three jobs:
 #
@@ -8,6 +8,10 @@
 #     second time here, so a bypassed pre-commit does not reach the remote.
 #   - Run the Semgrep ruleset and its canaries (.semgrep/, scripts/semgrep.sh,
 #     scripts/semgrep-canary.sh). Too slow-ish for every commit, cheap enough per push.
+#   - Mutation-test the src files the push changes (yarn mutation:changed, StrykerJS).
+#     About 35 s per changed file on top of a 30 s fixed cost (3 files 2m04, 4 files
+#     2m25 measured), so a push that touches many src files waits accordingly. It runs
+#     last, after the cheap gates have passed. The full run (yarn mutation) stays weekly in CI.
 #   - Nothing else. Coverage and Qodana stay in pre-commit; CI is the final backstop.
 #
 # Same rules as pre-commit: fail closed, one fixing command per missing
@@ -80,6 +84,32 @@ range_is_relevant() {
 	[ "$rc" -ne 1 ]
 }
 
+# Prints the commit a pushed range starts from: the remote sha, or for a new
+# branch the point where it forked from origin/main. Prints nothing when it cannot
+# be computed. Mirrors the base logic of range_is_relevant.
+range_base() {
+	local lsha="$1" rsha="$2"
+	if [ "$rsha" = "$ZERO" ] || [ "$rsha" = "$ZERO256" ]; then
+		git rev-parse --verify --quiet origin/main > /dev/null || return 0
+		git merge-base origin/main "$lsha" 2> /dev/null || true
+	else
+		git cat-file -e "$rsha^{commit}" 2> /dev/null && echo "$rsha"
+	fi
+	return 0
+}
+
+# Succeeds when the range changes a src module. Same conservative rule as above:
+# a range that cannot be computed counts as changed, never as skippable.
+range_changes_src() {
+	local lsha="$1" base="$2" files rc=0
+	[ -n "$base" ] || return 0
+	if ! files="$(git diff --name-only --diff-filter=ACMR "$base" "$lsha" 2> /dev/null)"; then
+		return 0
+	fi
+	grep -Eq '^src/.*\.mts$' <<< "$files" || rc=$?
+	[ "$rc" -ne 1 ]
+}
+
 # Fail-closed prerequisites for the heavy steps. Nothing here pulls or reaches the network.
 check_prereqs() {
 	local root="$1" image
@@ -91,6 +121,12 @@ check_prereqs() {
 
 	if [ ! -d "$root/node_modules" ]; then
 		push_block "node_modules missing — the static gates need the dev dependencies." \
+			"yarn install"
+	fi
+
+	# The mutation step runs the Stryker CLI and patch-package from node_modules/.bin.
+	if [ ! -x "$root/node_modules/.bin/stryker" ] || [ ! -x "$root/node_modules/.bin/patch-package" ]; then
+		push_block "stryker or patch-package missing from node_modules — the mutation step needs them." \
 			"yarn install"
 	fi
 
@@ -131,6 +167,7 @@ check_prereqs() {
 
 RELEVANT=0
 SEEN_REF=0
+MUTATION_BASES=()
 
 while read -r lref lsha rref rsha; do
 	[ -n "${lsha:-}" ] || continue
@@ -144,6 +181,11 @@ while read -r lref lsha rref rsha; do
 
 	if range_is_relevant "$lsha" "${rsha:-$ZERO}"; then
 		RELEVANT=1
+		base="$(range_base "$lsha" "${rsha:-$ZERO}")"
+		if range_changes_src "$lsha" "$base"; then
+			# An empty base makes mutation:changed fall back to origin/main, else HEAD~1.
+			MUTATION_BASES+=("$base")
+		fi
 	fi
 done
 
@@ -196,5 +238,22 @@ Bypass once (CI will still block): git push --no-verify
 EOF
 	exit 1
 fi
+
+for base in "${MUTATION_BASES[@]+"${MUTATION_BASES[@]}"}"; do
+	echo "pre-push: mutation-testing the src files changed since ${base:-the default base} (yarn mutation:changed)…"
+	if ! yarn -s mutation:changed ${base:+"$base"}; then
+		cat >&2 << 'HOOKEOF'
+
+pre-push: BLOCKED — mutation testing failed on the changed files.
+
+Read the Survived and NoCoverage mutants printed above: each one is an assertion
+the tests lack. Add the assertion (CONTRIBUTING.md, "Mutation testing"). Only a
+true equivalent mutant may be disabled, with a verified reason. Never lower
+thresholds.break in stryker.config.json.
+Owner emergency only: git push --no-verify (the weekly CI mutation job still reports).
+HOOKEOF
+		exit 1
+	fi
+done
 
 echo "pre-push: gates clean. Pushing."
