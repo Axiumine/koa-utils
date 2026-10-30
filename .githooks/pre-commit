@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 #
-# koa-utils — pre-commit gates: yarn.lock registry, 100% coverage, Qodana.
+# koa-utils — pre-commit gates: yarn.lock registry, static gates, 100% coverage,
+# Qodana.
 #
 # Enforces the same bars as CI, before the commit rather than after the push.
 # Thresholds live elsewhere — .c8rc.json ("check-coverage": true, "per-file":
-# true, all metrics at 100) and qodana.yaml (critical 0 / high 0, coverage
-# 100/100). This hook only decides *when* to run them, never *how strict*.
+# true, all metrics at 100), qodana.yaml (critical 0 / high 0, coverage
+# 100/100), and the static gates behind `yarn check:static` (package.json: code
+# caps, ESLint, typecheck, Knip, type-coverage, FTA). This hook only decides
+# *when* to run them, never *how strict*. `check:static` is the single source of
+# truth: CI runs the same script, and .githooks/pre-push runs it again.
 #
 # Wired via `git config core.hooksPath .githooks`, done by `yarn hooks:install`
 # (also run automatically by the `prepare` script on `yarn install`).
@@ -19,8 +23,9 @@
 
 set -euo pipefail
 
-# Only code, test or build-config changes can move coverage. Docs-only commits skip.
-RELEVANT_PATHS='^(src/|test/|package\.json$|\.c8rc\.json$|\.mocharc\.json$|tsconfig.*\.json$)'
+# Only code, test, script or build-config changes can move a gate. Docs-only commits skip.
+# Keep in sync with RELEVANT_PATHS in .githooks/pre-push (duplicated on purpose: no shared file).
+RELEVANT_PATHS='^(src/|test/|scripts/|package\.json$|\.c8rc\.json$|\.mocharc\.json$|tsconfig.*\.json$|eslint\.config\.js$|eslint-suppressions\.json$|knip\.config\.js$|fta\.json$|\.code-caps-baseline\.json$)'
 
 # Deletions count: removing a spec file lowers coverage just as surely as adding
 # untested code, so D stays in the filter.
@@ -77,15 +82,37 @@ if [ -z "$STAGED" ]; then
 fi
 
 if ! printf '%s\n' "$STAGED" | grep -Eq "$RELEVANT_PATHS"; then
-	echo "pre-commit: no code/test/build-config changes staged — coverage gate skipped."
+	echo "pre-commit: no code/test/build-config changes staged — static, coverage and Qodana gates skipped."
 	exit 0
 fi
 
 if ! command -v yarn > /dev/null 2>&1; then
-	echo "pre-commit: yarn not found in PATH — cannot run the coverage gate." >&2
+	echo "pre-commit: yarn not found in PATH — cannot run the static and coverage gates." >&2
 	echo "            Install yarn, or bypass once with: git commit --no-verify" >&2
 	exit 1
 fi
+
+# Static gates first: seconds, not a minute. A failure here stops the commit
+# before the slow build + suite. Same script CI runs ("Static gates" step), so
+# the two cannot drift; `yarn -s` keeps yarn's own banner out of the output.
+echo "pre-commit: running static gates (yarn check:static)…"
+
+if ! yarn -s check:static; then
+	cat >&2 << 'EOF'
+
+pre-commit: BLOCKED — a static gate failed (yarn check:static).
+
+It chains: code caps, ESLint (--max-warnings 0), typecheck (src + scripts), Knip,
+type-coverage and FTA. Fix the first failure printed above; re-run one gate
+with `yarn caps`, `yarn lint:check`, `yarn typecheck`, `yarn knip`,
+`yarn type-coverage` or `yarn fta`. Never raise a cap, a baseline value or a
+threshold to pass: fix the code.
+Bypass once (CI will still block): git commit --no-verify
+EOF
+	exit 1
+fi
+
+echo "pre-commit: static gates clean."
 
 echo "pre-commit: running build + tests + 100% coverage gate (yarn test:coverage)…"
 

@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+#
+# koa-utils — pre-push gates: static gates again, Semgrep, Semgrep canaries.
+#
+# Runs on the range being pushed, before code leaves the machine. Three jobs:
+#
+#   - Catch commits made with `git commit --no-verify`: the static gates run a
+#     second time here, so a bypassed pre-commit does not reach the remote.
+#   - Run the Semgrep ruleset and its canaries (.semgrep/, scripts/semgrep.sh,
+#     scripts/semgrep-canary.sh). Too slow-ish for every commit, cheap enough per push.
+#   - Nothing else. Coverage and Qodana stay in pre-commit; CI is the final backstop.
+#
+# Same rules as pre-commit: fail closed, one fixing command per missing
+# prerequisite, never pull an image inside the hook, no network (no registry
+# packs: scripts/semgrep.sh runs custom rules only without --registry), and no
+# SKIP_* variable. `git push --no-verify` is the owner-only escape hatch and CI
+# still gates.
+#
+# Wired by `git config core.hooksPath .githooks` (`yarn hooks:install`). git
+# passes the remote name and URL as $1 and $2 and feeds one line per ref on
+# stdin: <local ref> <local sha> <remote ref> <remote sha>.
+#
+# Caveat: like pre-commit, the gates run against the working tree, not the
+# pushed commit. Push from a clean tree if the two could differ.
+
+set -euo pipefail
+
+# Only code, test, script or build-config changes can move a gate. Docs-only pushes skip.
+# Keep in sync with RELEVANT_PATHS in .githooks/pre-commit (duplicated on purpose: no shared file).
+RELEVANT_PATHS='^(src/|test/|scripts/|package\.json$|\.c8rc\.json$|\.mocharc\.json$|tsconfig.*\.json$|eslint\.config\.js$|eslint-suppressions\.json$|knip\.config\.js$|fta\.json$|\.code-caps-baseline\.json$)'
+
+ZERO='0000000000000000000000000000000000000000'
+ZERO256='0000000000000000000000000000000000000000000000000000000000000000'
+
+# $1 = what is wrong, $2… = the command(s) that fix it.
+push_block() {
+	local reason="$1"
+	shift
+	{
+		echo
+		echo "pre-push: BLOCKED — gates cannot run: $reason"
+		echo
+		echo "Fix it with:"
+		echo
+		printf '    %s\n' "$@"
+		echo
+		echo "Bypass once (CI will still block): git push --no-verify"
+		echo
+	} >&2
+	exit 1
+}
+
+# Succeeds when the range pushed for one ref can move a gate. Conservative: any
+# failure to compute the range (missing base, unknown object, no origin/main)
+# counts as relevant, never as skippable.
+range_is_relevant() {
+	local lsha="$1" rsha="$2" base files
+	if [ "$rsha" = "$ZERO" ] || [ "$rsha" = "$ZERO256" ]; then
+		# New branch on the remote: compare against where it forked from main.
+		if ! git rev-parse --verify --quiet origin/main > /dev/null; then
+			return 0
+		fi
+		base="$(git merge-base origin/main "$lsha" 2> /dev/null || true)"
+	else
+		base="$rsha"
+	fi
+	if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2> /dev/null; then
+		return 0
+	fi
+	# Deletions count, same reason as pre-commit: removing a spec lowers coverage.
+	if ! files="$(git diff --name-only --diff-filter=ACMRD "$base" "$lsha" 2> /dev/null)"; then
+		return 0
+	fi
+	# Here-string, not a pipe: `grep -q` exits on the first match and a pipe into it
+	# would hand `printf` a SIGPIPE that pipefail turns into a false "no match".
+	# Only exit status 1 (no match) means "skippable"; an error (2, or 127 for a
+	# missing grep) must not read as docs-only, so it counts as relevant.
+	local rc=0
+	grep -Eq "$RELEVANT_PATHS" <<< "$files" || rc=$?
+	[ "$rc" -ne 1 ]
+}
+
+# Fail-closed prerequisites for the heavy steps. Nothing here pulls or reaches the network.
+check_prereqs() {
+	local root="$1" image
+
+	if ! command -v yarn > /dev/null 2>&1; then
+		push_block "yarn not found in PATH." \
+			"# install yarn 1.x (npm install -g yarn), then re-run the push"
+	fi
+
+	if [ ! -d "$root/node_modules" ]; then
+		push_block "node_modules missing — the static gates need the dev dependencies." \
+			"yarn install"
+	fi
+
+	if ! command -v python3 > /dev/null 2>&1; then
+		push_block "python3 not found in PATH — scripts/semgrep-canary.sh parses semgrep's JSON with it." \
+			"# install python3, then re-run the push"
+	fi
+
+	if ! command -v docker > /dev/null 2>&1; then
+		push_block "docker not found in PATH." \
+			"# install Docker Engine, then re-run the push:" \
+			"https://docs.docker.com/engine/install/"
+	fi
+
+	if ! docker info > /dev/null 2>&1; then
+		push_block "docker daemon not reachable." \
+			"sudo systemctl start docker"
+	fi
+
+	# Same pin CI uses. Read it from the workflow instead of hard-coding it, so
+	# bumping SEMGREP_IMAGE there cannot leave the hook scanning an older image.
+	image="$(awk '/^[[:space:]]*SEMGREP_IMAGE:/ { print $2; exit }' "$root/.github/workflows/semgrep.yml" 2> /dev/null || true)"
+	if [ -z "$image" ]; then
+		push_block "no SEMGREP_IMAGE found in .github/workflows/semgrep.yml." \
+			"git checkout .github/workflows/semgrep.yml"
+	fi
+
+	# Pull is deliberately the developer's command, not the hook's: auto-pulling
+	# turns a registry blip into a failed push, same flake as the Qodana step.
+	if ! docker image inspect "$image" > /dev/null 2>&1; then
+		push_block "semgrep image $image not present locally." \
+			"docker pull $image"
+	fi
+
+	SEMGREP_IMAGE="$image"
+	export SEMGREP_IMAGE
+}
+
+RELEVANT=0
+SEEN_REF=0
+
+while read -r lref lsha rref rsha; do
+	[ -n "${lsha:-}" ] || continue
+	SEEN_REF=1
+	: "$lref" "$rref"
+
+	# Branch or tag deletion: nothing is pushed, nothing to gate.
+	if [ "$lsha" = "$ZERO" ] || [ "$lsha" = "$ZERO256" ]; then
+		continue
+	fi
+
+	if range_is_relevant "$lsha" "${rsha:-$ZERO}"; then
+		RELEVANT=1
+	fi
+done
+
+if [ "$SEEN_REF" -eq 0 ] || [ "$RELEVANT" -eq 0 ]; then
+	echo "pre-push: nothing pushed, or only docs/non-gated paths changed — static and Semgrep gates skipped."
+	exit 0
+fi
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+check_prereqs "$ROOT"
+
+echo "pre-push: running static gates (yarn check:static)…"
+if ! yarn -s check:static; then
+	cat >&2 << 'EOF'
+
+pre-push: BLOCKED — a static gate failed (yarn check:static).
+
+Fix the first failure printed above. This hook re-runs the gates pre-commit
+runs, so a failure here usually means a commit was made with --no-verify.
+Never raise a cap, a baseline value or a threshold to pass: fix the code.
+Bypass once (CI will still block): git push --no-verify
+EOF
+	exit 1
+fi
+
+echo "pre-push: running Semgrep ($SEMGREP_IMAGE)…"
+if ! ./scripts/semgrep.sh; then
+	cat >&2 << 'EOF'
+
+pre-push: BLOCKED — Semgrep reported a blocking finding.
+
+Fix the finding, or, for a reviewed false positive, add an inline
+`nosemgrep: <rule-id>` with an accurate reason. Rules live in .semgrep/.
+Bypass once (CI will still block): git push --no-verify
+EOF
+	exit 1
+fi
+
+echo "pre-push: running Semgrep canaries…"
+if ! ./scripts/semgrep-canary.sh; then
+	cat >&2 << 'EOF'
+
+pre-push: BLOCKED — the Semgrep canaries failed: the ruleset no longer detects
+what it claims to detect, or a documented blind spot started firing.
+
+Read the FAIL lines above (fixtures live in scripts/semgrep-canaries/).
+Bypass once (CI will still block): git push --no-verify
+EOF
+	exit 1
+fi
+
+echo "pre-push: gates clean. Pushing."
