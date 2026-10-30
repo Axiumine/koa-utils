@@ -53,6 +53,15 @@ updates:
       prefix-development: chore
       include: scope
     groups:
+      # typescript-eslint pins @typescript-eslint/eslint-plugin and parser to its own exact
+      # version. Bumped apart, the lockfile holds two plugin copies and flat config throws
+      # "Cannot redefine plugin". One group, every update type, keeps the set in step.
+      # Listed first: a dependency joins the first group it matches, so this must precede
+      # dev-minor-patch, which would otherwise take it.
+      typescript-eslint:
+        patterns:
+          - typescript-eslint
+          - "@typescript-eslint/*"
       dev-minor-patch:
         dependency-type: development
         update-types:
