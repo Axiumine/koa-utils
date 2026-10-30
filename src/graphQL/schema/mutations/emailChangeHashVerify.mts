@@ -5,6 +5,7 @@ import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import confirmNewEmail, { TConfirmNewEmail } from '@private/lib/access/db/confirmNewEmail.mjs'
 import { incReqTimes, TIncReqTimes } from '@private/lib/access/db/incReqTimes.mjs'
 import { buildProjection, readPath } from '@private/lib/access/pathTools.mjs'
+import { safeEqualSecret } from '@private/lib/access/safeEqualSecret.mjs'
 import { throwInternalError } from '@throw/throwInternalError.mjs'
 import { GraphQLBoolean, GraphQLNonNull, GraphQLString } from 'graphql'
 import { Types } from 'mongoose'
@@ -152,7 +153,7 @@ export const createEmailChangeHashVerifyMutation = (deps: IEmailChangeHashVerify
 			const uId = readPath(user, '_id') as Types.ObjectId
 			const dateLastReq = readPath(user, paths.dateLastReq) as Date | undefined
 
-			if (args.hash === readPath(user, paths.hash)) {
+			if (safeEqualSecret(args.hash, readPath(user, paths.hash))) {
 				return handleValidHash(ctx, uId, dateLastReq)
 			}
 			return handleHashMismatch(ctx, uId, readPath(user, paths.requestTimes) as number | undefined)

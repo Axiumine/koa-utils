@@ -62,17 +62,6 @@
       "count": 1
     }
   },
-  "src/graphQL/schema/mutations/updatePassword.mts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 2
-    },
-    "@typescript-eslint/restrict-plus-operands": {
-      "count": 1
-    },
-    "sonarjs/different-types-comparison": {
-      "count": 1
-    }
-  },
   "src/koa/middleware/authenticatedAuthorizationHandler/index.mts": {
     "@typescript-eslint/no-unsafe-return": {
       "count": 1

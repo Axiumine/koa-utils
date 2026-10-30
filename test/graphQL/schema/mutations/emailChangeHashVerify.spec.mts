@@ -219,6 +219,32 @@ describe('emailChangeHashVerify — resolve', () => {
 		expect(wrongHashStub.firstCall.args[1]).to.equal(2)
 	})
 
+	it('near-miss hash (prefix, longer, empty) → strike path like any wrong hash, never confirms', async () => {
+		// Compare via safeEqualSecret (constant time): exact equality only.
+		// Own address per iteration: default mailer debounce per address + template, process-wide.
+		for (const [i, sent] of ['differentHas', 'differentHash!', ''].entries()) {
+			wrongHashStub.resetHistory()
+			findOneStub.returns(makeFindOneChain(fakeUser({ hash: 'differentHash', requestTimes: 2 })))
+
+			const result = await emailChangeHashVerify.resolve(null, { email: `near-miss-${i}@test.com`, hash: sent })
+
+			expect(result, sent).to.equal(false)
+			expect(wrongHashStub.calledOnce, sent).to.equal(true)
+		}
+		expect(countDocumentsStub.called, 'confirm path never reached').to.equal(false)
+	})
+
+	it('stored hash absent → every sent hash is a mismatch, even the literal "undefined"', async () => {
+		const user = fakeUser({ requestTimes: 2 })
+		delete (user.account.email as { hash?: string }).hash
+		findOneStub.returns(makeFindOneChain(user))
+
+		const result = await emailChangeHashVerify.resolve(null, { email: 'no-stored-hash@test.com', hash: 'undefined' })
+
+		expect(result).to.equal(false)
+		expect(wrongHashStub.calledOnce).to.equal(true)
+	})
+
 	// -------------------------------------------------------------------------
 	// projection
 	// -------------------------------------------------------------------------

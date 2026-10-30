@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 
 import { EMAIL_CHECK_LINK } from './Constants.mjs'
 import { incReqTimes, TIncReqTimes } from './db/incReqTimes.mjs'
+import { safeEqualSecret } from './safeEqualSecret.mjs'
 
 interface IHandleIfHashBadArgs {
 	uId: mongoose.Types.ObjectId
@@ -15,6 +16,8 @@ interface IHandleIfHashBadArgs {
 /**
  * The hash in the activation url is wrong.
  *
+ * The hash is compared in constant time through `safeEqualSecret`; an unset `dbHash` never matches.
+ *
  * The strike counter is bumped through an injected writer so the guard can serve a model other than
  * `UserBase`: the counter path itself lives in the verify-email `paths` map the writer was built with.
  *
@@ -23,8 +26,7 @@ interface IHandleIfHashBadArgs {
  */
 export const createHandleIfHashBad = (incReqTimesFn: TIncReqTimes, mailer: IVerifyEmailMailer) =>
 	async function handleIfHashBad({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) {
-		// eslint-disable-next-line security/detect-possible-timing-attacks -- known limit, owner decision pending on crypto.timingSafeEqual, not constant-time; each wrong guess bumps the strike counter (incReqTimesFn) and from 5 strikes handleIfTooMuchRequestsTimes runs before this compare; hash is unset on successful activation (verifyClear)
-		if (hash !== dbHash /* nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack */) {
+		if (!safeEqualSecret(hash, dbHash)) {
 			// hash failed
 			await incReqTimesFn(uId)
 

@@ -72,7 +72,8 @@ src/
     ├── dataSources/isRedisTlsRequired.mts, redisNodeUrl.mts, resolveRedisUrl.mts  # REDIS_TLS scheme gate
     ├── files/_validateMimeType.mts, reEncode.mts
     ├── graphQL/Consts.mts, schema/{context,mutations}/
-    └── lib/access/{db/* (incl. abandonUser.mts), handleIf*, assertVerifyEmailAllowed.mts, pathTools.mts}
+    └── lib/access/{db/* (incl. abandonUser.mts), handleIf*, assertVerifyEmailAllowed.mts, pathTools.mts,
+                   safeEqualSecret.mts, assertResetAllowed.mts, applyPasswordReset.mts}
 ```
 
 `src/types/` holds one ambient declaration, `socketlabs-email.d.ts` (`declare module '@socketlabs/email'`, which ships no types); it emits no `.mjs`.
