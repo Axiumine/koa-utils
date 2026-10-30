@@ -2,5 +2,5 @@
 	"extensions": [".mts"],
 	"exclude_filenames": [".d.mts"],
 	"exclude_directories": ["/dist", "/node_modules"],
-	"score_cap": 64
+	"score_cap": 50
 }

@@ -139,7 +139,7 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - `yarn lint` — `eslint --fix` then `prettier --write 'src/**/*.mts' 'scripts/**/*.mts'`. Run after every multi-file edit.
 - `yarn lint:check` — `eslint --max-warnings 0 --cache` then `prettier --check`. Read-only, no fix. Part of `check:static` → red CI = run `yarn lint`.
 - `yarn check:static` — `caps` → `lint:check` → `typecheck` → `typecheck:scripts` → `knip` → `type-coverage` → `fta`. Single source: pre-commit, pre-push, CI step `Static gates` all call it. Run before report done.
-- `yarn typecheck` (`tsconfig.check.json`, `exactOptionalPropertyTypes`) / `yarn typecheck:scripts` (`tsconfig.scripts.json`) / `yarn knip` / `yarn type-coverage` / `yarn fta` (cap `fta.json`, 64 → target 50 after refactor, owner) — 1 gate each.
+- `yarn typecheck` (`tsconfig.check.json`, `exactOptionalPropertyTypes`) / `yarn typecheck:scripts` (`tsconfig.scripts.json`) / `yarn knip` / `yarn type-coverage` / `yarn fta` (cap `fta.json` = 50, never raise) — 1 gate each.
 - `yarn caps` — code-size ratchet vs `.code-caps-baseline.json`. `caps:update` only lower. `caps:report` list all.
 - `yarn mutation` — `patch-package && stryker run`. Full run, ~13 min (755 s, 4 workers), sandbox (tree untouched). Report `reports/mutation/index.html`. See *Mutation gate*.
 - `yarn mutation:changed [base-ref]` — mutate only `src/**/*.mts` changed vs merge-base (default `origin/main`, else `HEAD~1`). Own incremental file, clear-text report only.
