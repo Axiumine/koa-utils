@@ -196,7 +196,7 @@ The narrow projection shape returned by `infoUserAdminForLogin` — just enough 
 
 **Signature:**
 ```ts
-export interface IUserAdminKoaUtilsSchema {
+interface IUserAdminKoaUtilsSchema {
 	_id: Types.ObjectId
 	login: { _id?: boolean; email: string; password: string; firstLogin?: Date; lastLogin?: Date }
 	account: {
