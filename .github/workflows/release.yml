@@ -17,6 +17,11 @@ name: Release
 # jobs. The npm-publish environment must keep a required reviewer and a
 # deployment rule limited to tags v*, otherwise a branch carrying an edited copy
 # of this file could request the OIDC token.
+#
+# Create that environment BEFORE configuring the npm trusted publisher and
+# before cutting the first release. GitHub creates a referenced but missing
+# environment on the first run with no reviewer and no tag rule, which silently
+# removes the guarantee above. Check with: gh api repos/Axiumine/koa-utils/environments
 
 on:
   release:

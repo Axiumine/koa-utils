@@ -26,7 +26,6 @@ Use either private channel:
 
 1. **GitHub private vulnerability reporting (preferred):**
    <https://github.com/Axiumine/koa-utils/security/advisories/new>
-   <!-- OWNER: private vulnerability reporting is not enabled on the repository yet (the GitHub API answers enabled:false). Enable it before this file is merged (Settings, Code security, Private vulnerability reporting), or delete option 1 and the "preferred" wording. -->
 2. **Email:** dev@giovannimanzoni.com, with `koa-utils security` in the subject.
 
 Please include:
