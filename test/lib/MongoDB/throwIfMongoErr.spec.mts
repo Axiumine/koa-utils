@@ -41,3 +41,12 @@ describe('throwIfMongoErr', () => {
 		).to.not.throw()
 	})
 })
+
+describe('throwIfMongoErr — mutation guards', () => {
+	it('does nothing when only the nested parent.errorResponse.code differs from 11000', () => {
+		// parent + errorResponse present but code not DuplicateKey → 3rd operand of the `||` must stay a real compare
+		expect(() =>
+			throwIfMongoErr({ parent: { errorResponse: { code: 99 } }, message: 'x' } as never)
+		).to.not.throw()
+	})
+})
