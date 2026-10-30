@@ -14,11 +14,21 @@ version: 2
 #   - peerDependencies are never edited by design, but dependabot-core does a
 #     textual replace of a bumped devDependency line inside the
 #     peerDependencies block too. Today no dev line equals a peer line
-#     ("^9.9.1" vs "<10"), so nothing matches. The ignore list below keeps it
-#     that way: no MAJOR bump for any package that is also a peer (a major dev
-#     bump would build against a version the peer range never claimed), and
-#     `keygrip` (peer "^1.1.0", no dev pin) is ignored outright so a future dev
-#     pin of the same text cannot rewrite the peer line.
+#     ("^9.9.1" vs "<10"), so nothing matches. The ignore list below is a
+#     guard against drift, not a guarantee: it hides the semver-major bump of
+#     every package that is also a peer (a major dev bump would build against a
+#     version the peer range never claimed), and `keygrip` (peer "^1.1.0", no
+#     dev pin) is ignored outright so a future dev pin of the same text cannot
+#     rewrite the peer line.
+#   - For a 0.x package Dependabot treats only >=1.0 as semver-major, so
+#     0.2.x -> 0.3.0 arrives as a minor and would escape a "<0.3" peer range.
+#     Every peer whose installed major is 0 (reflect-metadata, sharp) therefore
+#     ignores semver-minor too; patches still flow. (sharp's "<1" still spans
+#     0.36, but a 0.x minor is the breaking tier and this repo has not built
+#     against it.) A new 0.x peer needs both update types.
+#   - The list only filters what Dependabot proposes. A hand edit of a dev pin,
+#     or a new peer without an entry, is not covered, so read the lines a
+#     Dependabot PR changes in package.json before merging it.
 #   - Raising a peer bound stays a manual owner decision (see the peer rules in
 #     the agent rule file): npm view, swap the major into node_modules, green
 #     `yarn test:coverage`, then edit the range.
@@ -77,13 +87,13 @@ updates:
       - dependency-name: redis
         update-types: ["version-update:semver-major"]
       - dependency-name: reflect-metadata
-        update-types: ["version-update:semver-major"]
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: sequelize
         update-types: ["version-update:semver-major"]
       - dependency-name: sequelize-typescript
         update-types: ["version-update:semver-major"]
       - dependency-name: sharp
-        update-types: ["version-update:semver-major"]
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: uuid
         update-types: ["version-update:semver-major"]
 
