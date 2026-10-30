@@ -1,5 +1,6 @@
 import { accessTokenOptions, refreshTokenOptions } from '@lib/tokenOptions.mjs'
 import { expect } from 'chai'
+import { dotenvConfigRanOnFreshImport } from '../helpers/dotenvProbe.mjs'
 
 describe('tokenOptions', () => {
 	it('access + refresh share same base shape', () => {
@@ -24,6 +25,10 @@ describe('tokenOptions', () => {
 	it('expirationDate = 0', () => {
 		expect(accessTokenOptions.expirationDate).to.equal(0)
 		expect(refreshTokenOptions.expirationDate).to.equal(0)
+	})
+
+	it('loads the dotenv file when the module is evaluated', async () => {
+		expect(await dotenvConfigRanOnFreshImport(new URL('../../dist/lib/tokenOptions.mjs', import.meta.url).href)).to.equal(true)
 	})
 
 	it('refreshTokenOptions has exactly the base keys (covers closing brace)', () => {

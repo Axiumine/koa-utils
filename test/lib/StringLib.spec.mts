@@ -132,6 +132,19 @@ describe('StringLib', () => {
 			const out = s.isoFormatDateTime(d.toISOString())
 			expect(out).to.match(/:0\d:0\d$/)
 		})
+		it('formats every part with exact separators, month +1, no pad at 10', () => {
+			// getHours/getMinutes/getSeconds = local tz. Pin UTC → deterministic.
+			const savedTz = process.env.TZ
+			process.env.TZ = 'UTC'
+			try {
+				expect(s.isoFormatDateTime('2024-12-05T07:10:10.000Z')).to.equal('5/12/2024 7:10:10')
+				expect(s.isoFormatDateTime('2024-01-15T14:09:09.000Z')).to.equal('15/1/2024 14:09:09')
+				expect(s.isoFormatDateTime('2024-01-15T14:00:00.000Z')).to.equal('15/1/2024 14:00:00')
+			} finally {
+				if (savedTz === undefined) delete process.env.TZ
+				else process.env.TZ = savedTz
+			}
+		})
 		it('does not zero-pad minutes and seconds >= 10 (covers "" branch)', () => {
 			// fixed ISO string: 2024-01-15T14:25:45.000Z
 			const out = s.isoFormatDateTime('2024-01-15T14:25:45.000Z')
