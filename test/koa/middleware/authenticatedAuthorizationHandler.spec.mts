@@ -6,6 +6,7 @@ import * as RedisMod from '../../../dist/dataSources/Redis.mjs'
 
 import { expectGraphQLErrorAsync } from '../../helpers/assertGraphQLError.mjs'
 import { restoreIntrospectionCode, saveIntrospectionCode } from '../../helpers/introspectionCode.mjs'
+import { dotenvConfigRanOnFreshImport } from '../../helpers/dotenvProbe.mjs'
 import { restoreNodeEnv, saveNodeEnv } from '../../helpers/nodeEnv.mjs'
 
 // Real Keygrip → valid signed cookies → verifySignedRefreshToken
@@ -89,6 +90,28 @@ describe('authenticatedAuthorizationHandler', () => {
 		expect(nextCalled).to.equal(true)
 		const state = (ctx as never as { state: { user: { refreshToken: string } } }).state
 		expect(state.user.refreshToken).to.equal(REDIS_REFRESH_KEY)
+	})
+
+	it('reads the session under REDIS_KEY prefix + refresh:<uuid>', async () => {
+		const savedKey = process.env.REDIS_KEY
+		process.env.REDIS_KEY = 'mutProbe:'
+		const hGetAll = sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({ id: '507f1f77bcf86cd799439011' })
+		try {
+			const ctx = { request: { header: { cookie: VALID_COOKIE } }, state: {} } as never
+			await authenticatedAuthorizationHandler(keys)(ctx, async () => undefined)
+			expect(hGetAll.calledOnceWithExactly(`mutProbe:${REDIS_REFRESH_KEY}`)).to.equal(true)
+		} finally {
+			if (savedKey === undefined) delete process.env.REDIS_KEY
+			else process.env.REDIS_KEY = savedKey
+		}
+	})
+
+	it('loads the dotenv file when the module is evaluated', async () => {
+		expect(
+			await dotenvConfigRanOnFreshImport(
+				new URL('../../../dist/koa/middleware/authenticatedAuthorizationHandler/index.mjs', import.meta.url).href
+			)
+		).to.equal(true)
 	})
 
 	it('sets ctx.state.user.id to the ObjectId of the session actually found in Redis', async () => {

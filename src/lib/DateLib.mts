@@ -30,6 +30,7 @@ export const DateLib = class DateLib {
 	}
 
 	static timeDiffMin(lastReq: number, now: number): number {
+		// Stryker disable next-line EqualityOperator: when lastReq === now both ternary arms evaluate to 0, so > and >= give the same result for every input (the other replacement on this line, <=, is not equivalent but is killed by the timeDiffMin specs; Stryker cannot disable one replacement only)
 		const difference = lastReq > now ? lastReq - now : now - lastReq
 		return Math.floor(difference / (1000 * 60))
 	}
