@@ -39,11 +39,8 @@
     }
   },
   "src/graphQL/schema/mutations/emailChangeHashVerify.mts": {
-    "@typescript-eslint/no-unsafe-assignment": {
-      "count": 1
-    },
     "sonarjs/fixme-tag": {
-      "count": 2
+      "count": 1
     }
   },
   "src/graphQL/schema/mutations/logout.mts": {
