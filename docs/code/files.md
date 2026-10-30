@@ -1,6 +1,6 @@
 # File Upload Pipeline
 
-This section covers the `src/files/*` modules that implement koa-utils' upload pipeline: an incoming multipart stream is first written to a temp file (`storeUploadAsTemp`), then run through extension and magic-number MIME validation, a ClamAV virus scan, an (currently disabled) NSFW check, a `sharp`-based re-encode that strips metadata, and finally a move out of the temp directory into its permanent home. The two orchestrators — `uploadTempImage` (images) and `uploadTempPdf` (PDFs) — wire these building blocks together into a single call. Pieces are grouped below as constants/interfaces, validators, scanners, re-encoders, movers, and uploaders (orchestrators).
+This section covers the `src/files/*` modules that implement koa-utils' upload pipeline: an incoming multipart stream is first written to a temp file (`storeUploadAsTemp`), then run through extension and magic-number MIME validation, a ClamAV virus scan, an (currently disabled) NSFW check, a `sharp`-based re-encode that rebuilds the file from its decoded pixels and replaces the EXIF block (other metadata, such as XMP and the ICC profile, is not stripped, see the note under `reEncodeToJpeg`), and finally a move out of the temp directory into its permanent home. The two orchestrators — `uploadTempImage` (images) and `uploadTempPdf` (PDFs) — wire these building blocks together into a single call. Pieces are grouped below as constants/interfaces, validators, scanners, re-encoders, movers, and uploaders (orchestrators).
 
 ## Constants & interfaces
 
@@ -274,7 +274,7 @@ Placeholder for a NSFW-content moderation step (intended to call sightengine.com
 export async function reEncodeToJpeg(filename: string, quality = 100)
 ```
 
-Re-encodes an image file to progressive JPEG and strips all metadata (EXIF, etc.). Delegates to the private `reEncode` helper (`@private/files/reEncode.mjs`, not part of the public API), which first reads the source file into a `Buffer` (`fs.readFile(filePath)`) and then runs `sharp(input).jpeg({ quality, progressive: true }).withMetadata({}).withExif({}).toFile(finalFilepath)` — the buffered read is deliberate: `sharp` refuses to use the same file path as both input and output, which happens whenever the source already carries the target extension (e.g. `reEncodeToJpeg('x.jpeg')`). If the source extension differed from `'jpeg'`, the original file is deleted afterward.
+Re-encodes an image file to progressive JPEG. The file is rebuilt from the decoded pixels and the input's EXIF fields are discarded, but this is **not** a full metadata strip: `withMetadata({})` tells `sharp` to keep the input's metadata and `withExif({})` then overrides only the EXIF block, so an XMP block or an ICC profile in the source is still present in the output (measured on JPEG, PNG, WebP and AVIF output with `sharp` 0.35.5; see `docs/security.md`, limit L13). Do not rely on this call to anonymise images. Delegates to the private `reEncode` helper (`@private/files/reEncode.mjs`, not part of the public API), which first reads the source file into a `Buffer` (`fs.readFile(filePath)`) and then runs `sharp(input).jpeg({ quality, progressive: true }).withMetadata({}).withExif({}).toFile(finalFilepath)` — the buffered read is deliberate: `sharp` refuses to use the same file path as both input and output, which happens whenever the source already carries the target extension (e.g. `reEncodeToJpeg('x.jpeg')`). If the source extension differed from `'jpeg'`, the original file is deleted afterward.
 
 **Parameters:**
 
@@ -296,7 +296,7 @@ Re-encodes an image file to progressive JPEG and strips all metadata (EXIF, etc.
 export async function reEncodeToPng(filename: string, quality = 100)
 ```
 
-Same as `reEncodeToJpeg` but targets PNG: `reEncode` reads the source into a `Buffer` first, then runs `sharp(input).png({ quality, progressive: true }).withMetadata({}).withExif({}).toFile(finalFilepath)`, stripping metadata and deleting the original if its extension differed from `'png'`.
+Same as `reEncodeToJpeg` but targets PNG: `reEncode` reads the source into a `Buffer` first, then runs `sharp(input).png({ quality, progressive: true }).withMetadata({}).withExif({}).toFile(finalFilepath)`, replacing the EXIF block (XMP and the ICC profile are kept, as described under `reEncodeToJpeg`) and deleting the original if its extension differed from `'png'`.
 
 **Parameters:**
 
@@ -318,7 +318,7 @@ Same as `reEncodeToJpeg` but targets PNG: `reEncode` reads the source into a `Bu
 export async function reEncodeToWebp(filename: string, quality = 100)
 ```
 
-Same pattern targeting WebP: `reEncode` reads the source into a `Buffer` first, then runs `sharp(input).webp({ quality, lossless: true }).withMetadata({}).withExif({}).toFile(finalFilepath)`. This is the re-encoder used by the image upload pipeline (`uploadTempImage`), which always converts to `'webp'` regardless of the original jpg/png extension, and strips metadata/EXIF. Note that `lossless: true` combined with a `quality` argument is somewhat redundant for WebP's lossless mode, but that is what the underlying `sharp` call passes through unchanged.
+Same pattern targeting WebP: `reEncode` reads the source into a `Buffer` first, then runs `sharp(input).webp({ quality, lossless: true }).withMetadata({}).withExif({}).toFile(finalFilepath)`. This is the re-encoder used by the image upload pipeline (`uploadTempImage`), which always converts to `'webp'` regardless of the original jpg/png extension, and replaces the EXIF block (XMP and the ICC profile are kept, as described under `reEncodeToJpeg`). Note that `lossless: true` combined with a `quality` argument is somewhat redundant for WebP's lossless mode, but that is what the underlying `sharp` call passes through unchanged.
 
 **Parameters:**
 

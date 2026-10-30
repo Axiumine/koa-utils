@@ -92,7 +92,7 @@ type AvailableFormatInf = 'jpeg' | 'png' | 'webp' | 'avif'
 export async function reEncode(filePath: string, ext: keyof FormatEnum | AvailableFormatInf, quality = 100)
 ```
 
-Re-encodes an image file to `ext` via `sharp`, stripping metadata/EXIF, and returns the new file path. It swaps the extension in `filePath` (regex-replacing the last dot-segment) to compute `finalFilepath`, then dispatches to `sharp(filePath).jpeg/png/webp/avif(...).withMetadata({}).withExif({}).toFile(finalFilepath)` depending on `ext`. `jpeg`/`png` use `{ quality, progressive: true }`; `webp`/`avif` use `{ quality, lossless: true }`. Any `sharp` failure is captured via `Sentry.captureException` and re-thrown as a plain `Error('Error processing the image')`. If the original file's extension differs from `ext`, the source file is `fs.unlink`ed afterward (failure there is captured and re-thrown as `throwInternalError()`).
+Re-encodes an image file to `ext` via `sharp`, replacing the EXIF block (XMP and the ICC profile are kept, so this is not a full metadata strip; see `docs/security.md` L13), and returns the new file path. It swaps the extension in `filePath` (regex-replacing the last dot-segment) to compute `finalFilepath`, then dispatches to `sharp(filePath).jpeg/png/webp/avif(...).withMetadata({}).withExif({}).toFile(finalFilepath)` depending on `ext`. `jpeg`/`png` use `{ quality, progressive: true }`; `webp`/`avif` use `{ quality, lossless: true }`. Any `sharp` failure is captured via `Sentry.captureException` and re-thrown as a plain `Error('Error processing the image')`. If the original file's extension differs from `ext`, the source file is `fs.unlink`ed afterward (failure there is captured and re-thrown as `throwInternalError()`).
 
 **Parameters:**
 
