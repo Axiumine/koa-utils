@@ -14,10 +14,10 @@
 # reads the working tree cannot tell a lowered baseline from a regrown one.
 #
 # Same rules as pre-commit: fail closed, one fixing command per missing
-# prerequisite, never pull an image inside the hook, no network (no registry
-# packs: scripts/semgrep.sh runs custom rules only without --registry), and no
-# SKIP_* variable. `git push --no-verify` is the owner-only escape hatch and CI
-# still gates.
+# prerequisite, never pull an image inside the hook, no network use (no registry
+# packs: scripts/semgrep.sh runs custom rules only without --registry, and both
+# Semgrep scripts pass --disable-version-check), and no SKIP_* variable.
+# Skipping the hook is for owner emergencies only; CI still gates.
 #
 # Wired by `git config core.hooksPath .githooks` (`yarn hooks:install`). git
 # passes the remote name and URL as $1 and $2 and feeds one line per ref on
@@ -29,8 +29,9 @@
 set -euo pipefail
 
 # Only code, test, script or build-config changes can move a gate. Docs-only pushes skip.
-# Keep in sync with RELEVANT_PATHS in .githooks/pre-commit (duplicated on purpose: no shared file).
-RELEVANT_PATHS='^(src/|test/|scripts/|package\.json$|\.c8rc\.json$|\.mocharc\.json$|tsconfig.*\.json$|eslint\.config\.js$|eslint-suppressions\.json$|knip\.config\.js$|fta\.json$|\.code-caps-baseline\.json$)'
+# Keep in sync with RELEVANT_PATHS in .githooks/pre-commit (duplicated on purpose: no shared file), except
+# .semgrep/ and the semgrep workflow (image pin): only this hook runs Semgrep, so only it needs them.
+RELEVANT_PATHS='^(src/|test/|scripts/|package\.json$|\.c8rc\.json$|\.mocharc\.json$|tsconfig.*\.json$|eslint\.config\.js$|eslint-suppressions\.json$|knip\.config\.js$|fta\.json$|\.code-caps-baseline\.json$|\.semgrep/|\.github/workflows/semgrep\.yml$)'
 
 ZERO='0000000000000000000000000000000000000000'
 ZERO256='0000000000000000000000000000000000000000000000000000000000000000'
@@ -47,7 +48,7 @@ push_block() {
 		echo
 		printf '    %s\n' "$@"
 		echo
-		echo "Bypass once (CI will still block): git push --no-verify"
+		echo "Skipping the hook is for owner emergencies only; CI still blocks."
 		echo
 	} >&2
 	exit 1
@@ -180,7 +181,7 @@ pre-push: BLOCKED — a static gate failed (yarn check:static).
 Fix the first failure printed above. This hook re-runs the gates pre-commit
 runs, so a failure here usually means a commit was made with --no-verify.
 Never raise a cap, a baseline value or a threshold to pass: fix the code.
-Bypass once (CI will still block): git push --no-verify
+Skipping the hook is for owner emergencies only; CI still blocks.
 EOF
 	exit 1
 fi
@@ -208,7 +209,7 @@ pre-push: BLOCKED — Semgrep reported a blocking finding.
 
 Fix the finding, or, for a reviewed false positive, add an inline
 `nosemgrep: <rule-id>` with an accurate reason. Rules live in .semgrep/.
-Bypass once (CI will still block): git push --no-verify
+Skipping the hook is for owner emergencies only; CI still blocks.
 EOF
 	exit 1
 fi
@@ -221,7 +222,7 @@ pre-push: BLOCKED — the Semgrep canaries failed: the ruleset no longer detects
 what it claims to detect, or a documented blind spot started firing.
 
 Read the FAIL lines above (fixtures live in scripts/semgrep-canaries/).
-Bypass once (CI will still block): git push --no-verify
+Skipping the hook is for owner emergencies only; CI still blocks.
 EOF
 	exit 1
 fi
