@@ -28,10 +28,12 @@
 
 rules:
   # --- NoSQL injection (Mongoose) ---------------------------------------------------
-  # STATUS: fires on 0 real lines today. Kept as a regression guard: the sink category
+  # STATUS: fires on 7 real lines today, all suppressed inline with nosemgrep and a reason:
+  # the computed key is a field name from the access factory `paths` argument (trusted
+  # startup config, never request data). Kept as a regression guard: the sink category
   # (Mongoose findOne/find/update*/delete*/countDocuments filters) genuinely exists all
-  # over this codebase, every current filter uses fixed literal keys, and a synthetic
-  # canary confirms the rule still fires on the vulnerable shapes it targets
+  # over this codebase, so a new unsuppressed hit means a new computed key to review, and
+  # a synthetic canary confirms the rule still fires on the vulnerable shapes it targets
   # (scripts/semgrep-canaries/must-fire/nosql-*.ts).
   - id: koa-utils.nosql-injection.dynamic-filter-key
     languages: [typescript]
@@ -80,7 +82,7 @@ rules:
     metadata:
       category: security
       confidence: MEDIUM
-      status: regression-guard (0 findings on real code; detection proven by `yarn semgrep:canary`)
+      status: regression-guard (7 findings on real code, all suppressed with a reason; detection proven by `yarn semgrep:canary`)
       cwe: 'CWE-943: Improper Neutralization of Special Elements in Data Query Logic'
       references:
         - https://www.mongodb.com/docs/manual/faq/security/#how-can-i-prevent-injection-attacks-in-mongodb-
@@ -162,13 +164,15 @@ rules:
         - https://www.mongodb.com/docs/manual/faq/security/#how-can-i-prevent-injection-attacks-in-mongodb-
 
   # --- NoSQL mass assignment (update document) --------------------------------------
-  # STATUS: fires on 0 real lines today. Closes a gap the three rules above did NOT cover:
-  # they all inspect only the FILTER argument, so an attacker-controlled *update document*
-  # — the classic mass-assignment shape, e.g. injecting role/isAdmin/account.email.valid —
-  # was entirely outside the ruleset despite the rule family being named for NoSQL injection.
-  # Every real update site in this codebase builds its document as a typed object with fixed
-  # literal keys (see updateLoginStats4ever.mts:15-28, updatePasswordDb.mts:9), so neither
-  # shape below matches current code. Deliberately does NOT flag `{ $set: someVariable }`:
+  # STATUS: fires on 6 real statements today (9 raw hits), all suppressed inline with
+  # nosemgrep and a reason: the computed $set key is a field name from the access factory
+  # `paths` argument (trusted startup config, never request data). Closes a gap the three
+  # rules above did NOT cover: they all inspect only the FILTER argument, so an
+  # attacker-controlled *update document* — the classic mass-assignment shape, e.g.
+  # injecting role/isAdmin/account.email.valid — was entirely outside the ruleset despite
+  # the rule family being named for NoSQL injection. The other update sites build their
+  # document as a typed object with fixed literal keys (see updateLoginStats4ever.mts:15-28)
+  # and do not match. Deliberately does NOT flag `{ $set: someVariable }`:
   # that is the dominant safe idiom here and matching it would be noise, not signal.
   - id: koa-utils.nosql-injection.mass-assignment-update-doc
     languages: [typescript]
@@ -211,7 +215,7 @@ rules:
     metadata:
       category: security
       confidence: MEDIUM
-      status: regression-guard (0 findings on real code; verified via scripts/semgrep-canaries)
+      status: regression-guard (6 statements on real code, all suppressed with a reason; verified via scripts/semgrep-canaries)
       cwe: 'CWE-915: Improperly Controlled Modification of Dynamically-Determined Object Attributes'
       references:
         - https://www.mongodb.com/docs/manual/faq/security/#how-can-i-prevent-injection-attacks-in-mongodb-
