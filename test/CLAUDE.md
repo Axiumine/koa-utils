@@ -22,6 +22,16 @@ Every comment in `test/**/*.mts` written caveman ultra. Same spec as `CLAUDE.md`
 - 100% statements / branches / functions / lines, **per file**. Red gate → write test. Never lower threshold, never `.c8rc.json` exclude, never `/* c8 ignore */`.
 - Cover every branch, incl unreachable-feeling: each `if`/`else`, every `??` / `?.` / `||` fallback, every `catch`, every early return. 1 uncovered ternary arm in 1 file fail whole run.
 
+## Property specs — `test/property/*.spec.ts`
+
+- Ext `.ts` not `.mts`: Scorecard Fuzzing scan `*.ts` / `*.tsx` for `fast-check` import, `.mts` → score 0. Only `.ts` dir under `test/`.
+- `tsconfig.build-tests.json` + `tsconfig.test.json` include `test/**/*.ts`. `build:tests` rename emitted `.js` → `.mjs` → mocha glob pick it.
+- Cross-file by design → no `src/` mirror. Pure guards only: no DB, no net, no sinon. Import stay 1 line (`import fc from 'fast-check'`) → Scorecard regex per line.
+- Comments caveman ultra, same as `.mts`. `scripts/caveman-gate.sh` match `.mts` only → convention here, not machine-enforced. Extend gate = owner call.
+- Fail → fast-check print `seed` + `path`. Replay: `fc.assert(prop, { seed, path })`. Counterexample = real `src/` bug or wrong property. Never narrow generator to go green.
+- Deeper local fuzz: `FC_NUM_RUNS=100000 yarn test`. Default 500 runs/property.
+- No coverage role: `src/` already 100%. Property spec never replace branch-cover spec in `test/<area>/`.
+
 ## Traps that give green gate over real bug
 
 - **Sealed ESM namespaces.** `sinon.stub()` on `@sentry/node` or `sharp` fail: "ES Modules cannot be stubbed". Assert observable effect instead — Sentry never init'd in suite → `captureException` safe no-op — or drive real lib against fixture.
