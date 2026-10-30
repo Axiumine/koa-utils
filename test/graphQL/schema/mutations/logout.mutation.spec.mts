@@ -70,4 +70,23 @@ describe('logout — mutation guards', () => {
 		expect(probe.texts()).to.deep.equal(['redis down'])
 		expect((ctx as { cookies: { set: sinon.SinonStub } }).cookies.set.called).to.equal(false)
 	})
+
+	it('still clears the cookie when ctx.state.user is nullish on the second read', async () => {
+		// getter stateful → 1st read user, later reads undefined. `?.` → '' → skip access del → cookie cleared.
+		// mutant `.` → TypeError → catch → cookie never cleared.
+		let reads = 0
+		const state = {
+			get user() {
+				reads++
+				return reads === 1 ? { refreshToken: 'tok' } : undefined
+			}
+		}
+		const cookies = { set: sinon.stub() }
+
+		const result = await logout.resolve(null, {}, { state, cookies } as never)
+
+		expect(result).to.equal(true)
+		expect(delStub.callCount).to.equal(1)
+		expect(cookies.set.calledWith('refresh_token', '')).to.equal(true)
+	})
 })
