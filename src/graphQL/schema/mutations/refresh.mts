@@ -23,11 +23,11 @@ export const refresh = {
 
 		// generates the 2 new tokens
 		let accessToken = generateAccessToken()
-		let refreshToken = generateRefreshToken()
+		const refreshToken = generateRefreshToken()
 		const keyAccess = `${process.env['REDIS_KEY']}access:${accessToken}`
 		const keyRefresh = `${process.env['REDIS_KEY']}refresh:${refreshToken}`
 
-		let accessTokenData = ctx.state.user
+		const accessTokenData = ctx.state.user
 		const oldRefresh = ctx.state.user.refreshToken
 		// @ts-expect-error delete refresh
 		delete accessTokenData.refreshToken

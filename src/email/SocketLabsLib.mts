@@ -72,6 +72,7 @@ export class SocketLabsLib {
 	 * @param linkBase scheme + host the link points at; defaults to `APP_DOMAIN`
 	 * @param linkPath route prefix the receiving service listens on; defaults to `/check/verify-email`
 	 */
+	// eslint-disable-next-line max-params -- public signature, an options object would break consumers
 	async sendEmailVerify(
 		emailTo: string,
 		hash: string,
@@ -343,6 +344,7 @@ SendResponse {
 	 * @param linkBase scheme + host the link points at; defaults to `APP_DOMAIN`
 	 * @param linkPath front-end route prefix that renders the new-password form; defaults to `/x/reset`
 	 */
+	// eslint-disable-next-line max-params -- public signature, an options object would break consumers
 	async sendEmailReset(
 		emailTo: string,
 		hash: string,
@@ -505,6 +507,7 @@ SendResponse {
 			'</html>' +
 			'<body style="margin: 0; padding: 0;">' +
 			' <table align="center" border="0" cellpadding="0" cellspacing="0" width="600">' +
+			// eslint-disable-next-line max-lines -- single public class kept in one file
 			'  <tr>' +
 			'   <td bgcolor="#ffffff" style="padding: 40px 30px 40px 30px;"><p style="color: #000000; font-family: Verdana, sans-serif; font-size: 12pt;">'
 		)

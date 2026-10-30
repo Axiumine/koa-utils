@@ -14,12 +14,12 @@ export async function updateLoginStats4ever(id: Types.ObjectId, lastLogin: null 
 	// update last login
 	const dbSet: ISet = {}
 
-	// @ts-expect-error avoid any
+	// @ts-expect-error avoid any: dynamic dotted Mongo path key
 	dbSet['login.lastLogin'] = now
 
 	// set firstLogin if this is the first login.
 	if (lastLogin === null) {
-		// @ts-expect-error avoid any
+		// @ts-expect-error avoid any: dynamic dotted Mongo path key
 		dbSet['login.firstLogin'] = now
 	} else {
 		// not the first login

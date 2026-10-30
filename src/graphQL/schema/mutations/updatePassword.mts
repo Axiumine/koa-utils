@@ -68,6 +68,7 @@ async function applyPasswordReset(
 	}
 
 	// check if hash is missing or invalid
+	// eslint-disable-next-line security/detect-possible-timing-attacks -- known limit, owner decision pending on crypto.timingSafeEqual; hash is single-use and throttled
 	if (resetPwd.resetHash !== hash) {
 		throw throwForbiddenError() // don't reveal whether the email is present, for privacy
 	}

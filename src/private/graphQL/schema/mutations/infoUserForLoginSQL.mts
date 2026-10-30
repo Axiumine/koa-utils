@@ -13,12 +13,12 @@ export type InfoUserForLoginSQL = {
 export async function infoUserForLoginSQL(email: string): Promise<InfoUserForLoginSQL> {
 	const sql = 'SELECT id, password, valid, deleted, disabled FROM user WHERE email=:email'
 
-	let ret: InfoUserForLoginSQL[] = (await sequelize.query(sql, {
+	const ret: InfoUserForLoginSQL[] = await sequelize.query(sql, {
 		type: QueryTypes.SELECT,
 		replacements: {
 			email: email
 		}
-	})) as InfoUserForLoginSQL[]
+	})
 
 	const [first] = ret
 	if (first === undefined) throw throwErrorWrongUserInput('User does not exist')

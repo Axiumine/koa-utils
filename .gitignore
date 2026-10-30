@@ -50,3 +50,6 @@ coverage/
 .gitnexus/
 
 TODO
+
+# ESLint cache
+.eslintcache

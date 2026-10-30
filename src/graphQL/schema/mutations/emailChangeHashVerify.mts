@@ -53,7 +53,7 @@ async function handleHashMismatch(ctx: IVerifyContext, uId: Types.ObjectId, requ
 
 	await ctx.deps.incReqTimes(uId)
 	// noinspection ES6MissingAwait
-	ctx.mailer.wrongHash(ctx.uEmail, requestTimes)
+	void ctx.mailer.wrongHash(ctx.uEmail, requestTimes)
 	return false
 }
 
@@ -79,7 +79,7 @@ async function handleValidHash(ctx: IVerifyContext, uId: Types.ObjectId, dateLas
 		// dateLastReq too old then 3 days
 
 		// noinspection ES6MissingAwait
-		mailer.hashReqTooOld(uEmail)
+		void mailer.hashReqTooOld(uEmail)
 		return false
 	}
 
@@ -93,7 +93,7 @@ async function handleValidHash(ctx: IVerifyContext, uId: Types.ObjectId, dateLas
 	// if account is disabled, for any reason
 	if (readPath(user, paths.disabled)) {
 		// noinspection ES6MissingAwait
-		mailer.accountDisabled(uEmail)
+		void mailer.accountDisabled(uEmail)
 		return false
 	}
 

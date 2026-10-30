@@ -26,7 +26,7 @@
 		"build:cjs": "yarn run tsc -p tsconfig.cjs.json && find dist/cjs -type f -name \"*.js\" -exec bash -c 'mv \"$0\" \"${0%.js}.cjs\"' {} \\; && cp -R dist/cjs/* dist/ && rm -rf dist/cjs",
 		"build:esm": "yarn run tspc -p tsconfig.json && find dist/esm -type f -name \"*.js\" -exec bash -c 'mv \"$0\" \"${0%.js}.mjs\"' {} \\; && cp -R dist/esm/* dist/ && find dist -name \"*.mjs.map\" -exec sed -i -E 's#(\"sources\":\\[\")\\.\\./#\\1#' {} + && rm -rf dist/esm",
 		"lint": "eslint --fix && prettier --write 'src/**/*.mts'",
-		"lint:check": "eslint && prettier --check 'src/**/*.mts'",
+		"lint:check": "eslint --max-warnings 0 --cache && prettier --check 'src/**/*.mts'",
 		"typecheck": "tsc -p tsconfig.check.json --noEmit",
 		"type-coverage": "type-coverage -p tsconfig.json --at-least 99.5 && type-coverage -p tsconfig.json --strict --at-least 96.7",
 		"clean": "rm -rf ./dist",

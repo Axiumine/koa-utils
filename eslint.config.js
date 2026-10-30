@@ -1,21 +1,49 @@
 import eslintConfig from '@axiumine/eslint-config-be';
 import tsEslint from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
+import security from 'eslint-plugin-security';
+import sonarjs from 'eslint-plugin-sonarjs';
+import tseslint from 'typescript-eslint';
+
+const SRC = ['src/**/*.mts'];
+
+// Scope a shared flat config (or array of them) to src only; spec files carry chai/sinon `any`s that
+// these presets flag by the hundreds without signal.
+const srcOnly = (configs) => [configs].flat().map((config) => ({ ...config, files: SRC }));
+
+// eslint-plugin-security ships every rule as `warn`; `--max-warnings 0` and the suppressions ratchet
+// both need real errors, so force each rule of the recommended preset to `error`.
+const securityErrors = Object.fromEntries(Object.keys(security.configs.recommended.rules).map((rule) => [rule, 'error']));
 
 export default [
 	{
 		ignores: ['dist/**', 'dist-test/**', 'node_modules/**', '.qodana/**', 'coverage/**']
 	},
 	...eslintConfig,
+	// typescript-eslint strictTypeChecked, src only. Type information comes from the project set in the base config.
+	...srcOnly(tseslint.configs.strictTypeChecked),
+	...srcOnly(sonarjs.configs.recommended),
+	...srcOnly(security.configs.recommended),
 	{
-		// Size / complexity budget. Warnings only: they surface drift without blocking `yarn lint`.
-		files: ['src/**/*.mts'],
+		files: SRC,
 		rules: {
-			'max-lines': ['warn', { max: 300, skipBlankLines: true, skipComments: true }],
-			'max-lines-per-function': ['warn', { max: 50, skipBlankLines: true, skipComments: true }],
-			'max-params': ['warn', 4],
-			'max-depth': ['warn', 3],
-			complexity: ['warn', 10]
+			...securityErrors,
+			// Public error contract: resolvers and helpers deliberately throw non-Error values (`throw { title, ... }`).
+			'@typescript-eslint/only-throw-error': 'off',
+			'@typescript-eslint/restrict-template-expressions': ['error', { allowNullish: true, allowNumber: true }],
+			'@typescript-eslint/restrict-plus-operands': ['error', { allowNumberAndString: true }]
+		}
+	},
+	{
+		// Size / complexity budget. This block is the editor mirror: `scripts/check-code-caps.mts` is the gate
+		// (it also caps class size, which has no ESLint rule). Both count code lines, not blank or comment lines.
+		files: SRC,
+		rules: {
+			'max-lines': ['error', { max: 300, skipBlankLines: true, skipComments: true }],
+			'max-lines-per-function': ['error', { max: 50, skipBlankLines: true, skipComments: true }],
+			'max-params': ['error', 4],
+			'max-depth': ['error', 3],
+			complexity: ['error', 10]
 		}
 	},
 	{
@@ -41,9 +69,9 @@ export default [
 			reportUnusedDisableDirectives: 'off'
 		},
 		rules: {
-			'max-params': ['warn', 4],
-			'max-depth': ['warn', 3],
-			complexity: ['warn', 10]
+			'max-params': ['error', 4],
+			'max-depth': ['error', 3],
+			complexity: ['error', 10]
 		}
 	}
 ];
