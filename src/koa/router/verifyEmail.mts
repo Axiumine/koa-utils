@@ -36,7 +36,7 @@ export const createVerifyEmailRouter = (deps: IVerifyEmailRouterDeps) => () => a
 		ctx.redirect('/x/registration-done') // url without prefix
 		// ctx.redirect('https://google.it') // external url
 	} catch (err: unknown) {
-		const link = (err as Error).message as string
+		const link = (err as Error).message
 		if (isSafeRedirectTarget(link)) {
 			ctx.redirect(link)
 		} else {

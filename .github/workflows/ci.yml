@@ -42,9 +42,22 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      # ESLint (@axiumine/eslint-config-be + size budget) and Prettier, read-only.
-      - name: Coding standard
-        run: yarn lint:check
+      # One script, one definition (package.json check:static): code caps, ESLint + Prettier read-only
+      # (the former "Coding standard" step), typecheck, knip, type-coverage and FTA. Runs before the
+      # tests so a static failure does not wait on the slow suite.
+      - name: Static gates
+        run: yarn check:static
+
+      # Pull requests only: the ratchet files (.code-caps-baseline.json, eslint-suppressions.json) may get stricter than
+      # main but never looser. Without this comparison both are honor-system files anyone could regrow. The repository is
+      # public, so the fetch needs no credential (checkout runs with persist-credentials: false). Fetches the tip only.
+      - name: Fetch main for the ratchet comparison
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/remotes/origin/main
+
+      - name: Ratchets are no looser than main
+        if: github.event_name == 'pull_request'
+        run: yarn -s ratchet:against origin/main
 
       # Mocha report in the log; fails below 100% on lines, statements, functions or branches.
       - name: Tests and coverage gate
@@ -96,3 +109,51 @@ jobs:
             yarn audit --groups devDependencies --level high || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Advisory: not a required check. The Trivy DB comes from ghcr.io, which rate-limits, so a red run
+  # is a rerun first and a finding second. yarn audit (job above) stays the dependency gate.
+  trivy:
+    name: Trivy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Image pinned by tag AND digest (a tag can be re-pushed, a digest cannot). Bump both together by hand:
+      # docker buildx imagetools inspect aquasec/trivy:<version> --format '{{.Manifest.Digest}}'
+      - name: Trivy filesystem scan (vuln, secret, misconfig)
+        run: |
+          docker run --rm -v "$PWD":/src:ro \
+            aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c \
+            fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 /src
+
+  # Advisory: weekly and on demand only. A regression tripwire for memory and handle leaks, too slow
+  # and too timing-sensitive to gate every pull request.
+  leak:
+    name: Leak check
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build
+        run: yarn build
+
+      - name: Leak check
+        run: yarn leak:check

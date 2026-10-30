@@ -81,7 +81,7 @@ export class StringLib {
 
 	isoFormatDMY(data: string): string {
 		const d = new Date(data)
-		return d.getUTCDate() + '/' + (d.getUTCMonth() + +1) + '/' + d.getUTCFullYear()
+		return d.getUTCDate() + '/' + (d.getUTCMonth() + 1) + '/' + d.getUTCFullYear()
 	}
 
 	isoFormatDateTime(data: string): string {
@@ -89,7 +89,7 @@ export class StringLib {
 		return (
 			d.getUTCDate() +
 			'/' +
-			(d.getUTCMonth() + +1) +
+			(d.getUTCMonth() + 1) +
 			'/' +
 			d.getUTCFullYear() +
 			' ' +

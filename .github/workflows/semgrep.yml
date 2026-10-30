@@ -42,3 +42,10 @@ jobs:
       # --error; without it semgrep exits 0 even with blocking findings).
       - name: Scan src/
         run: ./scripts/semgrep.sh
+
+      # Registry packs (typescript, nodejs, javascript, nodejsscan, secrets). They are not
+      # version pinned (the image digest pins the engine, not the rules), so an upstream rule
+      # change can turn this step red with no code change: rerun, then triage. release.yml
+      # keeps the custom-only scan above and never runs this step.
+      - name: Scan src/ (registry packs)
+        run: ./scripts/semgrep.sh --registry

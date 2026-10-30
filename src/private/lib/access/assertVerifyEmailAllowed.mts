@@ -10,7 +10,12 @@ import { handleIfMoreThan3DaysPassed, THandleIfMoreThan3DaysPassed } from './han
 import { handleIfTooMuchRequestsTimes, THandleIfTooMuchRequestsTimes } from './handleIfTooMuchRequestsTimes.mjs'
 import { readPath } from './pathTools.mjs'
 
-/** The projection userData4VerifyEmail selects under the default paths, as the guard chain needs it. */
+/**
+ * The projection userData4VerifyEmail selects under the default paths, as the guard chain needs it.
+ *
+ * @public Documentation of a shape, referenced by nothing (the chain takes `unknown`). The tag keeps Knip from
+ * reporting it as an unused export; removing it would also lower the strict type-coverage ratchet.
+ */
 export interface IVerifyEmailUser {
 	_id: Types.ObjectId
 	account: {

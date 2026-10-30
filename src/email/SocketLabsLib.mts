@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- single public class kept in one file */
 import { StringLib } from '@lib/StringLib.mjs'
 import * as Sentry from '@sentry/node'
 import { BasicMessage, SocketLabsClient } from '@socketlabs/email'
@@ -28,7 +29,7 @@ export class SocketLabsLib {
 	private readonly platformName: string
 	private readonly linkBase: string
 	private readonly emailFrom: string
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- @socketlabs/email ships no types (untyped module in src/types/socketlabs-email.d.ts), so the client is untyped
 	private client: any
 	private readonly emailHtmlHeader1: string
 	private readonly emailHtmlHeader2: string
@@ -37,14 +38,14 @@ export class SocketLabsLib {
 	constructor(htmlHeader1: string = '', htmlHeader2: string = '', htmlFooter: string = '') {
 		this.client = new SocketLabsClient(
 			/* c8 ignore next -- env fallback '0' covered only when SOCKETLABS_SERVER_ID is unset */
-			parseInt(process.env.SOCKETLABS_SERVER_ID || '0'),
-			`${process.env.SOCKETLABS_SERVER_APIKEY}`,
+			parseInt(process.env['SOCKETLABS_SERVER_ID'] || '0'),
+			`${process.env['SOCKETLABS_SERVER_APIKEY']}`,
 			{ requestTimeout: 120, numberOfRetries: 3 }
 		)
 		this.StringObj = new StringLib()
-		this.platformName = `${process.env.PLATFORM_NAME}`
-		this.linkBase = `${process.env.APP_DOMAIN}`
-		this.emailFrom = `${process.env.EMAIL_FROM}`
+		this.platformName = `${process.env['PLATFORM_NAME']}`
+		this.linkBase = `${process.env['APP_DOMAIN']}`
+		this.emailFrom = `${process.env['EMAIL_FROM']}`
 
 		this.emailHtmlHeader1 = htmlHeader1 === '' ? this.htmlHeader1() : htmlHeader1
 		this.emailHtmlHeader2 = htmlHeader2 === '' ? this.htmlHeader2() : htmlHeader2
@@ -72,6 +73,7 @@ export class SocketLabsLib {
 	 * @param linkBase scheme + host the link points at; defaults to `APP_DOMAIN`
 	 * @param linkPath route prefix the receiving service listens on; defaults to `/check/verify-email`
 	 */
+	// eslint-disable-next-line max-params -- public signature, an options object would break consumers
 	async sendEmailVerify(
 		emailTo: string,
 		hash: string,
@@ -210,7 +212,7 @@ SendResponse {
 		const textBody = 'error 500 ' + err
 		const htmlBody = '<p>error 500 <br><br>' + err + '</p>'
 
-		return await this.sendTemplate(`${process.env.DEV_TEAM_EMAIL}`, `${this.platformName} error 500`, textBody, htmlBody)
+		return await this.sendTemplate(`${process.env['DEV_TEAM_EMAIL']}`, `${this.platformName} error 500`, textBody, htmlBody)
 	}
 
 	/**
@@ -343,6 +345,7 @@ SendResponse {
 	 * @param linkBase scheme + host the link points at; defaults to `APP_DOMAIN`
 	 * @param linkPath front-end route prefix that renders the new-password form; defaults to `/x/reset`
 	 */
+	// eslint-disable-next-line max-params -- public signature, an options object would break consumers
 	async sendEmailReset(
 		emailTo: string,
 		hash: string,
@@ -419,7 +422,7 @@ SendResponse {
 			').' +
 			this.getHtmlFooter()
 
-		return await this.sendTemplate(`${process.env.DEV_TEAM_EMAIL}`, subject, messageTxt, messageHtml)
+		return await this.sendTemplate(`${process.env['DEV_TEAM_EMAIL']}`, subject, messageTxt, messageHtml)
 	}
 
 	getHtmlHeader(title: string) {

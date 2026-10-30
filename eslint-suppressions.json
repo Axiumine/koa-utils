@@ -1,0 +1,225 @@
+{
+  "src/dataSources/PostgreSQL.mts": {
+    "@typescript-eslint/no-base-to-string": {
+      "count": 2
+    },
+    "@typescript-eslint/restrict-plus-operands": {
+      "count": 3
+    },
+    "@typescript-eslint/restrict-template-expressions": {
+      "count": 2
+    }
+  },
+  "src/email/SocketLabsLib.mts": {
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unsafe-call": {
+      "count": 9
+    },
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 7
+    },
+    "@typescript-eslint/no-unsafe-return": {
+      "count": 1
+    },
+    "@typescript-eslint/require-await": {
+      "count": 1
+    },
+    "sonarjs/fixme-tag": {
+      "count": 1
+    },
+    "sonarjs/super-linear-regex": {
+      "count": 2
+    }
+  },
+  "src/files/storeUploadAsTemp.mts": {
+    "security/detect-non-literal-fs-filename": {
+      "count": 2
+    }
+  },
+  "src/graphQL/schema/mutations/emailChangeHashVerify.mts": {
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 1
+    },
+    "sonarjs/fixme-tag": {
+      "count": 2
+    }
+  },
+  "src/graphQL/schema/mutations/logout.mts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 1
+    }
+  },
+  "src/graphQL/schema/mutations/resetPwd.mts": {
+    "@typescript-eslint/restrict-plus-operands": {
+      "count": 1
+    },
+    "sonarjs/no-redundant-optional": {
+      "count": 1
+    },
+    "sonarjs/no-try-promise": {
+      "count": 1
+    }
+  },
+  "src/graphQL/schema/mutations/updatePassword.mts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 2
+    },
+    "@typescript-eslint/restrict-plus-operands": {
+      "count": 1
+    },
+    "sonarjs/different-types-comparison": {
+      "count": 1
+    }
+  },
+  "src/koa/middleware/authenticatedAuthorizationHandler/index.mts": {
+    "@typescript-eslint/no-unsafe-return": {
+      "count": 1
+    }
+  },
+  "src/koa/middleware/authenticatedAuthorizationHandler/verifySignedRefreshToken.mts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 2
+    },
+    "security/detect-object-injection": {
+      "count": 1
+    }
+  },
+  "src/koa/middleware/authenticatedLogoutHandler/index.mts": {
+    "@typescript-eslint/no-unsafe-return": {
+      "count": 1
+    }
+  },
+  "src/koa/middleware/authenticatedResourceHandler/index.mts": {
+    "@typescript-eslint/no-unsafe-return": {
+      "count": 1
+    }
+  },
+  "src/koa/middleware/debug/index.mts": {
+    "@typescript-eslint/no-unsafe-return": {
+      "count": 1
+    }
+  },
+  "src/koa/router/verifyEmail.mts": {
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 1
+    }
+  },
+  "src/lib/ArrayLib.mts": {
+    "@typescript-eslint/no-useless-constructor": {
+      "count": 1
+    }
+  },
+  "src/lib/DateLib.mts": {
+    "@typescript-eslint/no-extraneous-class": {
+      "count": 1
+    },
+    "@typescript-eslint/no-useless-constructor": {
+      "count": 1
+    }
+  },
+  "src/lib/MariaDB/throwSqlErrors.mts": {
+    "@typescript-eslint/no-unsafe-enum-comparison": {
+      "count": 1
+    }
+  },
+  "src/lib/MongoDB/throwIfMongoErr.mts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 2
+    }
+  },
+  "src/lib/NumLib.mts": {
+    "@typescript-eslint/no-extraneous-class": {
+      "count": 1
+    },
+    "@typescript-eslint/no-useless-constructor": {
+      "count": 1
+    }
+  },
+  "src/lib/StringLib.mts": {
+    "@typescript-eslint/no-useless-constructor": {
+      "count": 1
+    },
+    "sonarjs/super-linear-regex": {
+      "count": 2
+    }
+  },
+  "src/lib/db/log/logGraphql.mts": {
+    "sonarjs/constructor-for-side-effects": {
+      "count": 1
+    }
+  },
+  "src/lib/db/log/logThrow.mts": {
+    "sonarjs/constructor-for-side-effects": {
+      "count": 1
+    }
+  },
+  "src/lib/hash.mts": {
+    "sonarjs/no-useless-catch": {
+      "count": 1
+    }
+  },
+  "src/lib/isSessionBlocked.mts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 2
+    }
+  },
+  "src/lib/throwIfNotValidEnumValue.mts": {
+    "@typescript-eslint/no-unnecessary-type-parameters": {
+      "count": 1
+    }
+  },
+  "src/lib/tryCatchRethrow.mts": {
+    "@typescript-eslint/no-unnecessary-condition": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unsafe-argument": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 1
+    }
+  },
+  "src/private/files/reEncode.mts": {
+    "security/detect-non-literal-fs-filename": {
+      "count": 2
+    }
+  },
+  "src/private/lib/access/db/abandonUser.mts": {
+    "@typescript-eslint/require-await": {
+      "count": 1
+    }
+  },
+  "src/private/lib/access/db/getResetPwd.mts": {
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unsafe-member-access": {
+      "count": 1
+    }
+  },
+  "src/private/lib/access/db/setEmailHash.mts": {
+    "sonarjs/fixme-tag": {
+      "count": 1
+    }
+  },
+  "src/private/lib/access/db/userData4VerifyEmail.mts": {
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unsafe-return": {
+      "count": 1
+    }
+  },
+  "src/private/lib/access/handleIfHashBad.mts": {
+    "sonarjs/no-redundant-optional": {
+      "count": 2
+    }
+  },
+  "src/private/lib/access/pathTools.mts": {
+    "security/detect-object-injection": {
+      "count": 2
+    }
+  }
+}

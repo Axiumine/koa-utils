@@ -20,7 +20,7 @@ export async function uploadTempImage(img: Promise<IFileUpload>): Promise<IUploa
 		await validateJpgPngExtension(fileName, filePath)
 		await validateJpgPngMimeType(filePath)
 		// step 2
-		await scanVirus(`${filePath}`)
+		await scanVirus(filePath)
 		// step 3
 
 		storedTempFile = await reEncodeToWebp(filePath)

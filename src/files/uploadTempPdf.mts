@@ -19,7 +19,7 @@ export async function uploadTempPdf(pdf: Promise<IFileUpload>): Promise<IUploadT
 		await validatePdfExtension(fileName, filePath)
 		await validateMimeTypePdf(filePath)
 		// step 2
-		await scanVirus(`${filePath}`)
+		await scanVirus(filePath)
 		// step 3
 
 		// @todo reencode with dangerzone https://github.com/freedomofpress/dangerzone/tree/main

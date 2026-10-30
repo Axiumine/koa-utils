@@ -264,7 +264,7 @@ Since 5.9.0 `IResetPwdDeps` carries a third, **optional** key:
 export interface IResetPwdDeps {
 	getResetPwd: TGetResetPwd
 	saveResetReq: TSaveResetReq
-	mailer?: IResetPwdMailer
+	mailer?: IResetPwdMailer | undefined
 }
 ```
 

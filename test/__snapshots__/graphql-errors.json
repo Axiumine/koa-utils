@@ -1,0 +1,227 @@
+{
+	"throwAccessTokenExpiredOrDeleted": {
+		"message": "Invalid Token",
+		"extensions": {
+			"http": {
+				"status": 498
+			},
+			"description": "Access Token is expired or deleted by Admin."
+		}
+	},
+	"throwAccessTokenRequired": {
+		"message": "Token Required",
+		"extensions": {
+			"http": {
+				"status": 499
+			},
+			"description": "Access Token Required."
+		}
+	},
+	"throwAlreadyDone": {
+		"message": "",
+		"extensions": {
+			"http": {
+				"status": 204
+			},
+			"description": ""
+		}
+	},
+	"throwAlreadyTakenError": {
+		"message": "Conflict",
+		"extensions": {
+			"http": {
+				"status": 409
+			},
+			"description": "You have already done this."
+		}
+	},
+	"throwConflictError": {
+		"message": "Conflict",
+		"extensions": {
+			"http": {
+				"status": 409
+			},
+			"description": "You have already done this."
+		}
+	},
+	"throwErrorWrongUserInput": {
+		"message": "Bad Request",
+		"extensions": {
+			"http": {
+				"status": 400
+			},
+			"description": "Probe message"
+		}
+	},
+	"throwForbiddenError": {
+		"message": "Forbidden",
+		"extensions": {
+			"http": {
+				"status": 403
+			},
+			"description": "Forbidden."
+		}
+	},
+	"throwGoneError": {
+		"message": "Oops",
+		"extensions": {
+			"http": {
+				"status": 410
+			},
+			"description": "We have misconfigured some services. Our technicians are already fixing the problem. Please try again later."
+		}
+	},
+	"throwGraphQLError": {
+		"message": "Probe title",
+		"extensions": {
+			"http": {
+				"status": 418
+			},
+			"description": "Probe description"
+		}
+	},
+	"throwInternalError": {
+		"message": "Internal Server Error",
+		"extensions": {
+			"http": {
+				"status": 500
+			},
+			"description": "Error reported to Dev Team."
+		}
+	},
+	"throwMethodNotAllowedError": {
+		"message": "Oops",
+		"extensions": {
+			"http": {
+				"status": 405
+			},
+			"description": "We have misconfigured some services. Our technicians are already fixing the problem. Please try again later."
+		}
+	},
+	"throwMissingMalformedInvalidToken": {
+		"message": "Token Required",
+		"extensions": {
+			"http": {
+				"status": 499
+			},
+			"description": "Missing/malformed/invalid token."
+		}
+	},
+	"throwNotAcceptableError": {
+		"message": "Oops",
+		"extensions": {
+			"http": {
+				"status": 406
+			},
+			"description": "We have misconfigured some services. Our technicians are already fixing the problem. Please try again later."
+		}
+	},
+	"throwNotFoundError": {
+		"message": "Oops",
+		"extensions": {
+			"http": {
+				"status": 404
+			},
+			"description": "We have misconfigured some services. Our technicians are already fixing the problem. Please try again later."
+		}
+	},
+	"throwNotImplementedError": {
+		"message": "Oops",
+		"extensions": {
+			"http": {
+				"status": 501
+			},
+			"description": "We have misconfigured some services. Our technicians are already fixing the problem. Please try again later."
+		}
+	},
+	"throwPaymentRequiredError": {
+		"message": "Payment Required",
+		"extensions": {
+			"http": {
+				"status": 402
+			},
+			"description": "You must have a subscription to use this feature."
+		}
+	},
+	"throwPreconditionFailedNoAuthCookie": {
+		"message": "Precondition Failed",
+		"extensions": {
+			"http": {
+				"status": 412
+			},
+			"description": "No authorization cookie."
+		}
+	},
+	"throwPreconditionFailedNoAuthHeader": {
+		"message": "Precondition Failed",
+		"extensions": {
+			"http": {
+				"status": 412
+			},
+			"description": "No authorization header."
+		}
+	},
+	"throwRefreshTokenExpiredOrDeleted": {
+		"message": "Invalid Token",
+		"extensions": {
+			"http": {
+				"status": 498
+			},
+			"description": "Refresh Token is expired or deleted by Admin."
+		}
+	},
+	"throwRefreshTokenRequired": {
+		"message": "Token Required",
+		"extensions": {
+			"http": {
+				"status": 499
+			},
+			"description": "Refresh Token Required."
+		}
+	},
+	"throwRefreshTokenSignatureRequired": {
+		"message": "Token Required",
+		"extensions": {
+			"http": {
+				"status": 499
+			},
+			"description": "Refresh Token Signature Required."
+		}
+	},
+	"throwTooManyRequestsError": {
+		"message": "Too Many Requests",
+		"extensions": {
+			"http": {
+				"status": 429
+			},
+			"description": ""
+		}
+	},
+	"throwUnauthorizedError": {
+		"message": "Unauthorized",
+		"extensions": {
+			"http": {
+				"status": 401
+			},
+			"description": "You are unauthorized."
+		}
+	},
+	"throwUnprocessableContentError": {
+		"message": "Unprocessable Content",
+		"extensions": {
+			"http": {
+				"status": 422
+			},
+			"description": "We are unable to process the instructions contained in the request."
+		}
+	},
+	"throwUnsupportedMediaTypeError": {
+		"message": "Unsupported Media Type",
+		"extensions": {
+			"http": {
+				"status": 415
+			},
+			"description": "The chosen media type is not supported. Please change the media type."
+		}
+	}
+}

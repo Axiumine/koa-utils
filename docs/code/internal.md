@@ -196,7 +196,7 @@ The narrow projection shape returned by `infoUserAdminForLogin` — just enough 
 
 **Signature:**
 ```ts
-export interface IUserAdminKoaUtilsSchema {
+interface IUserAdminKoaUtilsSchema {
 	_id: Types.ObjectId
 	login: { _id?: boolean; email: string; password: string; firstLogin?: Date; lastLogin?: Date }
 	account: {
@@ -605,7 +605,7 @@ Since 5.3.0 the document is read through `paths` with `readPath` rather than by 
 | `handleIfAccountDeleted` | `(email: string, deleted: boolean = false) => Promise<void>` | If `deleted`, sends `mailer.accountDisabled(email)`, then throws `Error(EMAIL_CHECK_LINK)`. `accountDisabled`, not a deleted-specific template — `SocketLabsLib` has none, and this is what it has always sent. |
 | `handleIfAccountDisabled` | `(email: string, disabled: boolean = false) => Promise<void>` | Same pattern as `handleIfAccountDeleted`, gated on `disabled`. |
 | `handleIfEmailAlreadyValid` | `(uEmail: string, valid: boolean) => Promise<void>` | If `valid`, sends `mailer.emailAlreadyValid(uEmail)`, then throws `Error(EMAIL_CHECK_LINK)`. Ties into the `signUp` "already valid" email + 409 dual-path behavior documented in `CLAUDE.md`. |
-| `handleIfHashBad` | `({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) => Promise<void>` | Single destructured object argument (`IHandleIfHashBadArgs = { uId: mongoose.Types.ObjectId; uEmail: string; hash: string; requestTimes?: number; dbHash?: string }`). If `hash !== dbHash`: increments the stored request counter via `incReqTimes(uId)`, sends `mailer.wrongHash(uEmail, requestTimes + 1)`, then throws `Error(EMAIL_CHECK_LINK)`. |
+| `handleIfHashBad` | `({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) => Promise<void>` | Single destructured object argument (`IHandleIfHashBadArgs = { uId: mongoose.Types.ObjectId; uEmail: string; hash: string; requestTimes?: number | undefined; dbHash?: string | undefined }`). If `hash !== dbHash`: increments the stored request counter via `incReqTimes(uId)`, sends `mailer.wrongHash(uEmail, requestTimes + 1)`, then throws `Error(EMAIL_CHECK_LINK)`. |
 | `handleIfMoreThan3DaysPassed` | `(uEmail: string, dateLastReq: Date = new Date()) => Promise<void>` | Computes "3 days ago" and compares timestamps via `StringLib.isoToTimestamp`; if `dateLastReq` is older than 3 days, sends `mailer.hashReqTooOld(uEmail)`, **disposes of the account** through the writer it was built with, then throws `Error(EMAIL_CHECK_LINK)`. |
 | `handleIfTooMuchRequestsTimes` | `(uEmail: string, requestTimes: number = 99) => Promise<void>` | If `requestTimes >= 5`, sends `mailer.tooMuchVerifyRequests(uEmail)`, **disposes of the account** through the writer it was built with, then throws `Error(EMAIL_CHECK_LINK)`. |
 

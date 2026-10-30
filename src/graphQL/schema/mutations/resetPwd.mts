@@ -33,7 +33,7 @@ export interface IResetPwdDeps {
 	 * flow that differs per audience, and it is not derivable from the account — two collections behind
 	 * one service look identical by the time the resolver has an email and a hash.
 	 */
-	mailer?: IResetPwdMailer
+	mailer?: IResetPwdMailer | undefined
 }
 
 /**
