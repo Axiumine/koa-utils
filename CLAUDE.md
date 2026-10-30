@@ -53,7 +53,7 @@ Full prose by Rule 0 §4. Both of these shipped as real defects.
 - `.c8rc.json`: `check-coverage: true`, `per-file: true`, `lines`/`statements`/`functions`/`branches` all `100`. Any file below → `yarn test:coverage` exit non-zero.
 - `.c8rc.json` `include` = `dist/**/*.mjs` + `scripts/check-code-caps.mts` + `scripts/code-caps/**/*.mts` → caps tool + specs held to same 100%. Other `scripts/` = measurement tools, outside include, no spec.
 - `.githooks/pre-commit` order: lockfile check (always) → `yarn -s check:static` → `yarn test:coverage` → Qodana last. Run on any commit touching `src/`, `test/`, `scripts/`, `package.json`, `.c8rc.json`, `.mocharc.json`, `tsconfig*.json`, `eslint.config.js`, `eslint-suppressions.json`, `knip.config.js`, `fta.json`, `.code-caps-baseline.json`. Docs-only skip all heavy steps. Wired by `yarn hooks:install` (via `prepare`) → `core.hooksPath .githooks`.
-- `.githooks/pre-push`: `yarn -s check:static` again (catch `--no-verify` commits) → `scripts/semgrep.sh` → `scripts/semgrep-canary.sh`. Skip branch delete + docs-only range. Prereq missing (yarn, `node_modules`, python3, docker, daemon, pinned `SEMGREP_IMAGE` local) → print 1 fix cmd, exit 1. Never pull, never network (no `--registry` packs). No `SKIP_*`.
+- `.githooks/pre-push`: `yarn -s check:static` again (catch `--no-verify` commits) → `scripts/semgrep.sh` → `scripts/semgrep-canary.sh` → `yarn mutation:changed <range base>` (only when range touch `src/**/*.mts`; ~35 s per file + 30 s fixed; fail below `thresholds.break`). Skip branch delete + docs-only range. Prereq missing (yarn, `node_modules`, `stryker` / `patch-package` bins, python3, docker, daemon, pinned `SEMGREP_IMAGE` local) → print 1 fix cmd, exit 1. Never pull, never network (no `--registry` packs). No `SKIP_*`.
 - Red gate → new test. Never lower threshold, never new exclude.
 - `.c8rc.json` `exclude` = untestable artefacts only: type-only emit (`I*.mjs`, `types/`, `interfaces/`, `TCommonHeaders`, `TCookieRefreshToken`), fully commented-out `checkForNSFW.mjs`, build output. Never park real logic there for green.
 - Truly unreachable defensive branch → raise with owner before excluding. Never add `/* c8 ignore */` on own initiative.
@@ -102,6 +102,8 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - No dropping `--no-stats` from `yarn reindex` or `"noStats": true` from `.gitnexusrc` to "show graph size".
 - No editing `dist/`, `node_modules/`, `yarn.lock`, `skills-lock.json`, `.npmrc`, `.yarnrc` unasked. `.npmrc` hold publish token.
 - No committing `yarn.lock` with `resolved` host ≠ `registry.npmjs.org`. No hand-fixing a proxy-flavoured copy — clean filter handle it. No removing `.gitattributes`, `scripts/lockfile-registry-filter.sh`, or the filter git config to silence the hook.
+- Never add a `preinstall`, `install` or `postinstall` script to `package.json`. This package is published to npm and the `scripts` block travels in the tarball, so an install-lifecycle script would execute on every consumer's machine, where dev dependencies such as `patch-package` do not exist; at best it fails the consumer's install, at worst it runs code the consumer did not expect. Dev-only setup goes in an explicit script (`yarn mutation` applies the Stryker patch itself) or in a CI step.
+- No lowering `stryker.config.json` `thresholds.break`. Ratchet only up. No new Stryker `mutate` exclude to green a score. `// Stryker disable` only per *Mutation gate* below.
 - No `.ts` files — ext is `.mts`. Exceptions: `scripts/semgrep-canaries/**` (Semgrep fixtures), `test/property/*.spec.ts` (fast-check; Scorecard Fuzzing scan `*.ts` / `*.tsx` only, never `.mts`; knob `FC_NUM_RUNS`; comments stay caveman ultra; see `test/CLAUDE.md`). No `import x from './y'` — write `'./y.mjs'`.
 - No `dependencies` in `package.json`. Zero runtime deps, all `peerDependencies` → consumer control versions. 19 peers: 7 hard (`@node-rs/bcrypt`, `@sentry/node`, `dotenv`, `graphql`, `mongoose`, `redis`, `uuid`), 12 `optional` via `peerDependenciesMeta`.
 - No breaking the optional-peer invariant. `optional` = claim about load path, not warning mute. True only while dep reachable solely through subpath consumer opt into by importing it. Two ways to break, both silent, both hit every consumer: add root `"."` key to `exports` (1 import drag whole graph in), or import an optional dep from a module every subpath reach. Need it on a common path → lazy `await import('pkg')`, like `src/private/files/_validateMimeType.mts` do for `file-type`. `.d.mts` carry same boundary — `dataSources/PostgreSQL` types name `sequelize`, so `skipLibCheck: false` consumer of that subpath still need it installed.
@@ -139,6 +141,8 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - `yarn check:static` — `caps` → `lint:check` → `typecheck` → `typecheck:scripts` → `knip` → `type-coverage` → `fta`. Single source: pre-commit, pre-push, CI step `Static gates` all call it. Run before report done.
 - `yarn typecheck` (`tsconfig.check.json`, `exactOptionalPropertyTypes`) / `yarn typecheck:scripts` (`tsconfig.scripts.json`) / `yarn knip` / `yarn type-coverage` / `yarn fta` (cap `fta.json`, 64 → target 50 after refactor, owner) — 1 gate each.
 - `yarn caps` — code-size ratchet vs `.code-caps-baseline.json`. `caps:update` only lower. `caps:report` list all.
+- `yarn mutation` — `patch-package && stryker run`. Full run, ~30 min, sandbox (tree untouched). Report `reports/mutation/index.html`. See *Mutation gate*.
+- `yarn mutation:changed [base-ref]` — mutate only `src/**/*.mts` changed vs merge-base (default `origin/main`, else `HEAD~1`). Own incremental file, clear-text report only.
 - `yarn leak:check` — heap tripwire on built `dist/` (`yarn build` first). CI weekly/dispatch only, advisory.
 - Snapshots: `test/__snapshots__/*.json`. Regen `UPDATE_SNAPSHOT=1 yarn test`, only on intentional API change, read diff. See `test/CLAUDE.md`.
 - `yarn clean` — wipe `dist/`.
@@ -148,6 +152,18 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - `yarn reindex` — `node .gitnexus/run.cjs analyze --no-stats`.
 - `yarn qodana` / `yarn qodana:cli` — `test:coverage` → Qodana scan → open report.
 - `yarn upload` — `npm publish --registry=https://registry.npmjs.org/`. Flag load-bearing, see below. Owner ask only. Manual fallback path: no provenance, no release assets. Per version ONE path: `yarn upload` XOR `release.yml`. 2nd fail, version already on npm.
+
+## Mutation gate — StrykerJS
+
+c8 100% prove lines ran, not that tests assert. Stryker mutate `src/**/*.mts`, rerun tests, survivor = missing assertion. Config `stryker.config.json`: runner `mocha`, checker `typescript`, `coverageAnalysis: perTest`, `incremental` (file `reports/stryker-incremental.json`), `inPlace: false` → sandbox copy in `.stryker-tmp/`, working tree never rewritten. Mutate set mirrors `.c8rc.json` excludes (`I[A-Z]*.mts`, `types/*`, `interfaces/**`, `TCommonHeaders`, `TCookieRefreshToken`, `checkForNSFW`). Build in sandbox: `scripts/mutation-build.sh` (clean + `build:esm` + `build:tests`; links `node_modules` itself because Stryker build run before link).
+
+- Target = 100% of non-disabled mutants. `thresholds.break` = 67 now (measured baseline 67.69%) → 100 as survivors die. Raise only, never lower.
+- Survivor → new assertion in `test/`, never `thresholds` edit.
+- `// Stryker disable next-line <Mutator>[,<Mutator>]: <reason>` (or block form `// Stryker disable <Mutator>: <reason>` … `// Stryker restore <Mutator>`) only for TRUE equivalent mutant: mutated program behave identical for every input. Reason must say why, verified (read diff, try to write killing test first). Banned reasons: "hard to test", "not worth", "covered elsewhere", "flaky". Unverified → write test. Stryker disable = allowed (owner decision) for true equivalents only. `/* c8 ignore */` still banned.
+- Never run 2 Stryker runs or `yarn test` in same checkout concurrently (shared `dist/`, though sandbox isolate most). Shard = own worktree.
+- `.stryker-tmp/` and `reports/` gitignored + listed in `qodana.yaml` `exclude` (generated HTML report = 1000+ High findings → blocks pre-commit Qodana). Output only, not a threshold change.
+- mocha-runner 10.1.1 crash on Mocha 12 → `patches/@stryker-mutator+mocha-runner+10.1.1.patch` (`patch-package`, 1 file `lib-wrapper.js`). Applied by `yarn mutation` and `mutation.yml` step only (rule below), idempotent. Remove when upstream support Mocha 12 → steps in `TODO.md`. Patch bump of plugin → patch name/version stale → regenerate or drop.
+- `patch-package` must never run from a `preinstall`, `install`, `postinstall` or `prepare` script in `package.json`. This package is published, so the `scripts` block travels in the tarball and such a script would run on every consumer machine, where `patch-package` is not installed and the install would fail. Only the `mutation` script and the `mutation.yml` step may apply the patch.
 
 ## PR flow — branch → PR → merge commit
 
@@ -192,7 +208,7 @@ The next four rules are supply-chain security invariants, so they are written in
 - Never put an expression such as `${{ github.event.* }}` inside a `run:` script, because event payload text is attacker-controlled. Pass it through `env:` and read the shell variable.
 
 - Job `Test coverage` (required check, name fixed) hold step `Static gates` = `yarn check:static`, before `yarn test:coverage`. Old `Coding standard` step folded in. Static gate → inside this job, never a new required context.
-- Advisory jobs, not required checks: `Trivy` (digest-pinned image, `--exit-code 1`; ghcr rate limit → red = rerun first), `Leak check` (schedule/dispatch only). Never hook, never required without ruleset edit. Semgrep registry packs (`--registry`) = CI `semgrep.yml` only, never hook, never `release.yml`.
+- Advisory jobs, not required checks: `Trivy` (digest-pinned image, `--exit-code 1`; ghcr rate limit → red = rerun first), `Leak check` (schedule/dispatch only), `mutation.yml` (weekly Sun 03:43 UTC + dispatch, 120 min). Never hook, never required without ruleset edit. Semgrep registry packs (`--registry`) = CI `semgrep.yml` only, never hook, never `release.yml`.
 - YAML in `.github/` = 2 spaces, overrides `.editorconfig` tabs (tab invalid in YAML).
 - `qodana-action` bump (hand or Dependabot) travels with `qodana.yaml` `linter:` and `--linter` arg in `qodana.yml` → all same version, else CI + hook scan different images. Dependabot cannot bump the two → check by hand.
 - `SEMGREP_IMAGE` (tag + `@sha256` digest) identical in `semgrep.yml` and `release.yml`. Change both same commit.
