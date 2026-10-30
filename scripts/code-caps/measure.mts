@@ -23,14 +23,12 @@ export const FILE_SYMBOL = '(file)'
 const { SyntaxKind } = ts
 
 // Lines holding at least one real token. Blank lines and comment-only lines do not count (same notion as ESLint
-// skipBlankLines / skipComments); a multi-line template literal counts every line it spans.
+// skipBlankLines / skipComments); a multi-line template literal counts every line it spans. Zero-width leaves (the
+// end-of-file token, the empty SyntaxList of a file without statements) hold no text, so they never flag a line.
 function codeLineFlags(sf: ts.SourceFile): boolean[] {
 	const flags: boolean[] = new Array<boolean>(sf.getLineStarts().length).fill(false)
 	const mark = (node: ts.Node): void => {
-		if (
-			node.kind === SyntaxKind.EndOfFileToken ||
-			(node.kind >= SyntaxKind.FirstJSDocNode && node.kind <= SyntaxKind.LastJSDocNode)
-		) {
+		if (ts.isJSDoc(node)) {
 			return
 		}
 		const children = node.getChildren(sf)
@@ -38,7 +36,11 @@ function codeLineFlags(sf: ts.SourceFile): boolean[] {
 			children.forEach(mark)
 			return
 		}
-		const first = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line
+		const start = node.getStart(sf)
+		if (start === node.getEnd()) {
+			return
+		}
+		const first = sf.getLineAndCharacterOfPosition(start).line
 		const last = sf.getLineAndCharacterOfPosition(node.getEnd()).line
 		for (let line = first; line <= last; line++) {
 			flags[line] = true
@@ -68,6 +70,9 @@ type FunctionLike =
 	| ts.GetAccessorDeclaration
 	| ts.SetAccessorDeclaration
 
+// A class static block is its own scope for ESLint max-depth, so it is measured as a unit of its own (symbol `static`).
+type Unit = FunctionLike | ts.ClassStaticBlockDeclaration
+
 function isFunctionLike(node: ts.Node): node is FunctionLike {
 	return (
 		ts.isFunctionDeclaration(node) ||
@@ -78,6 +83,10 @@ function isFunctionLike(node: ts.Node): node is FunctionLike {
 		ts.isGetAccessorDeclaration(node) ||
 		ts.isSetAccessorDeclaration(node)
 	)
+}
+
+function isUnit(node: ts.Node): node is Unit {
+	return isFunctionLike(node) || ts.isClassStaticBlockDeclaration(node)
 }
 
 function isClassLike(node: ts.Node): node is ts.ClassDeclaration | ts.ClassExpression {
@@ -126,7 +135,10 @@ function inferredName(node: ts.Node, sf: ts.SourceFile): string {
 	return 'anon'
 }
 
-function symbolName(node: FunctionLike | ts.ClassDeclaration | ts.ClassExpression, sf: ts.SourceFile): string {
+function symbolName(node: Unit | ts.ClassDeclaration | ts.ClassExpression, sf: ts.SourceFile): string {
+	if (ts.isClassStaticBlockDeclaration(node)) {
+		return 'static'
+	}
 	if (ts.isConstructorDeclaration(node)) {
 		return 'constructor'
 	}
@@ -150,12 +162,12 @@ const DEPTH_KINDS = new Set<ts.SyntaxKind>([
 	SyntaxKind.TryStatement
 ])
 
-// Deepest control-flow nesting inside ONE function (nested functions are their own entries). Mirrors ESLint max-depth:
+// Deepest control-flow nesting inside ONE function or static block (nested functions are their own entries). Mirrors ESLint max-depth:
 // ternaries do not count and an `else if` stays on the level of the `if` it continues.
-function maxNesting(fn: FunctionLike): number {
+function maxNesting(fn: Unit): number {
 	let max = 0
 	const visit = (node: ts.Node, depth: number): void => {
-		if (isFunctionLike(node) || isClassLike(node)) {
+		if (isUnit(node) || isClassLike(node)) {
 			return
 		}
 		let next = depth
@@ -179,9 +191,39 @@ function paramCount(fn: FunctionLike): number {
 	return fn.parameters.filter((p) => !(ts.isIdentifier(p.name) && p.name.text === 'this')).length
 }
 
+// Syntax errors of `text` parsed as TypeScript, one `path:line:col: message` per diagnostic. A file that does not parse
+// must never be measured (a half-parsed tree under-counts), so callers treat any entry as a hard failure. Uses the public
+// transpileModule diagnostics, not the internal `parseDiagnostics` field.
+export function syntaxErrors(path: string, text: string): string[] {
+	const { diagnostics = [] } = ts.transpileModule(text, {
+		fileName: path,
+		reportDiagnostics: true,
+		compilerOptions: { target: ts.ScriptTarget.ESNext }
+	})
+	return diagnostics.map((d) => describeDiagnostic(path, d))
+}
+
+// `path:line:col: syntax error: message`; a diagnostic without a position falls back to the bare path.
+export function describeDiagnostic(path: string, d: Pick<ts.Diagnostic, 'file' | 'start' | 'messageText'>): string {
+	const where = d.file !== undefined && d.start !== undefined ? d.file.getLineAndCharacterOfPosition(d.start) : undefined
+	const at = where === undefined ? path : `${path}:${where.line + 1}:${where.character + 1}`
+	return `${at}: syntax error: ${ts.flattenDiagnosticMessageText(d.messageText, ' ')}`
+}
+
+// Code lines of the whole file under the same rules the caps use (blank, comment-only and zero-width leaves excluded).
+export function countCodeLines(path: string, text: string): number {
+	const prefix = prefixSums(codeLineFlags(parse(path, text)))
+	return prefix[prefix.length - 1]!
+}
+
+function parse(path: string, text: string): ts.SourceFile {
+	// ScriptKind.TS is explicit on purpose: the JS kind parses in JSX mode, where `<T>expr` assertions are mangled.
+	return ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+}
+
 // Every function and class in `text` whose size exceeds a cap, plus the file itself. `path` is only a label (and the key part).
 export function measureSource(path: string, text: string): Measurement[] {
-	const sf = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+	const sf = parse(path, text)
 	const flags = codeLineFlags(sf)
 	const prefix = prefixSums(flags)
 	const codeLines = (node: ts.Node): number => {
@@ -201,7 +243,7 @@ export function measureSource(path: string, text: string): Measurement[] {
 	const seen = new Map<string, number>()
 	const walk = (node: ts.Node, parentPath: string): void => {
 		let here = parentPath
-		if (isFunctionLike(node) || isClassLike(node)) {
+		if (isUnit(node) || isClassLike(node)) {
 			const base = parentPath === '' ? symbolName(node, sf) : `${parentPath}>${symbolName(node, sf)}`
 			const n = (seen.get(base) ?? 0) + 1
 			seen.set(base, n)
@@ -210,7 +252,7 @@ export function measureSource(path: string, text: string): Measurement[] {
 				add('class-lines', here, codeLines(node))
 			} else {
 				add('fn-lines', here, codeLines(node))
-				add('params', here, paramCount(node))
+				add('params', here, isFunctionLike(node) ? paramCount(node) : 0)
 				add('nesting', here, maxNesting(node))
 			}
 		}

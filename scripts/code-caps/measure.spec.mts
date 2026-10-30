@@ -1,6 +1,14 @@
 import { expect } from 'chai'
 
-import { FILE_SYMBOL, LIMITS, measureSource, type Measurement } from './measure.mts'
+import {
+	countCodeLines,
+	describeDiagnostic,
+	FILE_SYMBOL,
+	LIMITS,
+	measureSource,
+	syntaxErrors,
+	type Measurement
+} from './measure.mts'
 
 const lines = (count: number, make: (i: number) => string = (i) => `const v${i} = ${i}`): string =>
 	Array.from({ length: count }, (_, i) => make(i)).join('\n')
@@ -189,5 +197,151 @@ describe('measureSource: nesting', () => {
 describe('LIMITS', () => {
 	it('holds the agreed caps', () => {
 		expect(LIMITS).to.deep.equal({ 'file-lines': 500, 'fn-lines': 50, 'class-lines': 300, params: 4, nesting: 4 })
+	})
+})
+
+describe('measureSource: exact values and boundaries', () => {
+	const cls = (total: number): string => `class A {\n${lines(total - 2, (i) => `\tp${i} = ${i}`)}\n}`
+
+	it('ignores the end-of-file token: a trailing newline adds no line', () => {
+		expect(measure(`${lines(500)}\n`)).to.deep.equal([])
+		expect(measure(`${lines(501)}\n`)[0]?.value).to.equal(501)
+		expect(measure(`${lines(501)}\n\n\n// tail\n`)[0]?.value).to.equal(501)
+	})
+
+	it('reports the exact class size and flips at 300/301', () => {
+		expect(measure(cls(300))).to.deep.equal([])
+		expect(measure(cls(301))).to.deep.equal([{ cap: 'class-lines', path: 'x.mts', symbol: 'A', value: 301 }])
+		expect(bySymbol(measure(cls(320)), 'class-lines')).to.deep.equal({ A: 320 })
+	})
+
+	it('reports the exact function size', () => {
+		expect(bySymbol(measure(fn('function big()', 77)), 'fn-lines')).to.deep.equal({ big: 77 })
+	})
+
+	it('does not count the lines of an attached JSDoc comment', () => {
+		const doc = `/**\n${lines(30, (i) => ` * line ${i}`)}\n */`
+		expect(measure(`${lines(490)}\n${doc}\nfunction f() {}`)).to.deep.equal([])
+		const inner = `function o() {\n${lines(40, (i) => `\tvoid ${i}`)}\n\t${doc}\n\tfunction i() {}\n}`
+		expect(measure(inner)).to.deep.equal([])
+		expect(measure(`${doc}\nconst v = 1\n${doc}\nexport class K {\n${doc}\n\tm = 1\n}`)).to.deep.equal([])
+	})
+
+	it('parses a .mts source as TypeScript: type annotations and angle-bracket assertions', () => {
+		const text = `function f(a: number): number {\n${lines(60, (i) => `\tvoid ${i}`)}\n\treturn <number>a\n}\nfunction g<T,>(a: T, b: Array<T>) {\n${lines(60, (i) => `\tvoid ${i}`)}\n}`
+		expect(measure(text)).to.deep.equal([
+			{ cap: 'fn-lines', path: 'x.mts', symbol: 'f', value: 63 },
+			{ cap: 'fn-lines', path: 'x.mts', symbol: 'g', value: 62 }
+		])
+	})
+})
+
+describe('measureSource: code line count', () => {
+	it('is 0 for an empty file and for a file holding only comments', () => {
+		expect(countCodeLines('x.mts', '')).to.equal(0)
+		expect(countCodeLines('x.mts', '// a\n/* b\n c */\n')).to.equal(0)
+		expect(countCodeLines('x.mts', '\n\n   \n')).to.equal(0)
+	})
+
+	it('counts code lines exactly, with or without a trailing newline', () => {
+		expect(countCodeLines('x.mts', 'export const a = 1')).to.equal(1)
+		expect(countCodeLines('x.mts', 'export const a = 1\n')).to.equal(1)
+		expect(countCodeLines('x.mts', '// head\nconst a = 1\n\n/* c */ const b = 2 // t\n')).to.equal(2)
+	})
+})
+
+describe('measureSource: nesting edge cases', () => {
+	const ifs = (n: number): string => 'if (x) {\n'.repeat(n)
+	const close = (n: number): string => '}\n'.repeat(n)
+
+	it('counts a deep then-branch of an if that has an else-if', () => {
+		const text = `function f(x) {\n${ifs(5)}void 1\n${close(5)} else if (y) {\nvoid 2\n}\n}`
+		expect(bySymbol(measure(text), 'nesting')).to.deep.equal({ f: 5 })
+		const cond = `function g(x) {\nif (x) {\n${ifs(3)}void 1\n${close(3)}} else if (y) {\nvoid 2\n}\n}`
+		expect(measure(cond)).to.deep.equal([])
+	})
+
+	it('keeps the deepest level when a shallower sibling follows', () => {
+		const text = `function f(x) {\n${ifs(5)}void 1\n${close(5)}if (x) {\nvoid 2\n}\nif (x) {\nvoid 3\n}\n}`
+		expect(bySymbol(measure(text), 'nesting')).to.deep.equal({ f: 5 })
+	})
+
+	it('counts a switch as a level', () => {
+		const text = `function f(x) {\nswitch (x) {\ncase 1:\n${ifs(4)}void 1\n${close(4)}}\n}`
+		expect(bySymbol(measure(text), 'nesting')).to.deep.equal({ f: 5 })
+		const four = `function g(x) {\nswitch (x) {\ncase 1:\n${ifs(3)}void 1\n${close(3)}}\n}`
+		expect(measure(four)).to.deep.equal([])
+	})
+
+	it('measures a class static block as its own unit', () => {
+		const text = `class K {\nstatic {\n${ifs(5)}void 1\n${close(5)}}\nm() {\n${ifs(4)}void 2\n${close(4)}}\n}`
+		expect(measure(text)).to.deep.equal([{ cap: 'nesting', path: 'x.mts', symbol: 'K>static', value: 5 }])
+	})
+
+	it('caps the lines of a static block, numbers duplicates, and gives it no params', () => {
+		const text = `class K {\nstatic {\n${lines(60, (i) => `void ${i}`)}\n}\nstatic {\n${lines(60, (i) => `void ${i}`)}\n}\n}`
+		expect(measure(text).map((m) => `${m.cap}:${m.symbol}:${m.value}`)).to.deep.equal([
+			'fn-lines:K>static:62',
+			'fn-lines:K>static#2:62'
+		])
+	})
+
+	it('does not add a function inside a static block to the block depth', () => {
+		const text = `class K {\nstatic {\n${ifs(3)}const f = () => {\n${ifs(3)}void 1\n${close(3)}}\n${close(3)}}\n}`
+		expect(measure(text)).to.deep.equal([])
+	})
+})
+
+describe('measureSource: names through wrappers', () => {
+	const body = (): string => `{\n${lines(60, (i) => `void ${i}`)}\n}`
+
+	it('sees through satisfies, non-null, as and parentheses around a function expression', () => {
+		const text = [
+			`const sat = (function () ${body()}) satisfies unknown`,
+			`const bang = (() => ${body()})!`,
+			`const cast = (() => ${body()}) as unknown`,
+			`const plain = (() => ${body()})`,
+			`const nested = ((() => ${body()}) satisfies unknown)!`
+		].join('\n')
+		expect(Object.keys(bySymbol(measure(text), 'fn-lines'))).to.have.members(['sat', 'bang', 'cast', 'plain', 'nested'])
+	})
+})
+
+describe('measureSource: names that are not assignments', () => {
+	const body = (): string => `{\n${lines(60, (i) => `void ${i}`)}\n}`
+
+	it('does not name a function after the left side of a non-assignment binary expression', () => {
+		const text = `const v = left || function () ${body()}\nconst w = left ?? (() => ${body()})`
+		expect(Object.keys(bySymbol(measure(text), 'fn-lines'))).to.deep.equal(['anon', 'anon#2'])
+	})
+
+	it('does not name a function after a parameter whose default it is', () => {
+		const text = `function g(cb = () => ${body()}) {}`
+		expect(Object.keys(bySymbol(measure(text), 'fn-lines'))).to.deep.equal(['g', 'g>anon'])
+	})
+})
+
+describe('syntaxErrors', () => {
+	it('is empty for valid TypeScript', () => {
+		expect(syntaxErrors('ok.mts', 'export function f(a: number): number {\n\treturn a\n}\n')).to.deep.equal([])
+	})
+
+	it('reports file, line, column and message for a file that does not parse', () => {
+		const text = 'export function ok() { return 1 }\nexport function broken( {\n  if (\n'
+		const found = syntaxErrors('src/bad.mts', text)
+		expect(found.length).to.be.greaterThan(0)
+		expect(found[0]).to.equal("src/bad.mts:3:6: syntax error: ':' expected.")
+	})
+
+	it('describes a diagnostic without a position by the bare path', () => {
+		expect(describeDiagnostic('p.mts', { file: undefined, start: undefined, messageText: 'boom' })).to.equal(
+			'p.mts: syntax error: boom'
+		)
+	})
+
+	it('describes a diagnostic that has a file but no start by the bare path', () => {
+		const file = { getLineAndCharacterOfPosition: () => ({ line: 0, character: 0 }) } as never
+		expect(describeDiagnostic('p.mts', { file, start: undefined, messageText: 'x' })).to.equal('p.mts: syntax error: x')
+		expect(describeDiagnostic('p.mts', { file, start: 0, messageText: 'x' })).to.equal('p.mts:1:1: syntax error: x')
 	})
 })

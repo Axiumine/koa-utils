@@ -32,6 +32,15 @@ describe('keyOf / toBaseline', () => {
 	})
 })
 
+describe('parseBaseline minimum', () => {
+	it('accepts 1 as the smallest value and rejects 0, negatives and fractions', () => {
+		expect(parseBaseline('{"a":1}')).to.deep.equal({ a: 1 })
+		for (const bad of ['{"a":0}', '{"a":-1}', '{"a":1.5}']) {
+			expect(() => parseBaseline(bad), bad).to.throw('must be a positive integer')
+		}
+	})
+})
+
 describe('parseBaseline / serializeBaseline', () => {
 	it('round-trips, tab-indented with a trailing newline', () => {
 		const baseline = { 'params|src/a.mts|f': 5 }
