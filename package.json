@@ -740,7 +740,7 @@
 		"@types/sinon": "^22.0.0",
 		"@typescript-eslint/eslint-plugin": "^8.65.0",
 		"@typescript-eslint/parser": "^8.65.0",
-		"c8": "^11.0.0",
+		"c8": "^12.0.0",
 		"chai": "^6.2.2",
 		"clamscan": "^2.4.0",
 		"dotenv": "^17.4.2",
