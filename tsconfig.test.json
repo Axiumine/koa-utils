@@ -7,7 +7,8 @@
 	},
 	"include": [
 		"src/**/*.mts",
-		"test/**/*.mts"
+		"test/**/*.mts",
+		"test/**/*.ts"
 	],
 	"exclude": [
 		"node_modules",
