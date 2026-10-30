@@ -75,9 +75,11 @@ src/
     └── lib/access/{db/* (incl. abandonUser.mts), handleIf*, assertVerifyEmailAllowed.mts, pathTools.mts}
 ```
 
-`types/` directory exists but is empty / placeholder.
+`src/types/` holds one ambient declaration, `socketlabs-email.d.ts` (`declare module '@socketlabs/email'`, which ships no types); it emits no `.mjs`.
 
 Area-scoped agent rules live in nested `CLAUDE.md` files, loaded on demand when an agent touches that directory: `src/graphQL/`, `src/koa/`, `src/lib/access/`, `src/private/`, `src/email/`, `src/files/`, `test/`. Repo-wide rules stay in the root `CLAUDE.md`. Not shipped — `files: ["dist"]`.
+
+Outside `src/`: `docs/code/` is the per-area reference (index `docs/code/README.md`); `docs/architecture.md`, `docs/security.md` and `docs/verify-release.md` are the design, the security model and the release verification pages; the community and policy files sit at the repo root (see section 9). The npm tarball holds `dist/` plus `package.json`, `README.md` and `LICENSE` only, so the `README.md` links to repo files are absolute GitHub URLs.
 
 ---
 
@@ -127,7 +129,7 @@ Source files use `.mts` extension and `.mjs` import specifiers (NodeNext module 
 
 ## 3. Package exports
 
-`package.json` enumerates 148 explicit subpath exports — no barrel, no root entry. Consumers import deep paths:
+`package.json` enumerates 150 explicit subpath exports — no barrel, no root entry. Consumers import deep paths:
 
 ```ts
 import { authenticatedResourceHandler } from '@axiumine/koa-utils/koa/middleware/authenticatedResourceHandler'
@@ -212,7 +214,7 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - **Module shape:** one named export per file, file name matches export. `mutations/X.mts` exports a plain object with `description`, `type`, `args`, `resolve` ready to drop into a `GraphQLObjectType` `fields`.
 - **Mongo transactions:** `mongoose.startSession()` + `session.withTransaction(...)` + `endSession()` in `finally`. Always pass the `session` to all model calls.
 - **Errors:** never `throw new Error('...')` inside business logic — always go through a `throw*Error()` helper. Internal-only fatal paths use `throwInternalError()`.
-- **Tests:** `test/` mirrors `src/` layout (118 `*.spec.mts` files, 120 `.mts` files total). Run via Mocha (`.mocharc.json`, spec glob `dist-test/**/*.spec.mjs`) against the `build:tests` output, with sinon + chai + `mongodb-memory-server`. Coverage via c8 (`.c8rc.json`): `check-coverage`, `per-file`, and all four metrics (`lines`/`statements`/`functions`/`branches`) at 100. `.githooks/pre-commit` runs `yarn test:coverage` on every commit touching `src/`, `test/`, `package.json`, `.c8rc.json`, `.mocharc.json` or a `tsconfig*.json`.
+- **Tests:** `test/` mirrors `src/` layout (131 `*.spec.mts` files, 136 `.mts` files total), plus one property-based spec, `test/property/inputHandling.spec.ts` (`.ts` on purpose: the OpenSSF Scorecard Fuzzing check scans only `*.ts`/`*.tsx`; it uses `fast-check`). Run via Mocha (`.mocharc.json`, spec glob `dist-test/**/*.spec.mjs`) against the `build:tests` output, with sinon + chai + `mongodb-memory-server`. Coverage via c8 (`.c8rc.json`): `check-coverage`, `per-file`, and all four metrics (`lines`/`statements`/`functions`/`branches`) at 100. `.githooks/pre-commit` runs `yarn test:coverage` on every commit touching `src/`, `test/`, `package.json`, `.c8rc.json`, `.mocharc.json` or a `tsconfig*.json`.
 
 ---
 
@@ -220,7 +222,7 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 
 - License: `GPL-3.0-or-later`.
 - Repo: <https://github.com/Axiumine/koa-utils>.
-- Current version: `5.7.2` (`package.json`). Bump version → `yarn upload` → token in `.npmrc` is required.
+- Current version: `7.1.0` (`package.json`). Bump version → `yarn upload` → token in `.npmrc` is required.
 - **Publishing:** `yarn upload` pins `--registry=https://registry.npmjs.org/` on purpose. Yarn 1 exports the registry from
   `.yarnrc` to child processes as `npm_config_registry`, so a bare `npm publish` run through `yarn` targets the local
   Verdaccio mirror instead of npmjs. On a maintainer machine that fails with `ENEEDAUTH` against `yarnproxy.gio.lan`;
@@ -278,9 +280,15 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - `deploy-local.sh` — maintainer-only. Builds, then rsyncs `dist/` into every consumer's `node_modules/@axiumine/koa-utils` inside one workspace, so an unpublished version can be exercised against the real services first. `npm publish` is a one-way door; this is not a release step and touches nothing outside the local machine.
 - `scripts/migrate-account-disabled-to-boolean.mjs` — one-shot data migration for consumers. Rewrites `account.disabled`/`account.deleted` from string to boolean in the `user` and `userAdmin` collections. Dry run unless `--apply`; needs `MONGO_URI`. Required once when upgrading from **5.0.3 or earlier** — see the "Migration required" section in `CHANGELOG.md`.
 - `CODEOWNERS` — single owner `@giovannimanzoni`.
+- `LICENSE` — the canonical GPL-3.0 text with nothing prepended, so GitHub's license detection reports `GPL-3.0`. The copyright holder is named in `README.md` and `package.json` (`author`). Shipped in the npm tarball.
+- `SECURITY.md` — vulnerability reporting policy and supported-versions table (private advisory or email, response targets). Update the table on every major `version` bump.
+- `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `GOVERNANCE.md`, `ROADMAP.md` — community files. Not published to npm. `GOVERNANCE.md` names the backup owner and the npm publishing gap, so update it when either changes.
+- `.github/ISSUE_TEMPLATE/` (bug report and feature request forms, blank issues off, links to the private advisory form and to `docs/code`), `.github/PULL_REQUEST_TEMPLATE.md` — the checklist mirrors the gates in `CONTRIBUTING.md`.
+- `docs/architecture.md` — design overview and key flows. `docs/security.md` — security requirements (R1 to R13), documented limits (L1 to L13), threat model, trust boundaries and known gaps; update it when a trust boundary, a crypto choice or a validation rule changes. `docs/verify-release.md` — how to check a signed tag, rebuild the tarball and verify a build attestation; it holds the signing-key fingerprint.
 - `.github/workflows/` — GitHub Actions, all with top-level `permissions: contents: read` and every third-party action pinned by commit SHA with a `# vX.Y.Z` comment.
   - `ci.yml` — job `Test coverage`: `yarn lint:check`, `yarn test:coverage` (100% gate), two clean builds must hash identically, and the `npm pack` tarball must hold no `.map`. Job `Dependency audit`: `yarn audit` gates the shipped dependency groups, the dev tree is only reported. Runs on push and PR to `main`, plus a weekly cron for the audit. Needs no secret.
   - `qodana.yml` — job `Qodana Ultimate Plus`: `yarn test:coverage`, then the Qodana scan. Needs the `QODANA_TOKEN` secret, so it is skipped on Dependabot PRs.
   - `semgrep.yml` — job `SAST`: `scripts/semgrep-canary.sh` first, then `scripts/semgrep.sh`. `SEMGREP_IMAGE` is pinned by tag and digest.
+  - `release.yml` — three jobs: `Verify and pack` (tests, SAST, `npm pack`), `Publish to npm` (npm trusted publishing with provenance, environment `npm-publish`) and `Attach signed release assets` (tarball plus its `*.intoto.jsonl` attestation on the GitHub release). Runs when a GitHub release is published for a `v*` tag; `workflow_dispatch` is a dry run that stops after `Verify and pack`. Publishing needs the npm trusted publisher, configured on npmjs.com for this file name; until then releases go out with `yarn upload`.
   - `scorecard.yml` — OpenSSF Scorecard analysis: push to `main`, weekly cron, `branch_protection_rule`, manual dispatch. Publishes results to scorecard.dev and uploads SARIF to code scanning.
 - `.github/dependabot.yml` — weekly version updates: npm (devDependencies only, `versioning-strategy: increase`, minor and patch grouped) and `github-actions`. Every package that is also a `peerDependency` is ignored for semver-major bumps, and `keygrip` is ignored whole, so a dev bump can never rewrite a peer range. A new peer in `package.json` needs a matching `ignore` entry. Dependabot cannot bump `SEMGREP_IMAGE`, the `qodana.yaml` `linter:` tag or the `--linter` arg in `qodana.yml`: those stay manual.
