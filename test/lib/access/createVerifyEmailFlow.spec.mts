@@ -8,6 +8,7 @@
  * collection, not `user`.
  */
 import { createVerifyEmailFlow } from '../../../dist/lib/access/createVerifyEmailFlow.mjs'
+import type { TAccessModel } from '@lib/access/accessPaths.mjs'
 import { ALWAYS_MAIL } from '@lib/access/createMailThrottle.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { expect } from 'chai'
@@ -33,6 +34,15 @@ const PATHS = {
 	emailChangeClear: ['verification']
 }
 
+// fake model: real Model type + stub members spec reads back
+type TFakeModel = TAccessModel & {
+	query: { selected: string }
+	findOne: sinon.SinonStub
+	updateOne: sinon.SinonStub
+	countDocuments: sinon.SinonStub
+	deleteOne: sinon.SinonStub
+}
+
 function makeModel(doc: unknown, qty = 0) {
 	const query = {
 		selected: '',
@@ -54,7 +64,7 @@ function makeModel(doc: unknown, qty = 0) {
 		updateOne: sinon.stub().returns(updateQuery),
 		countDocuments: sinon.stub().resolves(qty),
 		deleteOne: sinon.stub().resolves({ deletedCount: 1 })
-	} as never
+	} as unknown as TFakeModel // deliberate: plain object stands in for Model
 }
 
 /** Stored doc, custom layout. */

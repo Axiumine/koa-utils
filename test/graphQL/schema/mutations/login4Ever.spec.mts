@@ -7,6 +7,7 @@ import { login4Ever } from '../../../../dist/graphQL/schema/mutations/login4Ever
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
+import type { IContextLogin } from '@context/IContextLogin.mjs'
 import { expect } from 'chai'
 import sinon from 'sinon'
 import mongoose, { Types } from 'mongoose'
@@ -29,11 +30,14 @@ function makeQuery(value: unknown) {
 		lean: () => Promise.resolve(value),
 		exec: () => Promise.resolve(value)
 	}
-	return q
+	return q as never // deliberate: partial fake stands in for mongoose Query
 }
 
+// deliberate: partial fake stands in for the Koa ctx, cookies.set kept as stub → spec reads calls back
+type TCtx = IContextLogin & { cookies: { set: sinon.SinonStub } }
+
 function makeCtx() {
-	return { cookies: { set: sinon.stub() } } as never
+	return { cookies: { set: sinon.stub() } } as unknown as TCtx
 }
 
 function fakeUser(overrides: Partial<{ account: object; login: object }> = {}) {
@@ -63,7 +67,7 @@ describe('login4Ever — resolve (deep stubs)', () => {
 		findOneStub = sinon.stub(UserBase, 'findOne')
 		updateOneStub = sinon.stub(UserBase, 'updateOne').resolves({ modifiedCount: 1 } as never)
 		hSetStub = sinon.stub(redisClient, 'hSet').resolves(0)
-		sinon.stub(redisClient, 'expire').resolves(true)
+		sinon.stub(redisClient, 'expire').resolves(1)
 		sinon.stub(redisClient, 'del').resolves(0)
 		accountDisabledStub = sinon.stub(SocketLabsLib.prototype, 'accountDisabled').resolves()
 
@@ -122,7 +126,7 @@ describe('login4Ever — resolve (deep stubs)', () => {
 		sinon.stub(UserBase, 'findOne').returns(makeQuery(fakeUser()))
 		sinon.stub(UserBase, 'updateOne').resolves({ modifiedCount: 1 } as never)
 		sinon.stub(redisClient, 'hSet').resolves(0)
-		sinon.stub(redisClient, 'expire').resolves(true)
+		sinon.stub(redisClient, 'expire').resolves(1)
 		sinon.stub(redisClient, 'del').resolves(0)
 		sinon.stub(SocketLabsLib.prototype, 'accountDisabled').resolves()
 		const bcryptMod = (await import('@node-rs/bcrypt')).default

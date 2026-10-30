@@ -35,7 +35,7 @@ describe('infoUserAdminForLogin', () => {
 			account: { email: { valid: true }, deleted: false, disabled: false }
 		}
 		const query = makeQuery(row)
-		const findOneStub = sinon.stub(UserAdminKoaUtils, 'findOne').returns(query as never)
+		const findOneStub: sinon.SinonStub = sinon.stub(UserAdminKoaUtils, 'findOne').returns(query as never)
 		const session = {} as ClientSession
 
 		const result = await infoUserAdminForLogin('admin@test.com', session)

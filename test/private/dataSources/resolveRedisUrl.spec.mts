@@ -40,7 +40,7 @@ describe('resolveRedisUrl', () => {
 
 	describe('REDIS_TLS off — pass-through', () => {
 		beforeEach(() => {
-			delete process.env.REDIS_TLS
+			delete process.env['REDIS_TLS']
 		})
 
 		it('returns a plaintext redis:// URL untouched', () => {
@@ -63,7 +63,7 @@ describe('resolveRedisUrl', () => {
 		})
 
 		it('passes through when REDIS_TLS is set to a value that is not exactly "true"', () => {
-			process.env.REDIS_TLS = 'TRUE'
+			process.env['REDIS_TLS'] = 'TRUE'
 
 			expect(resolveRedisUrl('redis://cache.internal:6379')).to.equal('redis://cache.internal:6379')
 		})
@@ -71,7 +71,7 @@ describe('resolveRedisUrl', () => {
 
 	describe('REDIS_TLS=true — rediss:// required', () => {
 		beforeEach(() => {
-			process.env.REDIS_TLS = 'true'
+			process.env['REDIS_TLS'] = 'true'
 		})
 
 		it('returns a rediss:// URL unchanged', () => {

@@ -41,7 +41,7 @@ describe('tdwKoaErrorHandler — mutation guards', () => {
 	})
 
 	it('development: a non-GraphQL error is reported to Sentry', async () => {
-		process.env.NODE_ENV = 'development'
+		process.env['NODE_ENV'] = 'development'
 
 		await tdwKoaErrorHandler(makeCtx(), async () => {
 			throw new Error('dev boom')
@@ -52,7 +52,7 @@ describe('tdwKoaErrorHandler — mutation guards', () => {
 	})
 
 	it('development: a GraphQL error is not reported to Sentry', async () => {
-		process.env.NODE_ENV = 'development'
+		process.env['NODE_ENV'] = 'development'
 
 		await tdwKoaErrorHandler(makeCtx(), async () => {
 			throw new GraphQLError('gql in dev')
@@ -65,9 +65,9 @@ describe('tdwKoaErrorHandler — mutation guards', () => {
 	for (const env of ['production', 'test', '', undefined]) {
 		it(`NODE_ENV=${JSON.stringify(env)}: nothing is reported to Sentry`, async () => {
 			if (typeof env === 'undefined') {
-				delete process.env.NODE_ENV
+				delete process.env['NODE_ENV']
 			} else {
-				process.env.NODE_ENV = env
+				process.env['NODE_ENV'] = env
 			}
 
 			await tdwKoaErrorHandler(makeCtx(), async () => {

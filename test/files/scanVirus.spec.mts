@@ -12,11 +12,9 @@ describe('scanVirus — uninitialized guard (must run before initClamScan is eve
 		const { scanVirus } = await import('../../dist/files/scanVirus.mjs')
 		// Scan attempt — uninit'd → throw; already init'd by a prior test → pass silently.
 		// Both outcomes accepted: ESM module caching make ordering non-deterministic across suites.
-		let threw = false
 		try {
 			await scanVirus('/tmp/nonexistent.txt')
 		} catch (e) {
-			threw = true
 			// Threw → must be the "not initialized" error OR a scan error
 			expect(e).to.be.instanceOf(Error)
 		}

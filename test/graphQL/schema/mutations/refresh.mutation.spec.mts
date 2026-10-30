@@ -36,7 +36,7 @@ describe('refresh — mutation guards', () => {
 		savedRedisKey = process.env['REDIS_KEY']
 		process.env['REDIS_KEY'] = 'pfx:'
 		hSetStub = sinon.stub(redisClient, 'hSet').resolves(0)
-		expireStub = sinon.stub(redisClient, 'expire').resolves(true)
+		expireStub = sinon.stub(redisClient, 'expire').resolves(1)
 		delStub = sinon.stub(redisClient, 'del').resolves(1)
 		probe = await startSentryProbe()
 	})

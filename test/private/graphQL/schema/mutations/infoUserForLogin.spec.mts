@@ -34,7 +34,7 @@ describe('infoUserForLogin', () => {
 			account: { email: { valid: true }, deleted: false, disabled: false }
 		}
 		const query = makeQuery(row)
-		const findOneStub = sinon.stub(UserBase, 'findOne').returns(query as never)
+		const findOneStub: sinon.SinonStub = sinon.stub(UserBase, 'findOne').returns(query as never)
 		const session = {} as ClientSession
 
 		const result = await infoUserForLogin('user@test.com', session)

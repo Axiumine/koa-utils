@@ -19,7 +19,7 @@ yarn install --ignore-scripts   # dev dependencies only; maintainers run plain `
 yarn test             # build + tests, no coverage gate
 yarn test:coverage    # the gate a pull request must pass: 100% on every file
 yarn lint:check       # ESLint (zero warnings allowed) + Prettier, no changes written
-yarn check:static     # every static gate: caps, lint, typecheck, Knip, type-coverage, FTA
+yarn check:static     # every static gate: caps, lint, typecheck (src, scripts, specs), Knip, type-coverage, FTA
 ```
 
 `yarn lint` runs the same tools and rewrites files to fix what they can. [REPO.md](REPO.md) is the map of the source tree and the build scripts.
@@ -57,7 +57,7 @@ A pull request is acceptable when all of these hold.
 - **File layout:** `.mts` files; relative and aliased imports end in `.mjs` (NodeNext). Aliases are `@lib/*`, `@throw/*`, `@models/*`, `@context/*`, `@stypes/*`, `@private/*`, `@email/*`, `@dataSources/*`.
 - **Formatting:** [Prettier](https://prettier.io) with the repository's `.prettierrc` (no semicolons, single quotes, no trailing commas, print width 129) and tabs as set in `.editorconfig`.
 - **Linting:** [ESLint](https://eslint.org) with [`@axiumine/eslint-config-be`](https://www.npmjs.com/package/@axiumine/eslint-config-be), typed `strictTypeChecked` rules, `sonarjs` and `security` on `src/`, plus the size and complexity budget in `eslint.config.js` (`max-lines` 300, `max-lines-per-function` 50, `max-params` 4, `max-depth` 3, `complexity` 10). All of them are errors and `lint:check` runs with `--max-warnings 0`. The typed-lint debt that predates the rules sits in `eslint-suppressions.json`; a new violation fails, an old one cannot grow.
-- **Static gates:** `yarn check:static` chains `caps`, `lint:check`, `typecheck` (`src/`, `exactOptionalPropertyTypes`), `typecheck:scripts`, `knip` (unused files, exports and dependencies), `type-coverage` (at least 99.5 non-strict, 96.7 strict) and `fta` (maintainability score cap in `fta.json`). Hooks and CI call this one script, so they cannot disagree. Run one gate alone with its own script, for example `yarn knip`.
+- **Static gates:** `yarn check:static` chains `caps`, `lint:check`, `typecheck` (`src/`, `exactOptionalPropertyTypes`), `typecheck:scripts`, `typecheck:tests` (the spec suite, same strict flags), `knip` (unused files, exports and dependencies), `type-coverage` (at least 99.5 non-strict, 96.7 strict) and `fta` (maintainability score cap in `fta.json`). Hooks and CI call this one script, so they cannot disagree. Run one gate alone with its own script, for example `yarn knip`.
 - **Naming:** `IFoo` for interfaces, `TFoo` for type aliases, `FooType` for `GraphQLObjectType`s, `throwFoo` for error throwers, `handleIfFoo` for guard predicates. One named export per file, and the file is named after it.
 - **Errors:** resolver and mutation logic does not throw a bare `Error`; it goes through a `throw*Error()` helper from `src/graphQL/throw/`, so the HTTP status and title stay stable. The upload helpers and a few internal guards still throw plain `Error`s; do not add new ones to resolvers.
 - **Exceptions to the rules** are allowed but rare, and are written in the code at the place they apply (an inline `eslint-disable` or `nosemgrep` comment with a reason).

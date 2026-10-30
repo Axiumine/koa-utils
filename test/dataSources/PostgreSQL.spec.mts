@@ -152,13 +152,13 @@ describe('PostgreSQL', () => {
 		}
 
 		it('builds pgClient and pgPool from the POSTGRESQL_* env vars', async () => {
-			process.env.POSTGRESQL_USER = 'probe_user'
-			process.env.POSTGRESQL_PWD = 'probe_pwd'
-			process.env.POSTGRESQL_HOST = 'probe.host.invalid'
-			process.env.POSTGRESQL_PORT = '5499'
-			process.env.POSTGRESQL_DBNAME = 'probe_db'
-			process.env.POSTGRESQL_POOL_MAX = '7'
-			process.env.POSTGRESQL_IDLE_TIMEOUT = '1234'
+			process.env['POSTGRESQL_USER'] = 'probe_user'
+			process.env['POSTGRESQL_PWD'] = 'probe_pwd'
+			process.env['POSTGRESQL_HOST'] = 'probe.host.invalid'
+			process.env['POSTGRESQL_PORT'] = '5499'
+			process.env['POSTGRESQL_DBNAME'] = 'probe_db'
+			process.env['POSTGRESQL_POOL_MAX'] = '7'
+			process.env['POSTGRESQL_IDLE_TIMEOUT'] = '1234'
 			const fresh = (await import(`${url}?cfg=${++seq}`)) as typeof import('../../dist/dataSources/PostgreSQL.mjs')
 
 			expect(fresh.pgClient.user).to.equal('probe_user')

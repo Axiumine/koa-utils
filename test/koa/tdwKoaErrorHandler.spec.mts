@@ -113,7 +113,7 @@ describe('tdwKoaErrorHandler', () => {
 
 	it('development mode: non-GraphQL error still sets body and emits app error', async () => {
 		const originalEnv = saveNodeEnv()
-		process.env.NODE_ENV = 'development'
+		process.env['NODE_ENV'] = 'development'
 		try {
 			const ctx = makeCtx()
 			const emitted: unknown[] = []
@@ -131,7 +131,7 @@ describe('tdwKoaErrorHandler', () => {
 
 	it('development mode: GraphQL error does NOT invoke Sentry path — body and status still set', async () => {
 		const originalEnv = saveNodeEnv()
-		process.env.NODE_ENV = 'development'
+		process.env['NODE_ENV'] = 'development'
 		try {
 			const ctx = makeCtx()
 			ctx.app.on('error', () => undefined)

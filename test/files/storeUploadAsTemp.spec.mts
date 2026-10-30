@@ -1,5 +1,4 @@
 import { expect } from 'chai'
-import { EventEmitter } from 'events'
 import { createReadStream, unlinkSync, existsSync, statSync } from 'node:fs'
 import { writeFileSync } from 'node:fs'
 import os from 'os'

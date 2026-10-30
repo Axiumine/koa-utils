@@ -133,7 +133,7 @@ describe('emailChangeHashVerify — resolve', () => {
 	it('hash matches + dateLastReq undefined → throws 500 Internal Server Error', async () => {
 		const user = fakeUser({ hash: 'correctHash' })
 		// remove dateLastReq so it is undefined
-		delete (user.account.email as { dateLastReq?: string }).dateLastReq
+		delete (user.account.email as { dateLastReq?: Date }).dateLastReq
 		findOneStub.returns(makeFindOneChain(user))
 
 		await expectGraphQLErrorAsync(

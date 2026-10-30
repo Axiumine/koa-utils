@@ -68,7 +68,8 @@ describe('safeEqualSecret', () => {
 	})
 
 	it('multi-byte: precomposed vs decomposed é are different strings → false, like ===', () => {
-		expect('é' === 'é').to.equal(false)
+		// string widen: TS see NFC vs NFD literals as no-overlap
+		expect(('é' as string) === 'é').to.equal(false)
 		expect(safeEqualSecret('é', 'é')).to.equal(false)
 	})
 

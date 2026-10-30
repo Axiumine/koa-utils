@@ -9,6 +9,7 @@
  * without DSN → client disabled → later specs see the no-op again.
  */
 import * as Sentry from '@sentry/node'
+import type { NodeOptions } from '@sentry/node'
 
 /** The slice of a Sentry event the specs assert on. */
 export interface ISentryProbeEvent {
@@ -19,7 +20,7 @@ export interface ISentryProbeEvent {
 
 const FAKE_DSN = 'https://public@o0.ingest.sentry.io/1'
 
-const baseOptions = { defaultIntegrations: false, integrations: [], skipOpenTelemetrySetup: true } as const
+const baseOptions: NodeOptions = { defaultIntegrations: false, integrations: [], skipOpenTelemetrySetup: true }
 
 /**
  * Run `body` with a recording Sentry client; resolve every event captured meanwhile.
