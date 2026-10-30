@@ -15,6 +15,8 @@ export const createGetResetPwd = (model: TAccessModel, paths: IResetPwdPaths) =>
 	async function getResetPwd(session: ClientSession, email: string): Promise<IResetPwdRecord | null> {
 		let ret: IResetPwdRecord | null = null
 
+		// Field name comes from the factory `paths` argument the consuming developer supplies at startup, never from request data.
+		// nosemgrep: koa-utils.nosql-injection.dynamic-filter-key
 		const queryRet = await model
 			.findOne({ [paths.email]: email })
 			.select(buildProjection([paths.name, paths.resetDateReq, paths.resetHash, paths.deleted, paths.disabled]))

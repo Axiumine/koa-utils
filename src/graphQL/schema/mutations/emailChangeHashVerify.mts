@@ -98,6 +98,8 @@ async function handleValidHash(ctx: IVerifyContext, uId: Types.ObjectId, dateLas
 	}
 
 	// valid request. meanwhile, has some user registered with this email address ??
+	// Field name comes from the factory `paths` argument the consuming developer supplies at startup, never from request data.
+	// nosemgrep: koa-utils.nosql-injection.dynamic-filter-key
 	const qty = await deps.model.countDocuments({ [paths.email]: uEmail })
 	if (qty > 0) {
 		return false
@@ -133,6 +135,8 @@ export const createEmailChangeHashVerifyMutation = (deps: IEmailChangeHashVerify
 			// Every field this resolver reads must be listed. account.email.requestTimes was missing, and
 			// because this is a .lean() read the absent key made handleHashMismatch throw 500 on *every*
 			// wrong hash: the strike counter never advanced and the owner never got the wrongHash warning.
+			// Field name comes from the factory `paths` argument the consuming developer supplies at startup, never from request data.
+			// nosemgrep: koa-utils.nosql-injection.dynamic-filter-key
 			const user = await deps.model
 				.findOne({ [paths.newEmailTmp]: uEmail })
 				.select(buildProjection([paths.hash, paths.dateLastReq, paths.requestTimes, paths.deleted, paths.disabled]))

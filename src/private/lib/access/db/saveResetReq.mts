@@ -7,6 +7,8 @@ import { ClientSession, Types } from 'mongoose'
 export const createSaveResetReq = (model: TAccessModel, paths: IResetPwdPaths) =>
 	async function saveResetReq(session: ClientSession, _id: Types.ObjectId, now: Date, hash: string) {
 		try {
+			// Field names come from the `paths` map fixed when the flow is built, never from request data; only the values do.
+			// nosemgrep: koa-utils.nosql-injection.mass-assignment-update-doc
 			await model.updateOne(
 				{ _id },
 				{

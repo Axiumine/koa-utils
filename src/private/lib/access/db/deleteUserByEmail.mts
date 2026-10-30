@@ -11,6 +11,8 @@ import * as Sentry from '@sentry/node'
  */
 export const createDeleteUserByEmail = (model: TAccessModel, paths: IVerifyEmailPaths) =>
 	async function deleteUserByEmail(email: string) {
+		// Field name comes from the factory `paths` argument the consuming developer supplies at startup, never from request data.
+		// nosemgrep: koa-utils.nosql-injection.dynamic-filter-key
 		const ret = await model.deleteOne({ [paths.email]: email })
 
 		if (ret.deletedCount === 0) {

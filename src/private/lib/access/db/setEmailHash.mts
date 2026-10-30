@@ -10,6 +10,8 @@ export const createSetEmailHash = (model: TAccessModel, paths: IVerifyEmailPaths
 		//calculate password hash
 		const dtNow = new Date()
 
+		// Field names come from the `paths` map fixed when the flow is built, never from request data; only the values do.
+		// nosemgrep: koa-utils.nosql-injection.mass-assignment-update-doc
 		await model.updateOne(
 			{ _id: userId },
 			{

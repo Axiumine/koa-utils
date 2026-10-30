@@ -5,6 +5,8 @@ import mongoose from 'mongoose'
 
 export const createConfirmNewEmail = (model: TAccessModel, paths: IVerifyEmailPaths) =>
 	async function confirmNewEmail(_id: mongoose.Types.ObjectId, email: string) {
+		// Field names come from the `paths` map fixed when the flow is built, never from request data; only the values do.
+		// nosemgrep: koa-utils.nosql-injection.mass-assignment-update-doc
 		return await model
 			.updateOne(
 				{ _id },
