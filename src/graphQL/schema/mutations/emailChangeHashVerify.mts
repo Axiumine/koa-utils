@@ -1,14 +1,12 @@
 import { DEFAULT_VERIFY_EMAIL_PATHS, IVerifyEmailPaths, TAccessModel } from '@lib/access/accessPaths.mjs'
 import { defaultVerifyEmailMailer, IVerifyEmailMailer } from '@lib/access/verifyEmailMailer.mjs'
-import { StringLib } from '@lib/StringLib.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import confirmNewEmail, { TConfirmNewEmail } from '@private/lib/access/db/confirmNewEmail.mjs'
 import { incReqTimes, TIncReqTimes } from '@private/lib/access/db/incReqTimes.mjs'
-import { buildProjection, readPath } from '@private/lib/access/pathTools.mjs'
+import { handleHashMismatch, handleValidHash, loadVerifyContext } from '@private/lib/access/emailChangeHandlers.mjs'
+import { readPath } from '@private/lib/access/pathTools.mjs'
 import { safeEqualSecret } from '@private/lib/access/safeEqualSecret.mjs'
-import { throwInternalError } from '@throw/throwInternalError.mjs'
 import { GraphQLBoolean, GraphQLNonNull, GraphQLString } from 'graphql'
-import { Types } from 'mongoose'
 
 /** Arguments accepted by the `emailChangeHashVerify` mutation. Exported so a consumer re-exporting the bound mutation can name its type. */
 export interface IEmailChangeHashVerifyArgs {
@@ -31,87 +29,6 @@ export interface IEmailChangeHashVerifyDeps {
 }
 
 /**
- * Everything the extracted branch handlers need, bundled so each stays within the max-params budget:
- * the bound deps, the lean document just read, the lowercased email and the resolved mailer.
- */
-interface IVerifyContext {
-	deps: IEmailChangeHashVerifyDeps
-	user: unknown
-	uEmail: string
-	mailer: IVerifyEmailMailer
-}
-
-/**
- * The submitted hash does not match the stored one: count the attempt and warn the account owner.
- * Extracted from resolve() only to keep it inside the max-lines-per-function budget — behaviour unchanged.
- */
-async function handleHashMismatch(ctx: IVerifyContext, uId: Types.ObjectId, requestTimes: number | undefined) {
-	// hash failed
-
-	if (typeof requestTimes === 'undefined') {
-		throw throwInternalError()
-	}
-
-	await ctx.deps.incReqTimes(uId)
-	// noinspection ES6MissingAwait
-	void ctx.mailer.wrongHash(ctx.uEmail, requestTimes)
-	return false
-}
-
-/**
- * The submitted hash matches: enforce the freshness/account guards and, if the target email is still
- * free, accept it. Extracted from resolve() only to keep it inside the max-lines-per-function budget.
- */
-async function handleValidHash(ctx: IVerifyContext, uId: Types.ObjectId, dateLastReq: Date | undefined) {
-	const { deps, user, uEmail, mailer } = ctx
-	const { paths } = deps
-
-	if (typeof dateLastReq === 'undefined') {
-		// @fixme sentry 'dateLastReq is undefined'
-		throw throwInternalError()
-	}
-
-	// if dateLastReq is older than 3 days, warn and stop
-	const StrLibObj = new StringLib()
-	const now = new Date()
-	const day3ago = new Date(now.setDate(now.getDate() - 3))
-
-	if (StrLibObj.isoToTimestamp(day3ago) > StrLibObj.isoToTimestamp(dateLastReq)) {
-		// dateLastReq too old then 3 days
-
-		// noinspection ES6MissingAwait
-		void mailer.hashReqTooOld(uEmail)
-		return false
-	}
-
-	// account is deleted -> maybe by admin for any reason
-	// Read raw: this is a .lean() query, so Mongoose casting never runs and these are real booleans
-	// only on data that scripts/migrate-account-disabled-to-boolean.mjs has been through. A legacy
-	// string 'false' is truthy and blocks here — migrate, don't coerce.
-	if (readPath(user, paths.deleted)) {
-		return false
-	}
-	// if account is disabled, for any reason
-	if (readPath(user, paths.disabled)) {
-		// noinspection ES6MissingAwait
-		void mailer.accountDisabled(uEmail)
-		return false
-	}
-
-	// valid request. meanwhile, has some user registered with this email address ??
-	// Field name comes from the factory `paths` argument the consuming developer supplies at startup, never from request data.
-	// nosemgrep: koa-utils.nosql-injection.dynamic-filter-key
-	const qty = await deps.model.countDocuments({ [paths.email]: uEmail })
-	if (qty > 0) {
-		return false
-	}
-
-	// accept new email
-	await deps.confirmNewEmail(uId, uEmail)
-	return true
-}
-
-/**
  * Change email - Verify match between email and hash
  *
  * The collection and every field path come from `deps`, so the same resolver serves any account model.
@@ -129,34 +46,18 @@ export const createEmailChangeHashVerifyMutation = (deps: IEmailChangeHashVerify
 			hash: { type: new GraphQLNonNull(GraphQLString) }
 		},
 		async resolve(_: unknown, args: IEmailChangeHashVerifyArgs) {
-			const { paths } = deps
-			const uEmail = args.email.toLowerCase()
-
 			// search if the email exists
-			// Every field this resolver reads must be listed. account.email.requestTimes was missing, and
-			// because this is a .lean() read the absent key made handleHashMismatch throw 500 on *every*
-			// wrong hash: the strike counter never advanced and the owner never got the wrongHash warning.
-			// Field name comes from the factory `paths` argument the consuming developer supplies at startup, never from request data.
-			// nosemgrep: koa-utils.nosql-injection.dynamic-filter-key
-			const user = await deps.model
-				.findOne({ [paths.newEmailTmp]: uEmail })
-				.select(buildProjection([paths.hash, paths.dateLastReq, paths.requestTimes, paths.deleted, paths.disabled]))
-				.lean()
+			const ctx = await loadVerifyContext(deps, mailer, args.email.toLowerCase())
 
 			// if email not found, return (do not tell the user the real problem !)
-			if (user === null) {
+			if (ctx === null) {
 				return false // @fixme throw
 			}
 
-			const ctx: IVerifyContext = { deps, user, uEmail, mailer }
-
-			const uId = readPath(user, '_id') as Types.ObjectId
-			const dateLastReq = readPath(user, paths.dateLastReq) as Date | undefined
-
-			if (safeEqualSecret(args.hash, readPath(user, paths.hash))) {
-				return handleValidHash(ctx, uId, dateLastReq)
+			if (safeEqualSecret(args.hash, readPath(ctx.user, deps.paths.hash))) {
+				return handleValidHash(ctx)
 			}
-			return handleHashMismatch(ctx, uId, readPath(user, paths.requestTimes) as number | undefined)
+			return handleHashMismatch(ctx)
 		}
 	}
 }

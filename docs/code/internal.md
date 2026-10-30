@@ -668,6 +668,31 @@ Since 5.3.0 the document is read through `paths` with `readPath` rather than by 
 
 `mailer` is a **required** parameter on all six factories, not optional with a default. These modules are internal, every call site is in this repository, and an optional mailer would let a new caller silently fall back to the process-wide throttle it did not ask for.
 
+### `emailChangeHandlers`
+
+**Import:** _internal — not exported_
+
+**Signature:**
+```ts
+export interface IVerifyContext {
+	deps: IEmailChangeHashVerifyDeps
+	user: unknown
+	uId: Types.ObjectId
+	uEmail: string
+	mailer: IVerifyEmailMailer
+}
+
+export async function loadVerifyContext(
+	deps: IEmailChangeHashVerifyDeps,
+	mailer: IVerifyEmailMailer,
+	uEmail: string
+): Promise<IVerifyContext | null>
+export async function handleHashMismatch(ctx: IVerifyContext): Promise<boolean>
+export async function handleValidHash(ctx: IVerifyContext): Promise<boolean>
+```
+
+The lookup and the two branch handlers of [`emailChangeHashVerify`](./graphql-mutations.md#emailchangehashverify), kept in their own module so that file stays under the FTA score target. Behaviour is exactly what the resolver did inline. `loadVerifyContext` is the `.lean()` read of the row whose `paths.newEmailTmp` equals the (already lowercased) email, with the projection built from the same path map the handlers read (`paths.hash`, `dateLastReq`, `requestTimes`, `deleted`, `disabled`); it resolves `null` when no row matches, otherwise the bundle of `deps`, the lean document, its `_id`, the email and the mailer. `handleHashMismatch` throws `throwInternalError()` when `requestTimes` is absent, otherwise calls `incReqTimes(uId)`, fires `mailer.wrongHash` without awaiting it and returns `false`. `handleValidHash` throws `throwInternalError()` when `dateLastReq` is absent, then applies the 3-day, deleted, disabled and email-taken checks in that order before calling `confirmNewEmail`. `deps` is imported from the mutation as a type only, so there is no runtime cycle.
+
 ## `lib/access/` — constant-time compare and reset core
 
 Three internal helpers behind the hash checks. None is exported; `package.json` `exports` has no entry for them.

@@ -73,7 +73,7 @@ src/
     ├── email/accountMessages.mts, resetMessages.mts, noticeMessages.mts, htmlFrame.mts, messageParts.mts, escapeHtml.mts, orFalse.mts, IEmailContent.mts  # SocketLabsLib copy builders + HTML escaping
     ├── files/_validateMimeType.mts, reEncode.mts
     ├── graphQL/Consts.mts, schema/{context,mutations}/
-    └── lib/access/{db/* (incl. abandonUser.mts), handleIf*, assertVerifyEmailAllowed.mts, pathTools.mts,
+    └── lib/access/{db/* (incl. abandonUser.mts), handleIf*, assertVerifyEmailAllowed.mts, emailChangeHandlers.mts, pathTools.mts,
                    safeEqualSecret.mts, assertResetAllowed.mts, applyPasswordReset.mts}
 ```
 
