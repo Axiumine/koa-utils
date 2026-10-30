@@ -1,3 +1,4 @@
+import eslintComments from '@eslint-community/eslint-plugin-eslint-comments';
 import eslintConfig from '@axiumine/eslint-config-be';
 import tsEslint from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
@@ -32,6 +33,20 @@ export default [
 			'@typescript-eslint/only-throw-error': 'off',
 			'@typescript-eslint/restrict-template-expressions': ['error', { allowNullish: true, allowNumber: true }],
 			'@typescript-eslint/restrict-plus-operands': ['error', { allowNumberAndString: true }]
+		}
+	},
+	{
+		// Every directive that silences a rule must say why and must name the rule. Without this, a bare
+		// `/* eslint-disable */` or `// eslint-disable-next-line rule` passes review as easily as a justified one.
+		// `allowWholeFile`: a file-level `/* eslint-disable rule -- reason */` needs no matching `eslint-enable`.
+		files: [...SRC, 'scripts/**/*.mts'],
+		plugins: {
+			'@eslint-community/eslint-comments': eslintComments
+		},
+		rules: {
+			'@eslint-community/eslint-comments/require-description': ['error', { ignore: [] }],
+			'@eslint-community/eslint-comments/no-unlimited-disable': 'error',
+			'@eslint-community/eslint-comments/disable-enable-pair': ['error', { allowWholeFile: true }]
 		}
 	},
 	{

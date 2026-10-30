@@ -9,7 +9,7 @@ import { Model } from 'mongoose'
  * contract instead — a wrong path is a runtime no-op, which is why the defaults are exported and the
  * flows are tested against them.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- deliberate Model<any>: the flows use computed field paths, see the doc above
 export type TAccessModel = Model<any>
 
 /**
