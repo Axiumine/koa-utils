@@ -113,4 +113,43 @@ describe('handleIfMoreThan3DaysPassed', () => {
 		expect(hashReqTooOldStub.calledOnceWith(email)).to.equal(true)
 		expect(deleteOneStub.calledOnceWith({ 'login.email': email })).to.equal(true)
 	})
+
+	it('dateLastReq exactly on the 3-day boundary → still honoured (strict >): no email, no disposal', async () => {
+		// Frozen clock → "3 days ago" computed in guard === boundary below to the ms. Mutant `>=` → boundary link rejected.
+		const clock = sinon.useFakeTimers({ now: new Date('2024-06-15T12:00:00.000Z'), toFake: ['Date'] })
+		try {
+			const boundary = new Date()
+			boundary.setDate(boundary.getDate() - 3)
+
+			const result = await guard('edge@test.com', boundary)
+
+			expect(result).to.equal(undefined)
+			expect(mailer.hashReqTooOld.called).to.equal(false)
+			expect(disposeFake.called).to.equal(false)
+		} finally {
+			clock.restore()
+		}
+	})
+
+	it('dateLastReq 1 ms past the 3-day boundary → rejected', async () => {
+		// Pair of the boundary test: proves the comparison still fires right next to the edge.
+		const clock = sinon.useFakeTimers({ now: new Date('2024-06-15T12:00:00.000Z'), toFake: ['Date'] })
+		try {
+			const justOver = new Date()
+			justOver.setDate(justOver.getDate() - 3)
+			justOver.setTime(justOver.getTime() - 1)
+
+			let thrown: Error | undefined
+			try {
+				await guard('edge@test.com', justOver)
+			} catch (e) {
+				thrown = e as Error
+			}
+
+			expect(thrown?.message).to.equal(EMAIL_CHECK_LINK)
+			expect(disposeFake.calledOnceWith('edge@test.com')).to.equal(true)
+		} finally {
+			clock.restore()
+		}
+	})
 })

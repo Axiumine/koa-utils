@@ -6,6 +6,7 @@
  */
 import { setRedisLoginSession } from '@private/graphQL/schema/mutations/setRedisLoginSession.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
+import * as Sentry from '@sentry/node'
 import { expect } from 'chai'
 import sinon from 'sinon'
 import { Types } from 'mongoose'
@@ -17,13 +18,26 @@ import { expectGraphQLErrorAsync } from '../../../../helpers/assertGraphQLError.
 
 // ---------------------------------------------------------------------------
 
+// Sentry export sealed → not stubbable. Observe via fake client on current scope: Sentry.captureX → scope → client.captureX.
+function spyOnSentry() {
+	const captureException = sinon.stub()
+	const scope = Sentry.getCurrentScope()
+	const previous = scope.getClient()
+	scope.setClient({ captureException } as never)
+	return { captureException, restore: () => scope.setClient(previous as never) }
+}
+
 describe('setRedisLoginSession', () => {
 	let hSetStub: sinon.SinonStub
 	let expireStub: sinon.SinonStub
 	let delStub: sinon.SinonStub
 
+	const savedRedisKey = process.env['REDIS_KEY']
+
 	afterEach(() => {
 		sinon.restore()
+		if (savedRedisKey === undefined) delete process.env['REDIS_KEY']
+		else process.env['REDIS_KEY'] = savedRedisKey
 	})
 
 	it('happy path: stores access + refresh keys and sets their expiry', async () => {
@@ -89,5 +103,57 @@ describe('setRedisLoginSession', () => {
 
 		expect(hSetStub.calledTwice).to.equal(true)
 		expect(delStub.calledTwice).to.equal(true)
+	})
+
+	it('keys are exact: <REDIS_KEY>access:<token> and <REDIS_KEY>refresh:<token>', async () => {
+		// REDIS_KEY set to a known value → mutant reading another env name yields "undefined" prefix, caught.
+		process.env['REDIS_KEY'] = 's6-prefix:'
+		const prefix = 's6-prefix:'
+		const hSet = sinon.stub(redisClient, 'hSet').resolves(1)
+		const expire = sinon.stub(redisClient, 'expire').resolves(true)
+
+		await setRedisLoginSession(new Types.ObjectId(), 'acc-1', 60, 'ref-1')
+
+		expect(hSet.firstCall.args[0]).to.equal(`${prefix}access:acc-1`)
+		expect(hSet.secondCall.args[0]).to.equal(`${prefix}refresh:ref-1`)
+		expect(expire.firstCall.args[0]).to.equal(`${prefix}access:acc-1`)
+		expect(expire.secondCall.args[0]).to.equal(`${prefix}refresh:ref-1`)
+	})
+
+	it('failure: del gets the exact keys and Sentry gets the original error, once', async () => {
+		process.env['REDIS_KEY'] = 's6-prefix:'
+		const prefix = 's6-prefix:'
+		const boom = new Error('redis down')
+		sinon.stub(redisClient, 'hSet').rejects(boom)
+		sinon.stub(redisClient, 'expire').resolves(true)
+		const del = sinon.stub(redisClient, 'del').resolves(1)
+		const sentry = spyOnSentry()
+		try {
+			await expectGraphQLErrorAsync(
+				() => setRedisLoginSession(new Types.ObjectId(), 'acc-2', 60, 'ref-2'),
+				500,
+				'Internal Server Error'
+			)
+
+			expect(del.firstCall.args[0]).to.equal(`${prefix}access:acc-2`)
+			expect(del.secondCall.args[0]).to.equal(`${prefix}refresh:ref-2`)
+			expect(sentry.captureException.calledOnce).to.equal(true)
+			expect(sentry.captureException.firstCall.args[0]).to.equal(boom)
+		} finally {
+			sentry.restore()
+		}
+	})
+
+	it('success: nothing reported to Sentry', async () => {
+		sinon.stub(redisClient, 'hSet').resolves(1)
+		sinon.stub(redisClient, 'expire').resolves(true)
+		const sentry = spyOnSentry()
+		try {
+			await setRedisLoginSession(new Types.ObjectId(), 'acc-3', 60, 'ref-3')
+
+			expect(sentry.captureException.called).to.equal(false)
+		} finally {
+			sentry.restore()
+		}
 	})
 })
