@@ -9,24 +9,36 @@ on:
     branches:
       - main
 
+# Read-only by default. A job that needs more declares it itself, so a job added
+# later without a `permissions:` block cannot silently inherit write access.
+permissions:
+  contents: read
+
 jobs:
   qodana:
     name: Qodana Ultimate Plus
+    # Dependabot PRs never receive QODANA_TOKEN (Dependabot has its own secret store),
+    # so the scan cannot start there. Skip it instead of failing; Qodana still runs on
+    # the push to main after the merge. Fork PRs without the secret still fail, as before.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    # Per qodana-action source (v2026.2.2): checks API for the check run and annotations,
+    # issues API for the PR summary comment. `contents: write` is only used by push-fixes
+    # (default `none`) and `security-events: write` is never used (this action does not
+    # upload to code scanning). Setting push-fixes needs `contents: write` back.
     permissions:
-      contents: write
-      pull-requests: write
-      checks: write
-      security-events: write
+      contents: read # actions/checkout
+      checks: write # check run and inline annotations (input use-annotations, default true)
+      pull-requests: write # results summary comment on the PR (input post-pr-comment, default true)
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: yarn
@@ -38,7 +50,7 @@ jobs:
         run: yarn test:coverage
 
       - name: Qodana scan
-        uses: JetBrains/qodana-action@v2026.2
+        uses: JetBrains/qodana-action@3e8d76ff0e0241618abd808682f426afe84bab3f # v2026.2.2
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
         with:
