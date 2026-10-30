@@ -17,7 +17,8 @@
 #
 # Usage:
 #   ./scripts/semgrep.sh              # custom koa-utils rules
-#   ./scripts/semgrep.sh --registry   # custom rules + registry packs (needs network)
+#   ./scripts/semgrep.sh --registry   # custom rules + registry packs: typescript, nodejs, javascript, nodejsscan,
+#                                     # secrets (needs network; packs are not version pinned, CI only)
 #   ./scripts/semgrep.sh --json       # machine-readable output
 #
 set -euo pipefail
@@ -53,7 +54,7 @@ EXTRA=()
 for arg in "$@"; do
   case "$arg" in
     --registry)
-      CONFIGS+=(--config=p/typescript --config=p/nodejs --config=p/javascript)
+      CONFIGS+=(--config=p/typescript --config=p/nodejs --config=p/javascript --config=p/nodejsscan --config=p/secrets)
       ;;
     *)
       EXTRA+=("$arg")
