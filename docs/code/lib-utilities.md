@@ -164,7 +164,9 @@ String/HTML sanitizing, random-value generation, date formatting and link-buildi
 cleanHtml(str: string): string
 ```
 
-Strips every HTML tag from the string using the regex `/(<([^>]+)>)/gi`, replacing each match with an empty string. Does not decode entities or sanitize attributes beyond tag removal.
+Strips every HTML tag from the string. A tag starts at a `<`, holds at least one character that is not `>` (a newline counts), and ends at the first `>` after it. Tags are matched left to right without overlap, and any `<` inside a tag goes with it (`<<a>` becomes an empty string). `<>` is not a tag and stays, and so does a `<` with no `>` after it, together with the text that follows. Does not decode entities or sanitize attributes beyond tag removal.
+
+Runs in linear time (a single left-to-right scan with `indexOf`). Through 7.1.0 it was `str.replace(/(<([^>]+)>)/gi, '')`, which is quadratic on input with many `<` and no `>` (ReDoS, CWE-1333: 80,000 characters took about 1.9 s). The output is byte-identical to that regex for every input; a differential spec in `test/lib/StringLib.cleanHtml.spec.mts` keeps the old regex as an oracle.
 
 **Parameters:**
 
@@ -181,7 +183,7 @@ Strips every HTML tag from the string using the regex `/(<([^>]+)>)/gi`, replaci
 cleanHtmlUndefined(str: string | undefined): string | undefined
 ```
 
-Same tag-stripping behavior as `cleanHtml`, but passes `undefined` straight through unchanged instead of throwing, for optional string fields.
+Same tag-stripping behavior (and the same linear running time) as `cleanHtml`, but passes `undefined` straight through unchanged instead of throwing, for optional string fields.
 
 **Parameters:**
 
