@@ -1,9 +1,13 @@
 import { expect } from 'chai'
 import { EventEmitter } from 'events'
-import { createReadStream, unlinkSync, existsSync } from 'node:fs'
+import { createReadStream, unlinkSync, existsSync, statSync } from 'node:fs'
 import { writeFileSync } from 'node:fs'
 import os from 'os'
 import path from 'path'
+
+// Static import → module body (MAX_FILE_SIZE) evaluated at load, before any test. A dynamic import inside one
+// test would tie module-level code to that one test only → default-limit mutant never face the limit tests.
+import { storeUploadAsTemp } from '../../dist/files/storeUploadAsTemp.mjs'
 
 // storeUploadAsTemp write to /tmp (UPLOAD_TEMP_DIRECTORY_URL = '/tmp'). Real streams + real /tmp →
 // cleanup in afterEach.
@@ -108,5 +112,60 @@ describe('storeUploadAsTemp', () => {
 		expect(caught, 'a failed upload must reject').to.be.instanceOf(Error)
 		expect((caught as Error).message).to.equal('read stream destroyed')
 		expect(result, 'no IStoreFile may be returned for a failed upload').to.equal(undefined)
+	})
+
+	it('accepts an upload exactly at the limit and rejects one byte over, naming the limit', async () => {
+		// `>` not `>=`: size == limit is allowed.
+		const ok = await storeUploadAsTemp(makeUploadFromBuffer(Buffer.alloc(10), 'edge.jpg'), 10)
+		expect(statSync(ok.filePath).size).to.equal(10)
+		unlinkSync(ok.filePath)
+
+		let caught: unknown
+		try {
+			await storeUploadAsTemp(makeUploadFromBuffer(Buffer.alloc(11), 'edge.jpg'), 10)
+		} catch (e) {
+			caught = e
+		}
+		expect((caught as Error | undefined)?.message).to.equal('File size exceeds the limit of 10 bytes')
+	})
+
+	it('default limit is 5 MiB: 5 MiB passes, 5 MiB + 1 byte is rejected', async () => {
+		const limit = 5 * 1024 * 1024
+		const ok = await storeUploadAsTemp(makeUploadFromBuffer(Buffer.alloc(limit), 'five.jpg'))
+		expect(statSync(ok.filePath).size).to.equal(limit)
+		unlinkSync(ok.filePath)
+
+		let caught: unknown
+		try {
+			await storeUploadAsTemp(makeUploadFromBuffer(Buffer.alloc(limit + 1), 'five.jpg'))
+		} catch (e) {
+			caught = e
+		}
+		expect((caught as Error | undefined)?.message).to.equal(`File size exceeds the limit of ${limit} bytes`)
+	})
+
+	it('oversize upload stops the write stream: rejects even when the source never ends', async function () {
+		// No destroy() → 'close' only fire when source end → promise hang. Source here push once, never end.
+		this.timeout(3000)
+		const { Readable } = await import('node:stream')
+		let pushed = false
+		const endless = new Readable({
+			read() {
+				if (!pushed) {
+					pushed = true
+					this.push(Buffer.alloc(100))
+				}
+			}
+		})
+
+		let caught: unknown
+		try {
+			await storeUploadAsTemp(makeUploadFromStream(endless, 'endless.jpg'), 1)
+		} catch (e) {
+			caught = e
+		} finally {
+			endless.destroy()
+		}
+		expect((caught as Error | undefined)?.message).to.equal('File size exceeds the limit of 1 bytes')
 	})
 })

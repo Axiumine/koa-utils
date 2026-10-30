@@ -111,4 +111,25 @@ describe('uploadTempImage', () => {
 		expect(err).to.be.instanceOf(Error)
 		expect((err as Error).message).to.equal('Error storing image')
 	})
+
+	it('logs the underlying failure with console.error("Error storing image:", cause) before rethrowing', async () => {
+		const consoleErr = sinon.stub(console, 'error')
+		const src = makeSrcFile(Buffer.from('x'), `src-log-${Date.now()}.tmp`)
+		const upload = makeUploadFromFile(src, 'bad.gif') // .gif not allowed
+
+		const { uploadTempImage } = await import('../../dist/files/uploadTempImage.mjs')
+		let err: unknown
+		try {
+			await uploadTempImage(upload)
+		} catch (e) {
+			err = e
+		}
+
+		expect(err).to.be.instanceOf(Error)
+		expect(consoleErr.callCount).to.equal(1)
+		expect(consoleErr.firstCall.args[0]).to.equal('Error storing image:')
+		expect(consoleErr.firstCall.args[1]).to.be.instanceOf(Error)
+		// logged cause is the real failure, not the generic rethrown error
+		expect(consoleErr.firstCall.args[1]).to.not.equal(err)
+	})
 })
