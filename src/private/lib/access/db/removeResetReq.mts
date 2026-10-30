@@ -14,6 +14,8 @@ export const createRemoveResetReq = (model: TAccessModel, paths: IResetPwdPaths)
 		// The unset list comes from paths.resetClear, NOT from the fields saveResetReq writes. A layout
 		// holding the request in one required subdocument can only be cleared by unsetting the container;
 		// unsetting its members leaves a document that fails validation and the write is rejected.
+		// Field name comes from the factory `paths` argument the consuming developer supplies at startup, never from request data.
+		// nosemgrep: koa-utils.nosql-injection.dynamic-filter-key
 		return model
 			.updateOne({ [paths.email]: email }, { $unset: buildUnset(paths.resetClear) })
 			.session(session)

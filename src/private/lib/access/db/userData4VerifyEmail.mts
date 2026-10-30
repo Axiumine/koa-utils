@@ -9,6 +9,8 @@ export const createUserData4VerifyEmail = (model: TAccessModel, paths: IVerifyEm
 		// Every field the guard chain reads must be listed. This is a .lean() read, so a field left out
 		// of the projection is simply absent on the returned object, with no error — which is how a
 		// missing requestTimes turned every wrong-hash attempt into a 500 under a green coverage gate.
+		// Field name comes from the factory `paths` argument the consuming developer supplies at startup, never from request data.
+		// nosemgrep: koa-utils.nosql-injection.dynamic-filter-key
 		const user = await model
 			.findOne({ [paths.email]: uEmail })
 			.select(buildProjection([paths.hash, paths.valid, paths.dateLastReq, paths.requestTimes, paths.deleted, paths.disabled]))

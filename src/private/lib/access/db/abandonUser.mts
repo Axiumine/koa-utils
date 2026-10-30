@@ -39,6 +39,8 @@ export const createAbandonUser = ({ model, paths, mode, deletedValue = true }: I
 
 			// Only the tombstone is written. The verification fields are left as they are — the flag is what
 			// every guard reads, and unsetting members of a strict subdocument is what `verifyClear` exists for.
+			// Field names come from the `paths` map fixed when the flow is built, never from request data; only the values do.
+			// nosemgrep: koa-utils.nosql-injection.dynamic-filter-key, koa-utils.nosql-injection.mass-assignment-update-doc
 			await model.updateOne({ [paths.email]: email }, { $set: { [paths.deleted]: value } }, { runValidators: true })
 		}
 	}
