@@ -23,8 +23,8 @@ interface IHandleIfHashBadArgs {
  */
 export const createHandleIfHashBad = (incReqTimesFn: TIncReqTimes, mailer: IVerifyEmailMailer) =>
 	async function handleIfHashBad({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) {
-		// eslint-disable-next-line security/detect-possible-timing-attacks -- known limit, owner decision pending on crypto.timingSafeEqual; hash is single-use and throttled
-		if (hash !== dbHash) {
+		// eslint-disable-next-line security/detect-possible-timing-attacks -- known limit, owner decision pending on crypto.timingSafeEqual, not constant-time; hash is single-use and throttled
+		if (hash !== dbHash /* nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack */) {
 			// hash failed
 			await incReqTimesFn(uId)
 

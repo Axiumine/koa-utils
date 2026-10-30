@@ -17,7 +17,7 @@ export function generateRefreshToken() {
 export function accessTokenExpiry() {
 	// Generate a random number between 0 (inclusive) and 1 (exclusive)
 	// eslint-disable-next-line sonarjs/pseudo-random -- intentional 30-90 min expiry jitter, not a secret
-	const random = Math.random()
+	const random = Math.random() // nosemgrep: ajinabraham.njsscan.crypto.crypto_node.node_insecure_random_generator -- 30-90 min expiry jitter, never a secret or token value
 	// Scale it to the desired range (30 to 90)
 	const scaledRandom = random * 61 // 90 - 30 + 1
 	// Shift it to start from 30 and switch to minutes

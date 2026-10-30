@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
 // snapshot files live in test/__snapshots__, read from repo root → cwd = repo root under yarn test
-export const SNAPSHOT_DIR = resolve(process.cwd(), 'test', '__snapshots__')
+const SNAPSHOT_DIR = resolve(process.cwd(), 'test', '__snapshots__')
 
 // tab indent + trailing newline → stable git diff, matches .editorconfig
 export function serialiseSnapshot(value: unknown): string {
