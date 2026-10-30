@@ -7,6 +7,9 @@
  * - hash !== dbHash → incReqTimes + wrongHash(uEmail, requestTimes + 1) → throw Error(EMAIL_CHECK_LINK)
  * - hash !== dbHash, requestTimes omitted → wrongHash called with 1
  * - hash === dbHash → resolve, no side effects
+ * - near-miss hash (prefix, longer, empty, 'undefined') + undefined dbHash → strike like any wrong hash
+ *
+ * Compare go through safeEqualSecret (constant time). Same outcome as old `!==` for every input.
  */
 import { createHandleIfHashBad, handleIfHashBad } from '@private/lib/access/handleIfHashBad.mjs'
 import { EMAIL_CHECK_LINK } from '@private/lib/access/Constants.mjs'
@@ -79,6 +82,43 @@ describe('handleIfHashBad', () => {
 
 		expect(caught).to.be.instanceOf(Error)
 		expect(mailer.wrongHash.firstCall.args).to.deep.equal(['user@test.com', 1])
+	})
+
+	for (const [label, sent] of [
+		['strict prefix of dbHash', 'correctHas'],
+		['dbHash with 1 extra char', 'correctHash!'],
+		['empty hash', ''],
+		['literal "undefined"', 'undefined']
+	] as const) {
+		it(`near-miss hash (${label}) → still strike + wrongHash mail + throw`, async () => {
+			const uId = new Types.ObjectId()
+
+			let caught: unknown
+			try {
+				await guard({ uId, uEmail: 'user@test.com', hash: sent, requestTimes: 1, dbHash: 'correctHash' })
+			} catch (e) {
+				caught = e
+			}
+
+			expect((caught as Error).message).to.equal(EMAIL_CHECK_LINK)
+			expect(incReqTimesFake.calledOnceWith(uId)).to.equal(true)
+			expect(mailer.wrongHash.firstCall.args).to.deep.equal(['user@test.com', 2])
+		})
+	}
+
+	it('dbHash undefined never matches: literal "undefined" + empty hash both strike', async () => {
+		for (const sent of ['undefined', '']) {
+			incReqTimesFake.resetHistory()
+			let caught: unknown
+			try {
+				await guard({ uId: new Types.ObjectId(), uEmail: 'user@test.com', hash: sent, dbHash: undefined })
+			} catch (e) {
+				caught = e
+			}
+
+			expect((caught as Error).message, sent).to.equal(EMAIL_CHECK_LINK)
+			expect(incReqTimesFake.calledOnce, sent).to.equal(true)
+		}
 	})
 
 	it('hash matches dbHash → resolves without throwing and without side effects', async () => {

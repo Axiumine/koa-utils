@@ -605,7 +605,7 @@ Since 5.3.0 the document is read through `paths` with `readPath` rather than by 
 | `handleIfAccountDeleted` | `(email: string, deleted: boolean = false) => Promise<void>` | If `deleted`, sends `mailer.accountDisabled(email)`, then throws `Error(EMAIL_CHECK_LINK)`. `accountDisabled`, not a deleted-specific template — `SocketLabsLib` has none, and this is what it has always sent. |
 | `handleIfAccountDisabled` | `(email: string, disabled: boolean = false) => Promise<void>` | Same pattern as `handleIfAccountDeleted`, gated on `disabled`. |
 | `handleIfEmailAlreadyValid` | `(uEmail: string, valid: boolean) => Promise<void>` | If `valid`, sends `mailer.emailAlreadyValid(uEmail)`, then throws `Error(EMAIL_CHECK_LINK)`. Ties into the `signUp` "already valid" email + 409 dual-path behavior documented in `CLAUDE.md`. |
-| `handleIfHashBad` | `({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) => Promise<void>` | Single destructured object argument (`IHandleIfHashBadArgs = { uId: mongoose.Types.ObjectId; uEmail: string; hash: string; requestTimes?: number | undefined; dbHash?: string | undefined }`). If `hash !== dbHash`: increments the stored request counter via `incReqTimes(uId)`, sends `mailer.wrongHash(uEmail, requestTimes + 1)`, then throws `Error(EMAIL_CHECK_LINK)`. |
+| `handleIfHashBad` | `({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) => Promise<void>` | Single destructured object argument (`IHandleIfHashBadArgs = { uId: mongoose.Types.ObjectId; uEmail: string; hash: string; requestTimes?: number | undefined; dbHash?: string | undefined }`). If `hash` does not equal `dbHash` (compared in constant time through [`safeEqualSecret`](#libaccess--constant-time-compare); an `undefined` `dbHash` never matches): increments the stored request counter via `incReqTimes(uId)`, sends `mailer.wrongHash(uEmail, requestTimes + 1)`, then throws `Error(EMAIL_CHECK_LINK)`. |
 | `handleIfMoreThan3DaysPassed` | `(uEmail: string, dateLastReq: Date = new Date()) => Promise<void>` | Computes "3 days ago" and compares timestamps via `StringLib.isoToTimestamp`; if `dateLastReq` is older than 3 days, sends `mailer.hashReqTooOld(uEmail)`, **disposes of the account** through the writer it was built with, then throws `Error(EMAIL_CHECK_LINK)`. |
 | `handleIfTooMuchRequestsTimes` | `(uEmail: string, requestTimes: number = 99) => Promise<void>` | If `requestTimes >= 5`, sends `mailer.tooMuchVerifyRequests(uEmail)`, **disposes of the account** through the writer it was built with, then throws `Error(EMAIL_CHECK_LINK)`. |
 
@@ -627,6 +627,23 @@ Since 5.3.0 the document is read through `paths` with `readPath` rather than by 
 `handleIfMoreThan3DaysPassed` and `handleIfTooMuchRequestsTimes` dispose of the account as a side effect of the guard failing, and with the default `onAbandon: 'delete'` there is no recovery path once either fires. Since that writer is whatever [`createVerifyEmailFlow`](./lib-access.md#abandonment-policy--onabandon-deletedvalue-deleteuserbyemail) was given, the guards cannot tell a delete from a tombstone from a no-op — and must not: both still throw regardless, so disposal never decides whether the link is honoured. Do not add a branch here that inspects the policy.
 
 `mailer` is a **required** parameter on all six factories, not optional with a default. These modules are internal, every call site is in this repository, and an optional mailer would let a new caller silently fall back to the process-wide throttle it did not ask for.
+
+## `lib/access/` — constant-time compare
+
+Internal helper behind the hash checks. Not exported; `package.json` `exports` has no entry for it.
+
+### `safeEqualSecret`
+
+**Import:** _internal — not exported_ (`src/private/lib/access/safeEqualSecret.mts`)
+
+**Signature:**
+```ts
+export const safeEqualSecret = (a: unknown, b: unknown): boolean => { ... }
+```
+
+Constant-time equality of two secret strings. `===` stops at the first differing character, so response time tells an attacker how long a guessed prefix is. Here both sides are hashed with SHA-256 first, which gives two 32-byte buffers whatever the input lengths (`timingSafeEqual` throws on unequal lengths, and a length check would leak the secret's length), and `node:crypto`'s `timingSafeEqual` compares the digests. The digest is taken over the UTF-16 code units (`utf16le`), not UTF-8: UTF-8 turns every lone surrogate into U+FFFD, so two different strings could otherwise share a digest and compare equal.
+
+For two strings the result is exactly `a === b`. It fails closed: if either side is not a string (an unset stored hash, a field read off a `.lean()` document, `null`) the result is `false`, `undefined` against `undefined` included. Used by `handleIfHashBad` (activation link) and `emailChangeHashVerify`. Wrong guesses stay as they were: both bump the strike counter.
 
 ## `lib/makeBodyJson`
 
