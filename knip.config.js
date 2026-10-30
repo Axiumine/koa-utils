@@ -41,10 +41,7 @@ export default {
 		// The built .d.mts files import its types, it is not a declared devDependency (hint only, kept for visibility).
 		'@types/keygrip',
 		// Optional peer by design: the package keeps zero runtime dependencies and every peer is consumer-installed.
-		'keygrip',
-		// Unused today, kept pending owner decision.
-		'mongodb-memory-server',
-		'tsx'
+		'keygrip'
 	],
 	// tsconfig.json carries comments and a trailing comma that Knip's JSON parser cannot resolve.
 	ignoreUnresolved: [/^$/]
