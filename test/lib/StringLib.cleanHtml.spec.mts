@@ -5,7 +5,9 @@
  * New impl must give byte-identical output → old regex kept inline as ORACLE, never imported from src.
  * - exhaustive: every string ≤ 8 chars over ['<', '>', 'a', ' ', '\n'] (488281 strings)
  * - seeded random: longer strings, fixed seeds → reproducible, no flake
- * - perf: 200k reps of `<`, `<>`, `<a` etc must finish far under bound (generous, no tight timing)
+ * - perf: 100k then 1M reps of `<`, `<a` etc (50k for shapes that loop once per unit) must finish far under bound
+ *   (generous, no tight timing)
+ * - non-string input: TypeError like the old form, never a silent pass-through
  * Oracle itself only fed short strings: on long `<` runs it is the quadratic one.
  */
 import { StringLib } from '@lib/StringLib.mjs'
@@ -165,51 +167,114 @@ describe('StringLib cleanHtml: differential vs old regex', () => {
 })
 
 describe('StringLib cleanHtml: linear time (ReDoS CWE-1333 regression)', () => {
-	const REPS = 200_000
-	// old impl: 80k `<` took ~1.9 s, 200k would take ~12 s. Linear: few ms. Bound generous → no flake on slow CI.
-	const BOUND_MS = 1000
+	// Shapes where the scanner leaves the loop after 1 pass (no `>` at all, or 1 closing `>`): 2 sizes, in order.
+	// Old regex: 80k `<` took ~1.9 s → GUARD_REPS ~3 s → fails here, never reaches REPS.
+	// REPS sized for the other regression: indexOf is memchr (SIMD), so a rescan per `<` (dropped `break`,
+	// resume at `open + 1` instead of `keepFrom`) costs only ~100 ms at 200k, ~2.4 s at 1M, still quadratic → bound
+	// must sit far below that at REPS. Linear impl: ~1 ms at both sizes. Bound generous → no flake on slow CI.
+	const GUARD_REPS = 100_000
+	const REPS = 1_000_000
+	// Shapes where the loop runs once per unit (`<>`, `<a>`, `<<>`): old regex is linear on them too, so they pin
+	// output at scale, not the ReDoS. Stryker instrumentation puts dozens of mutant-switch calls in each pass
+	// (~2 µs per pass in the dry run: 1M passes took 2.3 s) → keep small, else the dry run itself fails the bound.
+	const LOOPING_REPS = 50_000
+	const BOUND_MS = 500
 
-	// [unit, kept]: kept = unit is not a tag → output equals input. Else whole input stripped.
-	const units: Array<[string, boolean]> = [
-		['<', true],
-		['<>', true],
-		['<a', true],
-		['<a>', false],
-		['<<>', false],
-		['<\n', true]
-	]
-
-	for (const [unit, kept] of units) {
-		it(`${REPS} x ${JSON.stringify(unit)} under ${BOUND_MS} ms`, () => {
-			const input = unit.repeat(REPS)
+	// best of 2: 1 stall (GC pause, loaded CI box) on a ms-scale run must not fail a linear impl.
+	// Quadratic impl is over the bound on both attempts.
+	function timedClean(input: string): { out: string; outUndefined: string | undefined; elapsed: number } {
+		let result: { out: string; outUndefined: string | undefined; elapsed: number } = { out: '', outUndefined: '', elapsed: Infinity }
+		for (let attempt = 0; attempt < 2 && result.elapsed >= BOUND_MS; attempt++) {
 			const t0 = performance.now()
 			const out = s.cleanHtml(input)
 			const outUndefined = s.cleanHtmlUndefined(input)
-			const elapsed = performance.now() - t0
+			result = { out, outUndefined, elapsed: performance.now() - t0 }
+		}
 
-			expect(elapsed).to.be.lessThan(BOUND_MS)
-			expect(out === (kept ? input : '')).to.equal(true)
-			expect(outUndefined === out).to.equal(true)
+		return result
+	}
+
+	interface IShape {
+		name: string
+		build: (reps: number) => string
+		// kept = unit is not a tag → output equals input. Else whole input stripped.
+		kept: boolean
+		// loop runs once per unit → small size only
+		looping: boolean
+	}
+
+	const unit = (u: string, kept: boolean, looping: boolean): IShape => ({
+		name: `${JSON.stringify(u)} repeated`,
+		build: (reps) => u.repeat(reps),
+		kept,
+		looping
+	})
+
+	const shapes: IShape[] = [
+		unit('<', true, false),
+		unit('<>', true, true),
+		unit('<a', true, false),
+		unit('<a>', false, true),
+		unit('<<>', false, true),
+		unit('<\n', true, false),
+		// 2-byte string: indexOf runs a different (slower) scan than on one-byte strings
+		unit('<\u0100', true, false),
+		{ name: '"<" repeated, closed by one ">" (single tag)', build: (reps) => '<'.repeat(reps) + '>', kept: false, looping: false },
+		{ name: 'text, "<" repeated, text', build: (reps) => 'head' + '<'.repeat(reps) + 'tail', kept: true, looping: false }
+	]
+
+	for (const shape of shapes) {
+		const sizes = shape.looping ? [LOOPING_REPS] : [GUARD_REPS, REPS]
+		it(`${shape.name}: ${sizes.join(' then ')} reps, each under ${BOUND_MS} ms`, () => {
+			for (const reps of sizes) {
+				const input = shape.build(reps)
+				const { out, outUndefined, elapsed } = timedClean(input)
+
+				expect(elapsed, `reps=${reps}: elapsed ms`).to.be.lessThan(BOUND_MS)
+				// boolean compare: huge strings, chai would print them all on failure
+				expect(out === (shape.kept ? input : ''), `reps=${reps}: output (length ${out.length})`).to.equal(true)
+				expect(outUndefined === out, `reps=${reps}: cleanHtmlUndefined differs from cleanHtml`).to.equal(true)
+			}
+		})
+	}
+})
+
+describe('StringLib cleanHtml: non-string input fails closed', () => {
+	// Old regex form threw TypeError for these (no `replace`). New scanner has indexOf + slice on array and Buffer →
+	// without the check they come back unstripped = sanitizer turned pass-through for untyped input.
+	const bad: Array<[string, unknown]> = [
+		['array holding markup', ['<script>x</script>']],
+		['Buffer holding markup', Buffer.from('<b>y</b>')],
+		['object with indexOf and slice', { indexOf: () => -1, slice: () => '<i>z</i>' }],
+		['number', 5],
+		['boolean', true],
+		['null', null]
+	]
+
+	for (const [label, value] of bad) {
+		it(`${label} → TypeError, as the old regex form`, () => {
+			expect(() => s.cleanHtml(value as never)).to.throw(TypeError, 'cleanHtml expects a string')
+			expect(() => s.cleanHtmlUndefined(value as never)).to.throw(TypeError, 'cleanHtml expects a string')
+			// oracle = old form: same refusal
+			expect(() => oracle(value as never)).to.throw(TypeError)
 		})
 	}
 
-	it(`${REPS} x "<" closed by one ">" is a single tag, under ${BOUND_MS} ms`, () => {
-		const input = '<'.repeat(REPS) + '>'
-		const t0 = performance.now()
-		const out = s.cleanHtml(input)
-		const elapsed = performance.now() - t0
-
-		expect(elapsed).to.be.lessThan(BOUND_MS)
-		expect(out).to.equal('')
+	it('undefined: cleanHtml throws, cleanHtmlUndefined passes it through', () => {
+		expect(() => s.cleanHtml(undefined as never)).to.throw(TypeError, 'cleanHtml expects a string')
+		expect(s.cleanHtmlUndefined(undefined)).to.equal(undefined)
 	})
 
-	it(`text, then ${REPS} x "<", then text, under ${BOUND_MS} ms`, () => {
-		const input = 'head' + '<'.repeat(REPS) + 'tail'
-		const t0 = performance.now()
-		const out = s.cleanHtml(input)
-		const elapsed = performance.now() - t0
+	it('String object is accepted and gives a primitive string, like the old regex form', () => {
+		// Object('x') = String wrapper; `new String` trips no-new-wrappers
+		const wrapped: unknown = Object('<a>b<c>d')
 
-		expect(elapsed).to.be.lessThan(BOUND_MS)
-		expect(out === input).to.equal(true)
+		const out = s.cleanHtml(wrapped as never)
+		const outUndefined = s.cleanHtmlUndefined(wrapped as never)
+
+		expect(out).to.equal('bd')
+		expect(typeof out).to.equal('string')
+		expect(outUndefined).to.equal('bd')
+		expect(oracle(wrapped as never)).to.equal('bd')
 	})
 })

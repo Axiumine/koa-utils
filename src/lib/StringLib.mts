@@ -15,6 +15,9 @@ const RANDOM_ALPHABET = '0123456789abcdefghijklmnopqrstuv'
  *   Hence `<>` is not a tag, while `<\n>` is.
  * - Tags are non-overlapping and found left to right. A `<` inside a tag is consumed with it (`<<a>` -> ``).
  * - A `<` with no later `>` starts nothing, and neither does any `<` after it, so the rest is kept verbatim.
+ * - Anything that is not a string (or a `String` object) throws a `TypeError`. The regex form did too, since an
+ *   array or a Buffer has no `replace`. Without the check they would pass `indexOf` and `slice` and come back
+ *   unstripped, which turns a sanitizer into a pass-through for untyped input.
  *
  * Algorithm: for a `<` at `open`, the first `>` after it is at `close`. The characters between them are all
  * non-`>` by construction, so `close > open + 1` is exactly the regex condition.
@@ -28,7 +31,11 @@ const RANDOM_ALPHABET = '0123456789abcdefghijklmnopqrstuv'
  * ends at `close`, from where the next `<` search resumes. No character is scanned twice by the same search, so
  * the total work is O(n). The single failing `indexOf('>')` (`close === -1`) ends the loop.
  */
-function stripTags(str: string): string {
+function stripTags(input: unknown): string {
+	if (typeof input !== 'string' && !(input instanceof String)) {
+		throw new TypeError('cleanHtml expects a string')
+	}
+	const str = String(input)
 	let out = ''
 	let keepFrom = 0
 	let open = str.indexOf('<')

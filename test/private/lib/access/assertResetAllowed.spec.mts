@@ -21,6 +21,7 @@ import { Types } from 'mongoose'
 
 import { expectGraphQLErrorAsync } from '../../../helpers/assertGraphQLError.mjs'
 import { ISentryProbe, startSentryProbe } from '../../../helpers/sentryProbeS2.mjs'
+import { expectOneDigestCompare, releaseTimingSafeEqual, stubTimingSafeEqual } from '../../../helpers/timingSafeEqualProbe.mjs'
 
 // ---------------------------------------------------------------------------
 
@@ -50,7 +51,7 @@ describe('assertResetAllowed', () => {
 	afterEach(async () => {
 		await probe.stop()
 		clock.restore()
-		sinon.restore()
+		releaseTimingSafeEqual()
 	})
 
 	it('no record → 403, nothing reported', async () => {
@@ -110,6 +111,22 @@ describe('assertResetAllowed', () => {
 
 	it('right hash, fresh link → allowed', () => {
 		expect(() => assertResetAllowed(record(), EMAIL, 'goodHash')).to.not.throw()
+	})
+
+	// Revert of the call site to `resetHash !== hash` keep every spec above green: same verdict per input.
+	// Forced verdict split them → compare MUST go through safeEqualSecret → timingSafeEqual.
+	it('constant-time compare: forced "equal" verdict allows a different hash, via 2 digests', () => {
+		const probe = stubTimingSafeEqual(true)
+
+		expect(() => assertResetAllowed(record(), EMAIL, 'otherHash')).to.not.throw()
+		expectOneDigestCompare(probe)
+	})
+
+	it('constant-time compare: forced "different" verdict rejects the stored hash itself', async () => {
+		const probe = stubTimingSafeEqual(false)
+
+		await expectGraphQLErrorAsync(attempt(record(), 'goodHash'), 403, 'Forbidden')
+		expectOneDigestCompare(probe)
 	})
 
 	it('string date from a custom reader is parsed: 5 min old ISO → allowed, 70 min old ISO → 403', async () => {

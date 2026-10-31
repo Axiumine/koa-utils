@@ -1234,6 +1234,16 @@ describe('SocketLabsLib — HTML escaping of untrusted values', () => {
 		expect(subject).to.equal('Confirm your email for TestPlatform')
 	})
 
+	it('sendEmailVerify escapes the platform name; text part and subject keep it raw', async () => {
+		// verifyMessage platformName escape survived removal → no spec pinned it via sendEmailVerify
+		await hostileEnvLib().sendEmailVerify('u@example.com', 'h')
+		const { subject, textBody, htmlBody } = fullMessage(sendStub)
+		expect(htmlBody).to.contain(`you or someone else is registering you on ${HOSTILE_PLATFORM_ESC}.<br>`)
+		expect(htmlBody).to.not.contain('<b>')
+		expect(textBody).to.contain(`you or someone else is registering you on ${HOSTILE_PLATFORM}.`)
+		expect(subject).to.equal(`Confirm your email for ${HOSTILE_PLATFORM}`)
+	})
+
 	it('sendEmailVerify escapes address, hash, base and path inside href and link text', async () => {
 		await plainLib().sendEmailVerify('o\'brien&co@example.com', 'h"><script>', '', 'https://c.example.com/?a=1&b=\'2\'', '/p<q>')
 		const { textBody, htmlBody } = fullMessage(sendStub)
