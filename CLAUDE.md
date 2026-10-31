@@ -135,7 +135,7 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 ## Build / lint
 
 - `yarn build` — prod ESM build (`yarn clean && yarn build:esm`). `tspc` (ts-patch) apply `typescript-transform-paths` → emitted `.mjs` carry relative imports.
-- `yarn build:all` — ESM + CJS dual. Only when explicitly needed.
+- `yarn build:all` — ESM + CJS attempt. Broken: CJS half emit nothing (`include` match `*.ts`, all src `.mts`) → `find: dist/cjs` exit 1. Package ESM-only. Use `yarn build`.
 - `yarn lint` — `eslint --fix` then `prettier --write 'src/**/*.mts' 'scripts/**/*.mts'`. Run after every multi-file edit.
 - `yarn lint:check` — `eslint --max-warnings 0 --cache` then `prettier --check`. Read-only, no fix. Part of `check:static` → red CI = run `yarn lint`.
 - `yarn check:static` — `caps` → `lint:check` → `typecheck` → `typecheck:scripts` → `typecheck:tests` → `knip` → `type-coverage` → `fta`. Single source: pre-commit, pre-push, CI step `Static gates` all call it. Run before report done.
