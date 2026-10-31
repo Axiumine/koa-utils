@@ -16,7 +16,7 @@ permissions:
 jobs:
   analysis:
     name: Scorecard analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       # upload the SARIF file to the code scanning dashboard
       security-events: write

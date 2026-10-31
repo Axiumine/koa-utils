@@ -25,7 +25,7 @@ jobs:
     # leaves every PR "Expected: waiting for status".
     name: Test coverage
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -83,7 +83,7 @@ jobs:
 
   audit:
     name: Dependency audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -114,7 +114,7 @@ jobs:
   # is a rerun first and a finding second. yarn audit (job above) stays the dependency gate.
   trivy:
     name: Trivy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -135,7 +135,7 @@ jobs:
   leak:
     name: Leak check
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout
