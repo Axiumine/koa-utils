@@ -21,7 +21,7 @@ jobs:
     # so the scan cannot start there. Skip it instead of failing; Qodana still runs on
     # the push to main after the merge. Fork PRs without the secret still fail, as before.
     if: github.event.pull_request.user.login != 'dependabot[bot]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Per qodana-action source (v2026.2.2): checks API for the check run and annotations,
     # issues API for the PR summary comment. `contents: write` is only used by push-fixes
     # (default `none`) and `security-events: write` is never used (this action does not
