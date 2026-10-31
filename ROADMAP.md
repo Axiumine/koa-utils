@@ -33,7 +33,6 @@ A TypeScript utility library for Koa + GraphQL backends: authentication flows an
 
 - Make the `Secure` flag of the login cookies configurable, instead of leaving it to the reverse proxy.
 - Turn `REDIS_TLS` on by default in a future major version. It is opt-in today so that existing deployments are unchanged.
-- Escape user-supplied values in the HTML email bodies of `SocketLabsLib`: the recipient `name` and the error text of `alertDevTeam` are interpolated as they are today.
 
 ## Will not do
 

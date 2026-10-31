@@ -31,6 +31,6 @@ Then read the release notes and open issues at https://github.com/stryker-mutato
 3. In `package.json` set `"mutation": "stryker run"`.
 4. In `.github/workflows/mutation.yml` update the comment above the `Mutation testing` step (the step itself already calls `yarn mutation`).
 5. Remove the shim notes: the shim paragraph in `CLAUDE.md` (mutation section), the `patches/` line in `REPO.md`, and this entry.
-6. Run `yarn mutation:changed` and a full `yarn mutation`, and confirm the score matches the previous run (last full run on Mocha 12 with the patch: 2266 mutants, 1747 killed, 23 timeouts, 13 ignored by 12 disable comments, 483 compile or runtime errors, 0 survivors, 797 s).
+6. Run `yarn mutation:changed` and a full `yarn mutation`, and confirm the score matches the previous run (last full run on Mocha 12 with the patch: 2275 mutants, 1743 killed, 36 timeouts, 13 ignored by 12 disable comments, 483 compile or runtime errors, 0 survivors, 1370 s on 2 workers).
 
 If the upstream fix never comes, the alternative is to keep the patch and regenerate it after every plugin bump with `npx patch-package @stryker-mutator/mocha-runner`.
