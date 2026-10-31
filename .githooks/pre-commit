@@ -102,11 +102,11 @@ if ! yarn -s check:static; then
 
 pre-commit: BLOCKED — a static gate failed (yarn check:static).
 
-It chains: code caps, ESLint (--max-warnings 0), typecheck (src + scripts), Knip,
-type-coverage and FTA. Fix the first failure printed above; re-run one gate
-with `yarn caps`, `yarn lint:check`, `yarn typecheck`, `yarn knip`,
-`yarn type-coverage` or `yarn fta`. Never raise a cap, a baseline value or a
-threshold to pass: fix the code.
+It chains: code caps, ESLint (--max-warnings 0), typecheck (src + scripts +
+tests), Knip, type-coverage and FTA. Fix the first failure printed above;
+re-run one gate with `yarn caps`, `yarn lint:check`, `yarn typecheck`,
+`yarn typecheck:tests`, `yarn knip`, `yarn type-coverage` or `yarn fta`.
+Never raise a cap, a baseline value or a threshold to pass: fix the code.
 Bypass once (CI will still block): git commit --no-verify
 EOF
 	exit 1
