@@ -1419,3 +1419,130 @@ describe('SocketLabsLib — HTML escaping of untrusted values', () => {
 		expect(htmlBody).to.not.contain('&lt;')
 	})
 })
+
+// ---------------------------------------------------------------------------
+// Link base scheme — per-call linkBase and configured APP_DOMAIN
+// base not absolute http(s) URL → 500 before anything built or sent.
+// pre-fix: `javascript:` base survive escapeHtml → href target.
+// ---------------------------------------------------------------------------
+
+/** each once reached an href (or host-less link) as written */
+const BAD_BASES: [string, string][] = [
+	['javascript: scheme', 'javascript:alert(1)//'],
+	['javascript: scheme in mixed case', 'JaVaScRiPt:alert(1)//'],
+	['javascript: scheme after a space', ' javascript:alert(1)//'],
+	['javascript: scheme with a tab inside', 'java\tscript:alert(1)//'],
+	['data: scheme', 'data:text/html,<script>alert(1)</script>'],
+	['vbscript: scheme', 'vbscript:msgbox(1)'],
+	['scheme-relative URL', '//evil.example'],
+	['user name before the host', 'https://good@evil.example'],
+	['host without a scheme', 'example.com'],
+	['empty string', '']
+]
+
+describe('SocketLabsLib — link base must be an absolute http(s) URL', () => {
+	let sendStub: sinon.SinonStub
+	let savedDomain: string | undefined
+
+	/** lib built after env change → ctor read APP_DOMAIN. `undefined` = var unset */
+	function libWithDomain(domain: string | undefined) {
+		if (domain === undefined) delete process.env['APP_DOMAIN']
+		else process.env['APP_DOMAIN'] = domain
+		const lib = new SocketLabsLib()
+		sendStub = makeSendStub(true)
+		injectClient(lib, sendStub)
+		return lib
+	}
+
+	beforeEach(() => {
+		savedDomain = process.env['APP_DOMAIN']
+	})
+
+	afterEach(() => {
+		if (savedDomain === undefined) delete process.env['APP_DOMAIN']
+		else process.env['APP_DOMAIN'] = savedDomain
+		sinon.restore()
+	})
+
+	const reject = (fn: () => Promise<unknown>) =>
+		expectGraphQLErrorAsync(fn, 500, 'Internal Server Error', 'Error reported to Dev Team.')
+
+	describe('per-call linkBase', () => {
+		for (const [label, base] of BAD_BASES) {
+			it(`sendEmailVerify rejects a ${label} and sends nothing`, async () => {
+				const lib = libWithDomain('https://test.example.com')
+
+				await reject(() => lib.sendEmailVerify('u@example.com', 'h9', '', base))
+
+				expect(sendStub.called).to.equal(false)
+			})
+
+			it(`sendEmailReset rejects a ${label} and sends nothing`, async () => {
+				const lib = libWithDomain('https://test.example.com')
+
+				await reject(() => lib.sendEmailReset('u@example.com', 'r9', '', base))
+
+				expect(sendStub.called).to.equal(false)
+			})
+		}
+
+		it('sendEmailVerify and sendEmailReset accept an http base, as written', async () => {
+			const lib = libWithDomain('https://test.example.com')
+
+			await lib.sendEmailVerify('u@example.com', 'h9', '', 'http://localhost:3000', '/check/verify-email-user')
+			await lib.sendEmailReset('u@example.com', 'r9', '', 'http://localhost:3000', '/account/new-password')
+
+			expect(sendStub.firstCall.args[0].textBody).to.contain('http://localhost:3000/check/verify-email-user/u@example.com/h9')
+			expect(sendStub.secondCall.args[0].textBody).to.contain('http://localhost:3000/account/new-password/u@example.com/r9')
+		})
+
+		it('a good per-call base does not depend on the configured APP_DOMAIN being good', async () => {
+			const lib = libWithDomain('javascript:alert(1)//')
+
+			await lib.sendEmailVerify('u@example.com', 'h9', '', 'https://customer.example.com')
+			await lib.sendEmailReset('u@example.com', 'r9', '', 'https://customer.example.com')
+
+			expect(sendStub.calledTwice).to.equal(true)
+			expect(sendStub.firstCall.args[0].textBody).to.contain('https://customer.example.com/check/verify-email/u@example.com/h9')
+			expect(sendStub.secondCall.args[0].textBody).to.contain('https://customer.example.com/x/reset/u@example.com/r9')
+		})
+	})
+
+	describe('configured APP_DOMAIN', () => {
+		const BAD_DOMAINS: [string, string | undefined][] = [
+			...BAD_BASES.filter(([, base]) => base !== ''),
+			['unset variable (becomes the string "undefined")', undefined]
+		]
+		const SENDS: [string, (lib: SocketLabsLib) => Promise<unknown>][] = [
+			['sendEmailVerify', (lib) => lib.sendEmailVerify('u@example.com', 'h9')],
+			['sendEmailReset', (lib) => lib.sendEmailReset('u@example.com', 'r9')],
+			['sendEmailChangeVerify', (lib) => lib.sendEmailChangeVerify('u@example.com', 'h9')],
+			['sendWelcome', (lib) => lib.sendWelcome('u@example.com')],
+			['sendSubscriptionEmail', (lib) => lib.sendSubscriptionEmail('u@example.com', '123456')],
+			['sendResetPwdConfirmation', (lib) => lib.sendResetPwdConfirmation('u@example.com', 'Ada')],
+			['sendResetPwdConfirmationHash', (lib) => lib.sendResetPwdConfirmationHash('u@example.com', 'Ada', 'h9')]
+		]
+
+		for (const [send, call] of SENDS) {
+			for (const [label, domain] of BAD_DOMAINS) {
+				it(`${send} rejects an APP_DOMAIN that is a ${label} and sends nothing`, async () => {
+					const lib = libWithDomain(domain)
+
+					await reject(() => call(lib))
+
+					expect(sendStub.called).to.equal(false)
+				})
+			}
+
+			it(`${send} still sends with an http(s) APP_DOMAIN`, async () => {
+				const lib = libWithDomain('http://localhost:3000')
+
+				expect(await call(lib)).to.equal(true)
+				expect(sendStub.calledOnce).to.equal(true)
+				// welcome carry the base in the html part only
+				const { textBody, htmlBody } = sentMessage(sendStub)
+				expect(textBody + htmlBody).to.contain('http://localhost:3000')
+			})
+		}
+	})
+})

@@ -6,7 +6,9 @@
  * Now reader, guard chain, writer injected → happy path + both catch branches exercised
  * for real, ignore block gone.
  */
+import { DEFAULT_VERIFY_EMAIL_PATHS } from '../../../dist/lib/access/accessPaths.mjs'
 import { createVerifyEmailRouter, routerVerifyEmail } from '../../../dist/koa/router/verifyEmail.mjs'
+import { createEnableEmailAccess } from '../../../dist/private/lib/access/db/enableEmailAccess.mjs'
 import { expect } from 'chai'
 import { Types } from 'mongoose'
 import sinon from 'sinon'
@@ -79,6 +81,29 @@ describe('createVerifyEmailRouter', () => {
 		await mw(ctx)
 
 		expect(redirects).to.deep.equal(['/x/error'])
+	})
+
+	it('a rejecting welcome mail after the commit does not undo the activation: still redirects to registration-done', async () => {
+		// Real writer, fake model + mailer. updateOne commit first → account active, hash gone.
+		// Welcome reject (APP_DOMAIN not http(s) → 500) must not reach catch → /x/error, no link left to retry.
+		const uId = new Types.ObjectId()
+		const updateOne = sinon.stub().resolves()
+		const sendWelcome = sinon.stub().rejects(new Error('Internal Server Error'))
+		const enableEmailAccess = createEnableEmailAccess({ updateOne } as never, DEFAULT_VERIFY_EMAIL_PATHS, {
+			sendWelcome
+		} as never)
+
+		const mw = createVerifyEmailRouter({
+			userData4VerifyEmail: sinon.stub().resolves({ _id: uId }),
+			assertVerifyEmailAllowed: sinon.stub().resolves(uId),
+			enableEmailAccess
+		} as never)()
+		const { ctx, redirects } = makeCtx()
+		await mw(ctx)
+
+		expect(updateOne.calledOnce).to.equal(true)
+		expect(sendWelcome.calledOnce).to.equal(true)
+		expect(redirects).to.deep.equal(['/x/registration-done'])
 	})
 })
 

@@ -2,8 +2,11 @@
  * Tests for private/lib/verifyIntrospectionCode.mts
  *
  * Chain: verifyIntrospectionCode(headerValue) → isIntrospectionBypassAllowed() env gate →
- * read process.env.INTROSPECTION_CODE → fail closed when unset/empty → constant-time byte
- * compare via timingSafeEqual
+ * read process.env.INTROSPECTION_CODE → fail closed when unset/empty → compare via
+ * safeEqualSecret (sha256 both sides + timingSafeEqual, no length early return)
+ *
+ * Compare swap pinned by forced-verdict specs at the bottom. Behavioural specs keep same verdict as
+ * old `===` / length-guard impl for every input: swap = timing only, no observable change.
  *
  * Two regressions pinned here.
  *
@@ -23,6 +26,7 @@ import { expect } from 'chai'
 
 import { restoreIntrospectionCode, saveIntrospectionCode } from '../../helpers/introspectionCode.mjs'
 import { restoreNodeEnv, saveNodeEnv } from '../../helpers/nodeEnv.mjs'
+import { expectOneDigestCompare, releaseTimingSafeEqual, stubTimingSafeEqual } from '../../helpers/timingSafeEqualProbe.mjs'
 
 // ---------------------------------------------------------------------------
 
@@ -39,6 +43,7 @@ describe('verifyIntrospectionCode', () => {
 	})
 
 	afterEach(() => {
+		releaseTimingSafeEqual()
 		restoreIntrospectionCode(savedCode)
 		restoreNodeEnv(savedEnv)
 	})
@@ -84,9 +89,8 @@ describe('verifyIntrospectionCode', () => {
 	})
 
 	it('returns false without throwing when a multi-byte header matches the code in characters', () => {
-		// 'é' = 1 char, 2 UTF-8 bytes: compare char length instead of byte length →
-		// timingSafeEqual get 2 unequal buffers → RangeError → the guard become a crash any
-		// unauthenticated caller trigger at will.
+		// 'é' = 1 char, 2 UTF-8 bytes: raw-buffer timingSafeEqual on unequal lengths → RangeError →
+		// the guard become a crash any unauthenticated caller trigger at will. Digest compare = always 32 bytes.
 		process.env['INTROSPECTION_CODE'] = 'secret'
 
 		expect(() => verifyIntrospectionCode('sécret')).to.not.throw()
@@ -97,6 +101,15 @@ describe('verifyIntrospectionCode', () => {
 		process.env['INTROSPECTION_CODE'] = 'secret'
 
 		expect(verifyIntrospectionCode('secret')).to.equal(true)
+	})
+
+	it('returns false for a non-string header value without throwing', () => {
+		// header typed string | undefined; Node can still hand an array for a repeated header.
+		process.env['INTROSPECTION_CODE'] = 'secret'
+
+		expect(() => verifyIntrospectionCode(['secret'] as never)).to.not.throw()
+		expect(verifyIntrospectionCode(['secret'] as never)).to.equal(false)
+		expect(verifyIntrospectionCode(null as never)).to.equal(false)
 	})
 
 	it('returns true when the header matches under NODE_ENV=development', () => {
@@ -170,5 +183,71 @@ describe('verifyIntrospectionCode', () => {
 
 		expect(readKeys).to.include('NODE_ENV')
 		expect(readKeys).to.not.include('INTROSPECTION_CODE')
+	})
+
+	// Revert of the compare to `===`, or back to a byte-length early return, keep every spec above green:
+	// same verdict per input. Forced verdict split them → compare MUST reach safeEqualSecret →
+	// timingSafeEqual, whatever the header length. Early return on length = length oracle on INTROSPECTION_CODE.
+	it('constant-time compare: forced "equal" verdict accepts a wrong header, via 2 digests', () => {
+		process.env['INTROSPECTION_CODE'] = 'secret'
+		const probe = stubTimingSafeEqual(true)
+
+		expect(verifyIntrospectionCode('wrong!')).to.equal(true)
+		expectOneDigestCompare(probe)
+	})
+
+	it('constant-time compare: forced "equal" verdict is reached for shorter, longer and multi-byte headers', () => {
+		// Length early return never reach timingSafeEqual → stub never called → verdict stay false.
+		process.env['INTROSPECTION_CODE'] = 'secret'
+
+		for (const header of ['short', 'secretsecret', 'sécret', 'x']) {
+			const probe = stubTimingSafeEqual(true)
+
+			expect(verifyIntrospectionCode(header), header).to.equal(true)
+			expectOneDigestCompare(probe)
+			releaseTimingSafeEqual()
+		}
+	})
+
+	it('constant-time compare: forced "different" verdict rejects an identical header', () => {
+		process.env['INTROSPECTION_CODE'] = 'secret'
+		const probe = stubTimingSafeEqual(false)
+
+		expect(verifyIntrospectionCode('secret')).to.equal(false)
+		expectOneDigestCompare(probe)
+	})
+
+	it('never reaches the compare when the secret is unset or empty, even with a forced "equal" verdict', () => {
+		// safeEqualSecret('', '') is true → only the explicit empty-secret guard keep this false.
+		const probe = stubTimingSafeEqual(true)
+
+		delete process.env['INTROSPECTION_CODE']
+		expect(verifyIntrospectionCode('')).to.equal(false)
+		expect(verifyIntrospectionCode('undefined')).to.equal(false)
+
+		process.env['INTROSPECTION_CODE'] = ''
+		expect(verifyIntrospectionCode('')).to.equal(false)
+		expect(verifyIntrospectionCode('anything')).to.equal(false)
+
+		expect(probe.called).to.equal(false)
+	})
+
+	it('never reaches the compare for an absent or non-string header, even with a forced "equal" verdict', () => {
+		process.env['INTROSPECTION_CODE'] = 'secret'
+		const probe = stubTimingSafeEqual(true)
+
+		expect(verifyIntrospectionCode(undefined)).to.equal(false)
+		expect(verifyIntrospectionCode(['secret'] as never)).to.equal(false)
+
+		expect(probe.called).to.equal(false)
+	})
+
+	it('never reaches the compare when the env gate refuses, even with a forced "equal" verdict', () => {
+		process.env['NODE_ENV'] = 'production'
+		process.env['INTROSPECTION_CODE'] = 'secret'
+		const probe = stubTimingSafeEqual(true)
+
+		expect(verifyIntrospectionCode('secret')).to.equal(false)
+		expect(probe.called).to.equal(false)
 	})
 })

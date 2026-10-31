@@ -1,7 +1,5 @@
-import { Buffer } from 'node:buffer'
-import { timingSafeEqual } from 'node:crypto'
-
 import { isIntrospectionBypassAllowed } from '@lib/isIntrospectionBypassAllowed.mjs'
+import { safeEqualSecret } from '@private/lib/access/safeEqualSecret.mjs'
 
 /**
  * Constant-time check of the `x-introspectioncode` header against INTROSPECTION_CODE.
@@ -14,6 +12,10 @@ import { isIntrospectionBypassAllowed } from '@lib/isIntrospectionBypassAllowed.
  *
  * The gate lives in this function rather than in the three middlewares that call it, so a direct
  * caller of the primitive cannot reach an ungated comparison.
+ *
+ * The comparison is `safeEqualSecret`: both sides are hashed to 32 bytes first, so the compare takes the
+ * same time whether the header is shorter, longer or the same length as the secret. A length check before
+ * the compare would tell a caller how long INTROSPECTION_CODE is. For two strings the result is exactly `===`.
  *
  * Fails closed on the secret too: an unset or empty INTROSPECTION_CODE never matches, whatever the
  * caller sends. The call sites previously compared against `${process.env.INTROSPECTION_CODE}`,
@@ -28,15 +30,6 @@ export const verifyIntrospectionCode = (headerValue: string | undefined): boolea
 	if (typeof code !== 'string' || code.length === 0) {
 		return false
 	}
-	if (typeof headerValue !== 'string') {
-		return false
-	}
-	// byte length, not character length: timingSafeEqual throws on unequal-length buffers, and a
-	// multi-byte header value can match code.length while encoding to a different number of bytes
-	const headerBuffer = Buffer.from(headerValue)
-	const codeBuffer = Buffer.from(code)
-	if (headerBuffer.length !== codeBuffer.length) {
-		return false
-	}
-	return timingSafeEqual(headerBuffer, codeBuffer)
+	// an absent header (undefined) is not a string either, and safeEqualSecret answers false for it
+	return safeEqualSecret(headerValue, code)
 }

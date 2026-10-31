@@ -25,7 +25,7 @@ Constructs a SocketLabs client and prepares the reusable HTML wrapper used by ev
 
 - Creates `new SocketLabsClient(parseInt(process.env.SOCKETLABS_SERVER_ID || '0'), \`${process.env.SOCKETLABS_SERVER_APIKEY}\`, { requestTimeout: 120, numberOfRetries: 3 })` — the API key is wrapped in a template literal, so when `SOCKETLABS_SERVER_APIKEY` is unset the client receives the string `"undefined"`, not JavaScript `undefined`.
 - Reads `process.env.PLATFORM_NAME` into `platformName` (used in subjects/bodies and as the `emailFromName`).
-- Reads `process.env.APP_DOMAIN` into `linkBase` (base URL used to build verification/reset links).
+- Reads `process.env.APP_DOMAIN` into `linkBase` (base URL used to build verification/reset links). It is not checked here: `new SocketLabsLib()` succeeds whatever `APP_DOMAIN` holds, and the base is validated when a send method builds a link from it (see [Link base validation](#link-base-validation)).
 - Reads `process.env.EMAIL_FROM` into `emailFrom` (the `From` address for every message).
 - If `htmlHeader1` / `htmlHeader2` / `htmlFooter` are not supplied (or are `''`), falls back to the internal boilerplate `FALLBACK_HEADER_1` / `FALLBACK_HEADER_2` / `FALLBACK_FOOTER` (an XHTML 1.0 Transitional doctype + a 600px centered table body, defined in `src/private/email/htmlFrame.mts`). These three fragments become `emailHtmlHeader1`, `emailHtmlHeader2`, `emailHtmlFooter` and are concatenated around every outgoing message body as `emailHtmlHeader1 + escapeHtml(subject) + emailHtmlHeader2 + htmlBody + emailHtmlFooter` (see `sendTemplate` below). The three fragments you pass in are inserted as HTML unchanged.
 - Calls `dotenv.config()` at module load time.
@@ -56,7 +56,19 @@ Every value a send method places in the HTML part is escaped for its context; th
 | `idPost`, `name`, `surname` and `_id` of `sendEmailPostReported` | paragraph text | `escapeHtml` |
 | `times` of `wrongHash` | paragraph text | not escaped: it is a number |
 
-Observable change in the HTML part only: a name, message, code or link that contains `&`, `<`, `>`, `"` or `'` now appears escaped in the HTML source (it renders as typed in the mail client). For example `&` inside the query string of the legacy reset link of `sendResetPwdConfirmationHash` is `&amp;` in the `href` and in the link text. Pass plain text, not text you escaped yourself: a value that already holds entities (a name of `O&#39;Brien`, a `PLATFORM_NAME` of `Tom &amp; Jerry`) is escaped again and its entity shows literally (`O&amp;#39;Brien`). Versions through 7.1.0 told you to escape such values before passing them; that advice is withdrawn for `name`, `err`, `otp`, the ids, the subject, `PLATFORM_NAME` and the per-call `linkBase`. Not escaped, by design: the `htmlHeader1`, `htmlHeader2` and `htmlFooter` fragments you pass to the constructor, which are inserted as HTML unchanged. The `linkBase` you supply (and `APP_DOMAIN`) is escaped with the rest of the URL, so a quote or angle bracket in it cannot leave the attribute, but its scheme and target are not validated: a `javascript:` base is emitted as the link target (see limit L11 in [security.md](../security.md)).
+Observable change in the HTML part only: a name, message, code or link that contains `&`, `<`, `>`, `"` or `'` now appears escaped in the HTML source (it renders as typed in the mail client). For example `&` inside the query string of the legacy reset link of `sendResetPwdConfirmationHash` is `&amp;` in the `href` and in the link text. Pass plain text, not text you escaped yourself: a value that already holds entities (a name of `O&#39;Brien`, a `PLATFORM_NAME` of `Tom &amp; Jerry`) is escaped again and its entity shows literally (`O&amp;#39;Brien`). Versions through 7.1.0 told you to escape such values before passing them; that advice is withdrawn for `name`, `err`, `otp`, the ids, the subject, `PLATFORM_NAME` and the per-call `linkBase`. Not escaped, by design: the `htmlHeader1`, `htmlHeader2` and `htmlFooter` fragments you pass to the constructor, which are inserted as HTML unchanged. The `linkBase` you supply (and `APP_DOMAIN`) is escaped with the rest of the URL, so a quote or angle bracket in it cannot leave the attribute, and its scheme is checked before it is used (next section).
+
+### Link base validation
+
+Every link a send method builds starts from a base: the `linkBase` argument of `sendEmailVerify` and `sendEmailReset`, or `APP_DOMAIN` (read once in the constructor) for those two when `linkBase` is omitted and always for `sendEmailChangeVerify`, `sendWelcome`, `sendSubscriptionEmail`, `sendResetPwdConfirmation` and `sendResetPwdConfirmationHash`. Escaping does not make a base safe: a `javascript:` base survives `escapeHtml` and becomes the target of the link. So before a base is placed in a link or an `href`, `httpLinkBase` (`src/private/email/messageParts.mts`) checks it with the WHATWG URL parser (`URL.parse`), judging the parsed URL and not a string prefix. A base passes only if all three hold:
+
+- its parsed scheme is `http:` or `https:` (the parser lower-cases it, so `HTTPS://...` passes);
+- the parsed URL has no user name and no password, because `https://good@evil.example` goes to `evil.example` while reading as `good`;
+- the string contains no control character, no whitespace and no backslash, because the parser strips or rewrites those (`" javascript:..."` and `"java\tscript:..."` parse to the `javascript:` scheme, `\` becomes `/`), and the base is emitted as written, so what is checked has to be what is sent.
+
+Everything else is refused: any other scheme (`javascript:` in any case or spelling, `data:`, `vbscript:`, `file:`, `ftp:`, `mailto:`, `ws:`, `blob:`), a scheme-relative `//evil.example`, a path, a host with no scheme (`example.com`, `localhost:3000`), the empty string, and the string `undefined` that an unset `APP_DOMAIN` turns into. A refused base makes the send method reject with `throwInternalError()`: HTTP status 500, title `Internal Server Error`, description `Error reported to Dev Team.` (see [`throwInternalError`](./graphql-errors.md#throwinternalerror)). No message is built and nothing is sent. A passing base is used exactly as given, with no lower-casing and no slash added, so every mail that was sent before is byte-for-byte the same.
+
+Two consequences to know. `APP_DOMAIN` is checked when a link is built, not in the constructor, so a process with an unset or schemeless `APP_DOMAIN` still starts and still sends the mails that carry no link (`accountDisabled`, `wrongHash`, `sendOTP`, ...); a send that needs the base now rejects with the 500 above where it used to mail a broken link. A caller that wraps the send, such as `signUp` (inside its transaction) or the fire-and-forget reset mail, sees that rejection like any other send failure. Two post-commit callers catch it instead and report it to Sentry: `updatePassword` (the confirmation mail) and `enableEmailAccess` (the welcome mail of the email-verification link). In both the data change has already committed, so a rejection there must not turn a successful request into an error. For the verification link this means a deployment with a bad `APP_DOMAIN` still activates the account and redirects to `/x/registration-done`; only the welcome mail is lost. And a good per-call `linkBase` does not depend on `APP_DOMAIN`: it is the only base those two methods read when it is given.
 
 ### `sendEmailVerify(emailTo, hash, name = '', linkBase = APP_DOMAIN, linkPath = '/check/verify-email')`
 
@@ -84,7 +96,7 @@ A trailing slash on `linkBase` and a missing leading slash on `linkPath` are nor
 | emailTo | string | Recipient address. |
 | hash | string | Verification hash embedded in the confirmation link. |
 | name | string | Optional recipient name; prefixed with a space (`fixName`) and interpolated as `Hi${nameFixed},`; escaped in the HTML part. |
-| linkBase | string | Scheme + host the confirmation link points at. Defaults to the instance's `linkBase`, i.e. `APP_DOMAIN`. Trailing slashes are stripped. |
+| linkBase | string | Scheme + host the confirmation link points at. Defaults to the instance's `linkBase`, i.e. `APP_DOMAIN`. Must be an absolute `http:` / `https:` URL, otherwise the call rejects with the 500 `Internal Server Error` (see [Link base validation](#link-base-validation)). Trailing slashes are stripped. |
 | linkPath | string | Route prefix the receiving service listens on. Defaults to `/check/verify-email`. A leading slash is added when absent. |
 
 **Returns:** `Promise<boolean>` — `true` if SocketLabs accepted the send, `false` if the send call rejected (captured to Sentry inside `sendTemplate`).
@@ -115,7 +127,7 @@ Sends the email-change verification email, used when a user changes their login 
 async sendWelcome(emailTo: string): Promise<boolean>
 ```
 
-Sends a welcome email after successful signup/activation. Subject: `Welcome to ${platformName}`. Body links to the platform home (`htmlLink(linkBase, platformName)`, both escaped).
+Sends a welcome email after successful signup/activation. Subject: `Welcome to ${platformName}`. Body links to the platform home (`htmlLink(linkBase, platformName)`, both escaped). Its link base is `APP_DOMAIN`, checked by [Link base validation](#link-base-validation): when `APP_DOMAIN` is unset or is not an absolute `http(s)` URL the call rejects with the 500 `Internal Server Error` instead of resolving `false`. The one library caller, `enableEmailAccess`, catches that rejection and reports it to Sentry, because the account is already activated when the mail is sent.
 
 **Parameters:**
 
@@ -332,7 +344,7 @@ Sends the "reset your password" email with a hash-bearing link. Builds `link = $
 | emailTo | string | Recipient address. |
 | hash | string | Reset hash embedded in the link. |
 | name | string | Optional recipient name, `fixName`-prefixed; escaped in the HTML part. |
-| linkBase | string | Scheme + host the reset link points at. Defaults to the instance's `linkBase`, i.e. `APP_DOMAIN`. Trailing slashes are stripped. |
+| linkBase | string | Scheme + host the reset link points at. Defaults to the instance's `linkBase`, i.e. `APP_DOMAIN`. Must be an absolute `http:` / `https:` URL, otherwise the call rejects with the 500 `Internal Server Error` (see [Link base validation](#link-base-validation)). Trailing slashes are stripped. |
 | linkPath | string | Front-end route prefix that renders the new-password form. Defaults to `/x/reset`. A leading slash is added when absent. |
 
 **Returns:** `Promise<boolean>` — send success/failure.
