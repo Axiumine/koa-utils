@@ -57,3 +57,4 @@ jobs:
           args: --linter jetbrains/qodana-js:2026.2
           pr-mode: ${{ github.event_name == 'pull_request' }}
           upload-result: true
+          use-caches: false
