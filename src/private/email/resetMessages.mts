@@ -1,7 +1,7 @@
 import { escapeHtml } from './escapeHtml.mjs'
 import { FALLBACK_FOOTER, standaloneHeader } from './htmlFrame.mjs'
 import type { IEmailContent } from './IEmailContent.mjs'
-import { fixName, htmlLink } from './messageParts.mjs'
+import { fixName, htmlLink, httpLinkBase } from './messageParts.mjs'
 
 /** Password-reset request. `link` is the finished reset URL. */
 export function resetMessage(platformName: string, link: string, name: string): IEmailContent {
@@ -18,11 +18,12 @@ export function resetMessage(platformName: string, link: string, name: string): 
 
 /** Confirmation that the new password is set, linking to the platform home. */
 export function resetConfirmationMessage(platformName: string, linkBase: string, name: string): IEmailContent {
+	const base = httpLinkBase(linkBase)
 	const nameFixed = fixName(name)
 	return {
 		subject: `Password reset for ${platformName}`,
-		textBody: `Hi${nameFixed}, you have confirmed your new password. You can now log in at: ${linkBase}. The Team.`,
-		htmlBody: `Hi${escapeHtml(nameFixed)},<br>you have confirmed your new password.<br><br>You can now log in at:<br>${htmlLink(linkBase, platformName)}<br><br>The Team.`
+		textBody: `Hi${nameFixed}, you have confirmed your new password. You can now log in at: ${base}. The Team.`,
+		htmlBody: `Hi${escapeHtml(nameFixed)},<br>you have confirmed your new password.<br><br>You can now log in at:<br>${htmlLink(base, platformName)}<br><br>The Team.`
 	}
 }
 
@@ -38,11 +39,12 @@ interface ILegacyRecipient {
  * the `encodeURI`d address in its query string; it only appears in the HTML part, so it is escaped there.
  */
 export function resetConfirmationHashMessage(platformName: string, linkBase: string, to: ILegacyRecipient): IEmailContent {
+	const base = httpLinkBase(linkBase)
 	const subject = `Password change confirmation for ${platformName}`
-	const linkReset = linkBase + '/index.php?q=reset&hash=' + to.hash + '&email=' + encodeURI(to.email)
+	const linkReset = base + '/index.php?q=reset&hash=' + to.hash + '&email=' + encodeURI(to.email)
 	return {
 		subject,
-		textBody: 'Hi ' + to.name + ', you have confirmed your new password. You can now log in at: ' + linkBase + ' . ',
+		textBody: 'Hi ' + to.name + ', you have confirmed your new password. You can now log in at: ' + base + ' . ',
 		htmlBody:
 			standaloneHeader(subject) +
 			'Hi ' +

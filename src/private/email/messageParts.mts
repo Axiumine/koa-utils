@@ -1,4 +1,5 @@
 import { StringLib } from '@lib/StringLib.mjs'
+import { throwInternalError } from '@throw/throwInternalError.mjs'
 
 import { escapeHtml } from './escapeHtml.mjs'
 
@@ -25,11 +26,45 @@ function stripTrailingSlashes(value: string): string {
 }
 
 /**
+ * Control characters, whitespace and backslash. The URL parser drops or rewrites them (it strips leading and
+ * trailing control characters and spaces, removes tab and newline anywhere, turns `\` into `/`), so a string
+ * that holds one parses as something other than what is written. The base is emitted as written, so it must be
+ * a string the parser reads as it stands.
+ */
+const NOT_PARSED_AS_WRITTEN = /[\p{Cc}\s\\]/u
+
+/**
+ * Judge a link base on the parsed URL, never on its prefix: `JaVaScRiPt:`, ` javascript:` and `java\tscript:`
+ * all parse to the `javascript:` scheme, `//evil.example` has no scheme and does not parse at all, and
+ * `https://good@evil` is an `https:` URL whose host is `evil`. Only an absolute `http:` or `https:` URL passes,
+ * and one with no user name and no password, since a base never needs them and `user@host` is how a link is
+ * made to read as a host it does not go to.
+ */
+function isHttpLinkBase(value: string): boolean {
+	if (NOT_PARSED_AS_WRITTEN.test(value)) return false
+	const url = URL.parse(value)
+	return url !== null && (url.protocol === 'http:' || url.protocol === 'https:') && url.username === '' && url.password === ''
+}
+
+/**
+ * The scheme + host every link in a mail is built on, checked before it is placed in a link or an `href`.
+ * Returns `linkBase` exactly as given when it is an absolute `http:` / `https:` URL; otherwise throws
+ * `throwInternalError()` (500 `Internal Server Error`, `Error reported to Dev Team.`), as `wrongHashMessage`
+ * does: a base that is not one is a configuration or caller mistake, never something the recipient can fix,
+ * and the mail is not sent. Escaping alone does not cover this: a `javascript:` base survives `escapeHtml`
+ * and becomes a link target.
+ */
+export function httpLinkBase(linkBase: string): string {
+	if (!isHttpLinkBase(linkBase)) throwInternalError()
+	return linkBase
+}
+
+/**
  * Confirmation or reset link: `<base><path>/<encodeURI(email)>/<hash>`. A trailing slash on `linkBase` and a
- * missing leading slash on `linkPath` are normalised away.
+ * missing leading slash on `linkPath` are normalised away. `linkBase` goes through {@link httpLinkBase} first.
  */
 export function confirmationLink(linkBase: string, linkPath: string, emailTo: string, hash: string): string {
-	const base = stripTrailingSlashes(linkBase)
+	const base = stripTrailingSlashes(httpLinkBase(linkBase))
 	const path = `/${linkPath.replace(/^\/+/, '')}`
 	return `${base}${path}/${encodeURI(emailTo)}/${hash}`
 }

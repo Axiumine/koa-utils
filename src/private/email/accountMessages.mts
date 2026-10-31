@@ -1,6 +1,6 @@
 import { escapeHtml } from './escapeHtml.mjs'
 import type { IEmailContent } from './IEmailContent.mjs'
-import { fixName, htmlLink } from './messageParts.mjs'
+import { fixName, htmlLink, httpLinkBase } from './messageParts.mjs'
 
 /** Registration confirmation. `link` is the finished confirmation URL. */
 export function verifyMessage(platformName: string, link: string, name: string): IEmailContent {
@@ -31,21 +31,23 @@ export function changeVerifyMessage(platformName: string, link: string, name: st
 
 /** Welcome mail linking to the platform home. */
 export function welcomeMessage(platformName: string, linkBase: string): IEmailContent {
+	const base = httpLinkBase(linkBase)
 	return {
 		subject: `Welcome to ${platformName}`,
 		textBody: `Welcome to ${platformName}`,
-		htmlBody: `Welcome to ${htmlLink(linkBase, platformName)}`
+		htmlBody: `Welcome to ${htmlLink(base, platformName)}`
 	}
 }
 
 /** Subscription confirmation with the activation code. */
 export function subscriptionMessage(platformName: string, linkBase: string, otp: string): IEmailContent {
-	const url = `${linkBase}/x/emailVerify`
+	const base = httpLinkBase(linkBase)
+	const url = `${base}/x/emailVerify`
 	return {
 		subject: `Activate your ${platformName} account`,
 		textBody: `To confirm your subscription on ${platformName}, open the following link in your browser
      ${url} and enter the following activation code: ${otp}`,
-		htmlBody: `<p>To confirm your subscription on ${htmlLink(linkBase, platformName)}, open the following link in your browser
+		htmlBody: `<p>To confirm your subscription on ${htmlLink(base, platformName)}, open the following link in your browser
     ${htmlLink(url)} and enter the following activation code: ${escapeHtml(otp)}</p>`
 	}
 }

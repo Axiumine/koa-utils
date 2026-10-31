@@ -8,7 +8,7 @@ import {
 	standaloneHeader
 } from '@private/email/htmlFrame.mjs'
 import type { IEmailContent } from '@private/email/IEmailContent.mjs'
-import { confirmationLink } from '@private/email/messageParts.mjs'
+import { confirmationLink, httpLinkBase } from '@private/email/messageParts.mjs'
 import * as notice from '@private/email/noticeMessages.mjs'
 import { orFalse } from '@private/email/orFalse.mjs'
 import * as reset from '@private/email/resetMessages.mjs'
@@ -67,10 +67,14 @@ export class SocketLabsLib {
 	 * normalised away — the caller supplies configuration, not a pre-joined URL, and `//check` or
 	 * `example.comcheck` are not errors worth surfacing to a user mid-registration.
 	 *
+	 * The base, whether passed or taken from `APP_DOMAIN`, must parse as an absolute `http:` / `https:` URL
+	 * with no user name, password, control character or whitespace; any other value (`javascript:`, `data:`,
+	 * `//host`, a host with no scheme) makes the call reject with `throwInternalError()` and sends nothing.
+	 *
 	 * @param emailTo recipient, also embedded in the link (URI-encoded)
 	 * @param hash the activation hash stored on the account
 	 * @param name optional greeting name
-	 * @param linkBase scheme + host the link points at; defaults to `APP_DOMAIN`
+	 * @param linkBase scheme + host the link points at; defaults to `APP_DOMAIN`. An absolute `http:` / `https:` URL, else the call rejects with a 500
 	 * @param linkPath route prefix the receiving service listens on; defaults to `/check/verify-email`
 	 */
 	// eslint-disable-next-line max-params -- public signature, an options object would break consumers
@@ -142,7 +146,7 @@ SendResponse {
 	 */
 
 	async sendEmailChangeVerify(emailTo: string, hash: string, name: string = '') {
-		const link = `${this.linkBase}/check/verify-change-email/${encodeURI(emailTo)}/${hash}`
+		const link = `${httpLinkBase(this.linkBase)}/check/verify-change-email/${encodeURI(emailTo)}/${hash}`
 		return await this.sendTemplate(emailTo, account.changeVerifyMessage(this.platformName, link, name))
 	}
 
@@ -242,7 +246,7 @@ SendResponse {
 	 * @param emailTo recipient, also embedded in the link (URI-encoded)
 	 * @param hash the reset hash stored on the account
 	 * @param name optional greeting name
-	 * @param linkBase scheme + host the link points at; defaults to `APP_DOMAIN`
+	 * @param linkBase scheme + host the link points at; defaults to `APP_DOMAIN`. An absolute `http:` / `https:` URL, else the call rejects with a 500
 	 * @param linkPath front-end route prefix that renders the new-password form; defaults to `/x/reset`
 	 */
 	// eslint-disable-next-line max-params -- public signature, an options object would break consumers

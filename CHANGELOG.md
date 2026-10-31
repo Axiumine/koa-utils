@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Security
+
+- **A link base that is not an `http(s)` URL is refused instead of being placed in an email link.** 7.1.1 HTML-escaped
+  `linkBase` but did not look at its scheme, so a per-call `linkBase` of `javascript:...`, `data:...`, `vbscript:...` or
+  a scheme-relative `//host` was emitted as the target of the link in the HTML part. The same held for `APP_DOMAIN`,
+  which every other link in `SocketLabsLib` is built on.
+
+  The check runs on the URL the WHATWG parser returns, not on a string prefix, so `JaVaScRiPt:`, ` javascript:` and
+  `java<TAB>script:` are caught like `javascript:`. A base passes only if it parses to `http:` or `https:`, has no user
+  name or password (`https://good@evil.example` goes to `evil.example`), and holds no control character, whitespace or
+  backslash (the parser would strip or rewrite them, and the base is emitted as written). A valid base is used exactly
+  as given, so every mail sent before is byte-for-byte the same.
+
+  A refused base makes the send reject with the existing `throwInternalError()` (HTTP 500, title `Internal Server
+  Error`, description `Error reported to Dev Team.`); nothing is built or sent. It covers the `linkBase` argument of
+  `sendEmailVerify` and `sendEmailReset` (and `createResetPwdMailer`), and `APP_DOMAIN` for `sendEmailChangeVerify`,
+  `sendWelcome`, `sendSubscriptionEmail`, `sendResetPwdConfirmation` and `sendResetPwdConfirmationHash`. `APP_DOMAIN` is
+  checked when a link is built, not in the constructor, so `new SocketLabsLib()` still succeeds.
+
+  Observable change: a deployment whose `APP_DOMAIN` is unset, empty or has no scheme (`example.com`) used to mail a
+  link that went nowhere (`undefined/check/...`); it now gets the 500 on every send that carries a link. Set
+  `APP_DOMAIN` to `https://your.host`. No exported symbol, signature or `package.json` `exports` key changes. Limit L11
+  of `docs/security.md` is narrowed to the header and footer fragments.
+
 ## 7.1.1 — 2026-10-31
 
 Three weaknesses fixed, one of them a documented limit. Secret hashes were compared with `===`, `StringLib.cleanHtml`
