@@ -90,12 +90,12 @@ Outside `src/`: `docs/code/` is the per-area reference (index `docs/code/README.
 | Script | Action |
 |---|---|
 | `yarn build` | clean + `build:esm` only — production target |
-| `yarn build:all` | `build:cjs` + `build:esm` for dual format |
+| `yarn build:all` | `build:cjs` + `build:esm`. Fails today because `build:cjs` emits nothing (the package is ESM-only); use `yarn build` |
 | `yarn build:esm` | `tspc -p tsconfig.json`, rename `.js` → `.mjs`, flatten `dist/esm/*` → `dist/` |
-| `yarn build:cjs` | `tsc -p tsconfig.cjs.json`, rename `.js` → `.cjs`, flatten `dist/cjs/*` → `dist/` |
+| `yarn build:cjs` | `tsc -p tsconfig.cjs.json`, rename `.js` → `.cjs`, flatten `dist/cjs/*` → `dist/`. Emits nothing today: its `include` matches `*.ts` and every source file is `.mts`, so the `find dist/cjs` step exits 1 |
 | `yarn build:tests` | `tspc -p tsconfig.build-tests.json` into `dist-test/`, rename `.js` → `.mjs` |
 | `yarn prepare` | `hooks:install` + `rm -rf dist && yarn build` — runs on `npm install` |
-| `yarn prepare:all` | `rm -rf dist && yarn build:all` |
+| `yarn prepare:all` | `rm -rf dist && yarn build:all` (fails with `build:all`, see above) |
 | `yarn hooks:install` | `git config core.hooksPath .githooks` (no-op outside a git repo); picks up every hook in the directory, `pre-push` included |
 | `yarn lint` | `eslint --fix` + `prettier --write 'src/**/*.mts' 'scripts/**/*.mts'` |
 | `yarn lint:check` | `eslint --max-warnings 0 --cache` + `prettier --check` on `src` and `scripts` — read-only variant of `lint` |
@@ -137,7 +137,7 @@ Source files use `.mts` extension and `.mjs` import specifiers (NodeNext module 
 | `@email/*` | `src/email/*` |
 | `@dataSources/*` | `src/dataSources/*` |
 
-`tsconfig.json` highlights: `target: ES2023`, `module: NodeNext`, `strict: true`, `declaration: true`, `outDir: ./dist/esm`, `declarationDir: ./dist/esm`. `tsconfig.cjs.json` mirrors for CJS output.
+`tsconfig.json` highlights: `target: ES2023`, `module: NodeNext`, `strict: true`, `declaration: true`, `outDir: ./dist/esm`, `declarationDir: ./dist/esm`. `tsconfig.cjs.json` is a leftover CJS config that emits nothing today (see `build:cjs`).
 
 ---
 

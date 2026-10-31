@@ -88,7 +88,7 @@ flowchart LR
 
 | Principle | How it is applied here |
 |---|---|
-| Economy of mechanism | One named export per file; no barrel; a size and complexity budget in ESLint (`max-lines-per-function` 50, `complexity` 10, reported as warnings); no runtime dependencies. |
+| Economy of mechanism | One named export per file; no barrel; a size and complexity budget in ESLint (`max-lines-per-function` 50, `complexity` 10, enforced as errors); no runtime dependencies. |
 | Fail-safe defaults | The introspection bypass is an allowlist (`development`, `test`), not "anything but production". A missing reset hash rejects the reset. `REDIS_TLS` refuses a plain URL instead of rewriting it. Optional peers stay unloaded until imported. |
 | Complete mediation | Every request is checked against Redis; the blocked flag in the session is read on each call; the verify-email router sends every redirect through `isSafeRedirectTarget`; Semgrep recognises only that function as a redirect sanitiser, so an ad-hoc check is reported. |
 | Open design | The source, the rules and this page are public. Nothing relies on `src/private/` being secret; it is unexported to keep the API small. |

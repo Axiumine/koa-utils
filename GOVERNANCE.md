@@ -36,25 +36,19 @@ The project must be able to continue, with minimal interruption, if the maintain
 | Capability | Held by | How a successor uses it |
 |---|---|---|
 | Create and close issues, merge pull requests, push tags, change repository settings | The maintainer, and the second owner of the Axiumine GitHub organization (the organization has two owners and requires two-factor authentication) | Sign in to GitHub as an organization owner. No credential of the maintainer is needed. |
-| Publish to npm as `@axiumine/koa-utils` | The maintainer only. His npm account is the sole npm maintainer of the package today. | `yarn upload` (`npm publish` with the registry pinned to npmjs.org), run by the maintainer. A successor cannot publish until npm access is granted to them: see the known gap below. |
+| Publish to npm as `@axiumine/koa-utils` | The maintainer's npm account, and the GitHub Actions release workflow (`.github/workflows/release.yml`, npm trusted publishing with provenance, no stored token), which a repository admin starts by publishing a GitHub release | Publish a GitHub release for a signed tag on `main`, then approve the `npm-publish` deployment. The required reviewer of that environment is the maintainer today; another repository admin adds themselves as a reviewer in the environment settings first. `npm publish` from a tagged checkout (`yarn upload`) stays available to the maintainer's npm account. |
 | Sign release tags | Maintainer's SSH signing key | A successor signs with their own key and records its fingerprint in [docs/verify-release.md](docs/verify-release.md) in the same commit as the first tag they sign. Old tags stay verifiable with the old key. |
 | Quality gates | Repository files and GitHub Actions | Tests, 100% coverage, ESLint, Prettier and Semgrep run in CI from files in the repository. The local pre-commit Qodana step needs a Qodana token (`QODANA_TOKEN` in `.env`, see `.env.example`); a successor creates their own in their Qodana Cloud account. |
 | Legal rights | License | GPL-3.0-or-later. Copyright stays with the contributors. Anyone may continue the project as a fork under the same license, with no assignment needed. |
 
-**Known gap.** Publishing a release depends on one npm account. Everything else in the table is already open to the other owner of the GitHub organization. Closing the gap needs a decision by the maintainer: add a second npm maintainer, or configure npm trusted publishing for `.github/workflows/release.yml` so that a repository admin can publish a GitHub release and approve the deployment. It is listed in [ROADMAP.md](ROADMAP.md).
-
-<!-- OWNER (npm publishing): when the npm trusted publisher is configured for release.yml (and the `npm-publish` environment exists), replace the npm row above with this row:
-
-| Publish to npm as `@axiumine/koa-utils` | The maintainer's npm account, and the GitHub Actions release workflow (`.github/workflows/release.yml`, npm trusted publishing with provenance, no stored token), which a repository admin starts by publishing a GitHub release | `npm publish` from a tagged checkout, or publish a GitHub release for the tag and approve the `npm-publish` deployment. |
-
-and delete the "Known gap" paragraph if a second npm maintainer was also added. -->
+**Known gap.** The npm package settings (the trusted publisher binding and the list of package maintainers) are changed on npmjs.com by the npm account that holds that right, today the maintainer's. A successor can still release through the workflow without touching npm, because the trusted publisher is bound to this repository's workflow, not to a person. A second npm maintainer would close the rest of the gap.
 
 Steps for a successor, in order:
 
 1. Sign in to GitHub as an owner of the `Axiumine` organization. Confirm the loss of the maintainer in an issue so the record is public.
 2. Read [REPO.md](REPO.md) section 7 (versioning and release) and [CLAUDE.md](CLAUDE.md) (the repository rules).
 3. Triage open issues. Merge pending pull requests that meet [CONTRIBUTING.md](CONTRIBUTING.md).
-4. To release: bump `version` in `package.json`, update `CHANGELOG.md` and the "Current version" line in `docs/code/README.md`, tag with a signed tag, then publish (see the known gap above for who can).
+4. To release: bump `version` in `package.json`, update `CHANGELOG.md` and the "Current version" line in `docs/code/README.md`, tag with a signed tag, then publish a GitHub release for it and approve the `npm-publish` deployment (see the table above).
 5. To publish a fix for a vulnerability, follow the response process in [SECURITY.md](SECURITY.md#what-to-expect) and its [coordinated disclosure](SECURITY.md#coordinated-disclosure) rules.
 
 ## Bus factor
