@@ -37,7 +37,7 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: yarn
+          package-manager-cache: false
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
@@ -95,6 +95,7 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
+          package-manager-cache: false
 
       # Gate: what the package ships to consumers. It declares no runtime dependencies, so this must stay clean.
       - name: Audit shipped dependencies
@@ -147,7 +148,7 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-          cache: yarn
+          package-manager-cache: false
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
