@@ -31,6 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `APP_DOMAIN` to `https://your.host`. No exported symbol, signature or `package.json` `exports` key changes. Limit L11
   of `docs/security.md` is narrowed to the header and footer fragments.
 
+  The welcome mail of the email-verification link is the one send that does not surface this 500. `sendWelcome` used to
+  be unable to reject (the send helper swallows transport errors and returns `false`), and `enableEmailAccess` calls it
+  after the account is already activated and the link spent. A rejection there would have redirected the user to
+  `/x/error` for an activation that worked, with no link left to retry. `enableEmailAccess` now catches a rejection or
+  throw from the mailer, reports it to Sentry and resolves, as `updatePassword` does for its confirmation mail; the
+  verification link still redirects to `/x/registration-done` and only the welcome mail is lost. An error from the
+  database write itself still rejects.
+
 ## 7.1.1 — 2026-10-31
 
 Three weaknesses fixed, one of them a documented limit. Secret hashes were compared with `===`, `StringLib.cleanHtml`
