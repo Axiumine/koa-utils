@@ -4,7 +4,7 @@ Independent checks are available for the releases of `@axiumine/koa-utils`:
 
 1. the git tag for the version is signed by the maintainer (every tag from `v5.0.0` on),
 2. the tarball on npm can be rebuilt from that tag, byte for byte (checked for `7.1.0`, section 2), and
-3. the tarball of a release published by the GitHub Actions release workflow (`7.1.1` and later) is covered by a signed build attestation (section 4).
+3. the tarball of a release published by the GitHub Actions release workflow is covered by a signed build attestation (section 4 says which releases that is).
 
 Together they let you confirm that what npm served you is what the maintainer tagged.
 
@@ -61,17 +61,20 @@ The two hashes must be equal. For `7.1.0` both are `929095345ef34839854802bed6b1
 
 ## 4. The build attestation
 
-Releases published through `.github/workflows/release.yml` carry two assets on the GitHub release: the tarball `axiumine-koa-utils-X.Y.Z.tgz` and `axiumine-koa-utils-X.Y.Z.tgz.intoto.jsonl`, a Sigstore bundle holding a SLSA provenance statement for that tarball. The bundle is signed keylessly by the workflow run: there is no long-lived signing key to hold or rotate, and `gh attestation verify` checks the signature and the identity of the workflow that made it. The workflow also publishes the same tarball to npm with an npm provenance statement.
+Releases published through `.github/workflows/release.yml` carry two assets on the GitHub release: the tarball `axiumine-koa-utils-X.Y.Z.tgz` and `axiumine-koa-utils-X.Y.Z.tgz.intoto.jsonl`, a Sigstore bundle holding a SLSA provenance statement for that tarball. The bundle is signed keylessly by the workflow run: there is no long-lived signing key to hold or rotate. `gh attestation verify` checks the signature, and with `--signer-workflow` it also pins the workflow file that made it. The workflow also publishes the same tarball to npm with an npm provenance statement.
+
+The commands below use `7.1.1`; replace it with the version you installed.
 
 ```bash
 gh release download v7.1.1 --repo Axiumine/koa-utils -p '*.tgz' -p '*.intoto.jsonl'
-gh attestation verify axiumine-koa-utils-7.1.1.tgz --bundle axiumine-koa-utils-7.1.1.tgz.intoto.jsonl --repo Axiumine/koa-utils
+gh attestation verify axiumine-koa-utils-7.1.1.tgz --bundle axiumine-koa-utils-7.1.1.tgz.intoto.jsonl \
+  --repo Axiumine/koa-utils --signer-workflow Axiumine/koa-utils/.github/workflows/release.yml
 npm audit signatures
 ```
 
-`gh attestation verify` exits 0 when the bundle is valid for that exact file and was produced for the `Axiumine/koa-utils` repository. For `7.1.1` the signer is `release.yml@refs/tags/v7.1.1`, the predicate type is `https://slsa.dev/provenance/v1`, and the tarball's SHA-1 (`abe72fc251b2001eac9e4ca9e2ae5a93b3426041`) is the same as `npm view @axiumine/koa-utils@7.1.1 dist.shasum` reports.
+`gh attestation verify` exits 0 when the bundle is valid for that exact file and was produced by `.github/workflows/release.yml` of the `Axiumine/koa-utils` repository (`--repo` alone checks only the repository; a bundle from another workflow of the same repository fails with `--signer-workflow`). For `7.1.1` the signer is `release.yml@refs/tags/v7.1.1`, the predicate type is `https://slsa.dev/provenance/v1`, and the tarball's SHA-1 (`abe72fc251b2001eac9e4ca9e2ae5a93b3426041`) is the same as `npm view @axiumine/koa-utils@7.1.1 dist.shasum` reports.
 
-`7.1.1` is the first release published through the workflow ([run 41154050633](https://github.com/Axiumine/koa-utils/actions/runs/41154050633)). Versions up to and including `7.1.0` were not published through the workflow; they have a signed tag (section 1) but no tarball attestation; for them use sections 1 and 2.
+`7.1.1` is the first release published through the workflow ([run 41154050633](https://github.com/Axiumine/koa-utils/actions/runs/41154050633)). Versions up to and including `7.1.0` were not published through the workflow and have no tarball attestation. For them use sections 1 and 2: tags from `v5.0.0` on are signed (section 1), while versions before that have no signed tag, and `7.1.0` is the only version whose tarball was rebuilt byte for byte (section 2). A later version published by hand with `yarn upload` also has no attestation.
 
 ## When the signing key changes
 

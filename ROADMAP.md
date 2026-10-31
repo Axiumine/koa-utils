@@ -18,7 +18,7 @@ A TypeScript utility library for Koa + GraphQL backends: authentication flows an
 ### Security and supply chain
 
 - Earn and keep the OpenSSF Best Practices badge, passing level first and then silver, and keep a published OpenSSF Scorecard result; fix findings those tools report.
-- Publish releases from CI with an npm provenance attestation, in addition to signed git tags, so a consumer can verify where a tarball was built. The workflow is in `.github/workflows/release.yml`; it needs the npm trusted publisher to be configured first.
+- Publish releases from CI with an npm provenance attestation, in addition to signed git tags, so a consumer can verify where a tarball was built. Done for `7.1.1` through `.github/workflows/release.yml` (see [docs/verify-release.md](docs/verify-release.md)); this stays the release path.
 - Keep the documented threat model and assurance case ([docs/security.md](docs/security.md)) in step with every security-relevant change.
 - Keep dependencies monitored: Dependabot, a scheduled audit and the Semgrep and Qodana gates. Triage every finding in a release's `CHANGELOG.md` entry or in an issue.
 
