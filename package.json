@@ -1,6 +1,6 @@
 {
 	"name": "@axiumine/koa-utils",
-	"version": "7.1.0",
+	"version": "7.1.1",
 	"description": "Koa Utils",
 	"type": "module",
 	"repository": {
@@ -29,6 +29,7 @@
 		"lint:check": "eslint --max-warnings 0 --cache && prettier --check 'src/**/*.mts' 'scripts/**/*.mts'",
 		"typecheck": "tsc -p tsconfig.check.json --noEmit",
 		"typecheck:scripts": "tsc -p tsconfig.scripts.json",
+		"typecheck:tests": "tsc -p tsconfig.tests.json",
 		"caps": "node scripts/check-code-caps.mts",
 		"caps:update": "node scripts/check-code-caps.mts --update",
 		"caps:report": "node scripts/check-code-caps.mts --report",
@@ -39,7 +40,7 @@
 		"mutation": "patch-package && stryker run",
 		"mutation:changed": "./scripts/mutation-changed.sh",
 		"leak:check": "node --expose-gc scripts/leak-check.mts",
-		"check:static": "yarn caps && yarn lint:check && yarn typecheck && yarn typecheck:scripts && yarn knip && yarn type-coverage && yarn fta",
+		"check:static": "yarn caps && yarn lint:check && yarn typecheck && yarn typecheck:scripts && yarn typecheck:tests && yarn knip && yarn type-coverage && yarn fta",
 		"clean": "rm -rf ./dist",
 		"build:tests": "rm -rf dist-test && yarn run tspc -p tsconfig.build-tests.json && find dist-test -type f -name \"*.js\" -exec bash -c 'mv \"$0\" \"${0%.js}.mjs\"' {} \\;",
 		"test": "yarn build && yarn build:tests && mocha",
@@ -791,7 +792,6 @@
 		"sinon": "^22.1.0",
 		"ts-node": "^10.9.2",
 		"ts-patch": "^4.0.1",
-		"tsx": "^4.23.15",
 		"type-coverage": "^2.30.4",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "8.72.0",

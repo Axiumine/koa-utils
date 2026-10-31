@@ -981,7 +981,8 @@ describe('SocketLabsLib — exact copy of every mail', () => {
 	it('sendResetPwdConfirmationHash', async () => {
 		await lib.sendResetPwdConfirmationHash('r@x.com', 'Luca', 'hash999')
 		const subject = 'Password change confirmation for TestPlatform'
-		const linkReset = `${BASE}/index.php?q=reset&hash=hash999&email=r@x.com`
+		const linkReset = `${BASE}/index.php?q=reset&amp;hash=hash999&amp;email=r@x.com`
+		// `&` in href + link text → `&amp;` (attribute-safe). Plain-text part carry no reset link.
 		expectMail(
 			'r@x.com',
 			subject,
@@ -1174,5 +1175,247 @@ describe('SocketLabsLib — Sentry reporting', () => {
 		expect(await lib.sendResetPwdConfirmationHash('r@x.com', 'L', 'h')).to.equal(false)
 		expect(captureStub.calledOnce).to.equal(true)
 		expect(captureStub.firstCall.args[0]).to.equal(err)
+	})
+})
+
+// ---------------------------------------------------------------------------
+// HTML escaping — every value interpolated into an HTML body
+// Hostile value in each interpolation point → html part hold escaped form, never raw.
+// Text part + subject line stay raw (not HTML context).
+// ---------------------------------------------------------------------------
+
+const HOSTILE = `<script>alert("x")</script> & 'q' Zoë 日本`
+const HOSTILE_ESC = '&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; &#39;q&#39; Zoë 日本'
+const HOSTILE_PLATFORM = `Tom & <b>"Jerry"</b>'s`
+const HOSTILE_PLATFORM_ESC = 'Tom &amp; &lt;b&gt;&quot;Jerry&quot;&lt;/b&gt;&#39;s'
+const HOSTILE_DOMAIN = `https://t.example.com/?a=1&b='2'`
+const HOSTILE_DOMAIN_ESC = 'https://t.example.com/?a=1&amp;b=&#39;2&#39;'
+
+describe('SocketLabsLib — HTML escaping of untrusted values', () => {
+	let sendStub: sinon.SinonStub
+	const savedEnv: Record<string, string | undefined> = {}
+
+	/** Lib built after env change → platformName + linkBase read hostile */
+	function hostileEnvLib() {
+		for (const k of ['PLATFORM_NAME', 'APP_DOMAIN']) savedEnv[k] = process.env[k]
+		process.env['PLATFORM_NAME'] = HOSTILE_PLATFORM
+		process.env['APP_DOMAIN'] = HOSTILE_DOMAIN
+		return plainLib()
+	}
+
+	function plainLib() {
+		const lib = new SocketLabsLib()
+		sendStub = makeSendStub(true)
+		injectClient(lib, sendStub)
+		return lib
+	}
+
+	/** html part must hold the escaped form and no live markup from the hostile value */
+	function expectInert(html: string) {
+		expect(html).to.not.contain('<script>')
+		expect(html).to.not.contain(HOSTILE)
+		expect(html).to.not.contain('<b>')
+	}
+
+	afterEach(() => {
+		for (const [k, v] of Object.entries(savedEnv)) {
+			if (v === undefined) delete process.env[k]
+			else process.env[k] = v
+		}
+		sinon.restore()
+	})
+
+	it('sendEmailVerify escapes the name; text part and subject keep it raw', async () => {
+		await plainLib().sendEmailVerify('u@example.com', 'h', HOSTILE)
+		const { subject, textBody, htmlBody } = fullMessage(sendStub)
+		expect(htmlBody).to.contain(`Hi ${HOSTILE_ESC},<br>you or someone else is registering you`)
+		expectInert(htmlBody)
+		expect(textBody).to.contain(`Hi ${HOSTILE}, you or someone else is registering you`)
+		expect(subject).to.equal('Confirm your email for TestPlatform')
+	})
+
+	it('sendEmailVerify escapes the platform name; text part and subject keep it raw', async () => {
+		// verifyMessage platformName escape survived removal → no spec pinned it via sendEmailVerify
+		await hostileEnvLib().sendEmailVerify('u@example.com', 'h')
+		const { subject, textBody, htmlBody } = fullMessage(sendStub)
+		expect(htmlBody).to.contain(`you or someone else is registering you on ${HOSTILE_PLATFORM_ESC}.<br>`)
+		expect(htmlBody).to.not.contain('<b>')
+		expect(textBody).to.contain(`you or someone else is registering you on ${HOSTILE_PLATFORM}.`)
+		expect(subject).to.equal(`Confirm your email for ${HOSTILE_PLATFORM}`)
+	})
+
+	it('sendEmailVerify escapes address, hash, base and path inside href and link text', async () => {
+		await plainLib().sendEmailVerify('o\'brien&co@example.com', 'h"><script>', '', 'https://c.example.com/?a=1&b=\'2\'', '/p<q>')
+		const { textBody, htmlBody } = fullMessage(sendStub)
+		const raw = `https://c.example.com/?a=1&b='2'/p<q>/o'brien&co@example.com/h"><script>`
+		const esc = 'https://c.example.com/?a=1&amp;b=&#39;2&#39;/p&lt;q&gt;/o&#39;brien&amp;co@example.com/h&quot;&gt;&lt;script&gt;'
+		expect(htmlBody).to.contain(`href='${esc}'>${esc}</a>`)
+		expect(htmlBody).to.not.contain('<script>')
+		expect(textBody).to.contain(`copying this link ${raw} into your browser`)
+	})
+
+	it('sendEmailChangeVerify escapes the name; text part and subject keep it raw', async () => {
+		await plainLib().sendEmailChangeVerify('u@example.com', 'h', HOSTILE)
+		const { subject, textBody, htmlBody } = fullMessage(sendStub)
+		expect(htmlBody).to.contain(`Hi ${HOSTILE_ESC},<br>you or someone else has changed`)
+		expectInert(htmlBody)
+		expect(textBody).to.contain(`Hi ${HOSTILE}, you or someone else has changed`)
+		expect(subject).to.equal('Confirm your email for TestPlatform')
+	})
+
+	it('sendEmailChangeVerify escapes address and hash inside href and link text', async () => {
+		await plainLib().sendEmailChangeVerify('o\'brien&co@example.com', 'h"><script>')
+		const { textBody, htmlBody } = fullMessage(sendStub)
+		const raw = `${BASE}/check/verify-change-email/o'brien&co@example.com/h"><script>`
+		const esc = `${BASE}/check/verify-change-email/o&#39;brien&amp;co@example.com/h&quot;&gt;&lt;script&gt;`
+		expect(htmlBody).to.contain(`href='${esc}'>${esc}</a>`)
+		expect(htmlBody).to.not.contain('<script>')
+		expect(textBody).to.contain(`copying this link ${raw} into your browser`)
+	})
+
+	it('sendWelcome escapes platform name and domain; subject and text keep them raw', async () => {
+		await hostileEnvLib().sendWelcome('w@x.com')
+		const { subject, textBody, htmlBody } = fullMessage(sendStub)
+		expect(htmlBody).to.contain(`Welcome to <a target='_blank' href='${HOSTILE_DOMAIN_ESC}'>${HOSTILE_PLATFORM_ESC}</a>`)
+		expect(htmlBody).to.not.contain('<b>')
+		expect(subject).to.equal(`Welcome to ${HOSTILE_PLATFORM}`)
+		expect(textBody).to.equal(`Welcome to ${HOSTILE_PLATFORM}`)
+	})
+
+	it('puts the escaped subject in the title of the wrapper; the subject line stays raw', async () => {
+		await hostileEnvLib().sendWelcome('w@x.com')
+		const { subject, htmlBody } = fullMessage(sendStub)
+		expect(subject).to.equal(`Welcome to ${HOSTILE_PLATFORM}`)
+		expect(htmlBody.startsWith(HEADER1 + `Welcome to ${HOSTILE_PLATFORM_ESC}` + HEADER2)).to.equal(true)
+	})
+
+	it('escapes the subject in the title of a custom header too', async () => {
+		const lib = new SocketLabsLib('<h1>', '</h1>', '<f/>')
+		sendStub = makeSendStub(true)
+		injectClient(lib, sendStub)
+		await lib.sendEmailPostReported({ _id: 'i', personalData: { name: 'n', surname: 's' } }, HOSTILE)
+		const { subject, htmlBody } = fullMessage(sendStub)
+		expect(subject).to.equal(`Post ${HOSTILE} reported`)
+		expect(htmlBody.startsWith(`<h1>Post ${HOSTILE_ESC} reported</h1>`)).to.equal(true)
+		expect(htmlBody.endsWith('<f/>')).to.equal(true)
+	})
+
+	it('alertDevTeam escapes err in the html part; text part and subject keep it raw', async () => {
+		await plainLib().alertDevTeam(HOSTILE)
+		const { subject, textBody, htmlBody } = fullMessage(sendStub)
+		expect(htmlBody).to.contain(`<p>error 500 <br><br>${HOSTILE_ESC}</p>`)
+		expectInert(htmlBody)
+		expect(textBody).to.equal(`error 500 ${HOSTILE}`)
+		expect(subject).to.equal('TestPlatform error 500')
+	})
+
+	it('alertDevTeam escapes the platform name in the html title; subject keeps it raw', async () => {
+		await hostileEnvLib().alertDevTeam('boom')
+		const { subject, htmlBody } = fullMessage(sendStub)
+		expect(subject).to.equal(`${HOSTILE_PLATFORM} error 500`)
+		expect(htmlBody.startsWith(HEADER1 + `${HOSTILE_PLATFORM_ESC} error 500` + HEADER2)).to.equal(true)
+	})
+
+	it('sendSubscriptionEmail escapes otp, platform name and domain; text part keeps them raw', async () => {
+		await hostileEnvLib().sendSubscriptionEmail('s@x.com', HOSTILE)
+		const { textBody, htmlBody } = fullMessage(sendStub)
+		expect(htmlBody).to.contain(`<a target='_blank' href='${HOSTILE_DOMAIN_ESC}'>${HOSTILE_PLATFORM_ESC}</a>, open the following link`)
+		expect(htmlBody).to.contain(`href='${HOSTILE_DOMAIN_ESC}/x/emailVerify'>${HOSTILE_DOMAIN_ESC}/x/emailVerify</a>`)
+		expect(htmlBody).to.contain(`activation code: ${HOSTILE_ESC}</p>`)
+		expectInert(htmlBody)
+		expect(textBody).to.contain(`${HOSTILE_DOMAIN}/x/emailVerify and enter the following activation code: ${HOSTILE}`)
+		expect(textBody).to.contain(`subscription on ${HOSTILE_PLATFORM}, open`)
+	})
+
+	it('sendResetPwdConfirmation escapes name, platform name and domain; text part keeps them raw', async () => {
+		await hostileEnvLib().sendResetPwdConfirmation('r@x.com', HOSTILE)
+		const { textBody, htmlBody } = fullMessage(sendStub)
+		expect(htmlBody).to.contain(`Hi ${HOSTILE_ESC},<br>you have confirmed your new password.`)
+		expect(htmlBody).to.contain(`<br>${anchor(HOSTILE_DOMAIN_ESC, HOSTILE_PLATFORM_ESC)}<br><br>The Team.`)
+		expectInert(htmlBody)
+		expect(textBody).to.equal(
+			`Hi ${HOSTILE}, you have confirmed your new password. You can now log in at: ${HOSTILE_DOMAIN}. The Team.`
+		)
+	})
+
+	it('sendResetPwdConfirmationHash escapes name, address and hash; text part and subject keep them raw', async () => {
+		await plainLib().sendResetPwdConfirmationHash('o\'brien&co@example.com', HOSTILE, 'h"><script>')
+		const { subject, textBody, htmlBody } = fullMessage(sendStub)
+		const esc = `${BASE}/index.php?q=reset&amp;hash=h&quot;&gt;&lt;script&gt;&amp;email=o&#39;brien&amp;co@example.com`
+		expect(htmlBody).to.contain(`Hi ${HOSTILE_ESC},<br>you have confirmed your new password.`)
+		expect(htmlBody).to.contain(anchor(esc))
+		expectInert(htmlBody)
+		expect(textBody).to.equal(`Hi ${HOSTILE}, you have confirmed your new password. You can now log in at: ${BASE} . `)
+		expect(subject).to.equal('Password change confirmation for TestPlatform')
+	})
+
+	it('sendResetPwdConfirmationHash escapes the platform name in both titles; subject keeps it raw', async () => {
+		await hostileEnvLib().sendResetPwdConfirmationHash('r@x.com', 'L', 'h')
+		const { subject, htmlBody } = fullMessage(sendStub)
+		const escSubject = `Password change confirmation for ${HOSTILE_PLATFORM_ESC}`
+		expect(subject).to.equal(`Password change confirmation for ${HOSTILE_PLATFORM}`)
+		expect(htmlBody.startsWith(HEADER1 + escSubject + HEADER2)).to.equal(true)
+		expect(htmlBody).to.contain(titleHeader(escSubject))
+		expect(htmlBody).to.not.contain('<b>')
+	})
+
+	it('sendEmailReset escapes the name; text part and subject keep it raw', async () => {
+		await plainLib().sendEmailReset('u@example.com', 'h', HOSTILE)
+		const { subject, textBody, htmlBody } = fullMessage(sendStub)
+		expect(htmlBody).to.contain(`Hi ${HOSTILE_ESC},<br>you or someone else has requested a password reset.`)
+		expectInert(htmlBody)
+		expect(textBody).to.contain(`Hi ${HOSTILE}, you or someone else has requested a password reset.`)
+		expect(subject).to.equal('Password reset for TestPlatform')
+	})
+
+	it('sendEmailReset escapes address, hash, base and path inside href and link text', async () => {
+		await plainLib().sendEmailReset('o\'brien&co@example.com', 'h"><script>', '', 'https://c.example.com/?a=1&b=\'2\'', '/p<q>')
+		const { textBody, htmlBody } = fullMessage(sendStub)
+		const raw = `https://c.example.com/?a=1&b='2'/p<q>/o'brien&co@example.com/h"><script>`
+		const esc = 'https://c.example.com/?a=1&amp;b=&#39;2&#39;/p&lt;q&gt;/o&#39;brien&amp;co@example.com/h&quot;&gt;&lt;script&gt;'
+		expect(htmlBody).to.contain(`clicking the link:<br>${anchor(esc)}`)
+		expect(htmlBody).to.not.contain('<script>')
+		expect(textBody).to.contain(`by copying this link ${raw} into your browser`)
+	})
+
+	it('sendOTP escapes otp and platform name; text part and subject keep them raw', async () => {
+		await hostileEnvLib().sendOTP('o@x.com', HOSTILE)
+		const { subject, textBody, htmlBody } = fullMessage(sendStub)
+		expect(htmlBody).to.contain(`<p>To confirm your subscription on ${HOSTILE_PLATFORM_ESC}, enter the following OTP code: ${HOSTILE_ESC}</p>`)
+		expectInert(htmlBody)
+		expect(textBody).to.equal(`To confirm your subscription on ${HOSTILE_PLATFORM}, enter the following OTP code: ${HOSTILE}`)
+		expect(subject).to.equal(`OTP code for ${HOSTILE_PLATFORM}`)
+	})
+
+	it('sendEmailPostReported escapes post id, name, surname and user id; text part and subject keep them raw', async () => {
+		await plainLib().sendEmailPostReported({ _id: HOSTILE, personalData: { name: HOSTILE, surname: HOSTILE } }, HOSTILE)
+		const { subject, textBody, htmlBody } = fullMessage(sendStub)
+		expect(htmlBody).to.contain(
+			`Hi, post ${HOSTILE_ESC} has been reported by ${HOSTILE_ESC} ${HOSTILE_ESC} (id: ${HOSTILE_ESC}).`
+		)
+		expect(htmlBody).to.contain(titleHeader(`Post ${HOSTILE_ESC} reported`))
+		expect(htmlBody.startsWith(HEADER1 + `Post ${HOSTILE_ESC} reported` + HEADER2)).to.equal(true)
+		expectInert(htmlBody)
+		expect(textBody).to.equal(`Hi, post ${HOSTILE} has been reported by ${HOSTILE} ${HOSTILE} (id: ${HOSTILE}).`)
+		expect(subject).to.equal(`Post ${HOSTILE} reported`)
+	})
+
+	it('sendEmailPostReported escapes a numeric post id as its digits', async () => {
+		await plainLib().sendEmailPostReported({ _id: 'i', personalData: { name: 'n', surname: 's' } }, 7)
+		expect(fullMessage(sendStub).htmlBody).to.contain('Hi, post 7 has been reported by n s (id: i).')
+	})
+
+	it('getHtmlHeader escapes the title', () => {
+		const html = plainLib().getHtmlHeader(HOSTILE)
+		expect(html).to.equal(titleHeader(HOSTILE_ESC))
+		expectInert(html)
+	})
+
+	it('values already built from fixed template text are not escaped twice', async () => {
+		await plainLib().wrongHash('u@x.com', 3)
+		const { htmlBody } = fullMessage(sendStub)
+		expect(htmlBody).to.contain('<p>Hi, you or someone else is trying to verify your email with a wrong link. You have 2 attempts remaining.</p>')
+		expect(htmlBody).to.not.contain('&amp;')
+		expect(htmlBody).to.not.contain('&lt;')
 	})
 })

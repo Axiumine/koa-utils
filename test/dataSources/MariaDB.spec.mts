@@ -170,7 +170,7 @@ describe('MariaDB', () => {
 			const mod = await freshImport()
 			if (!mod) return
 			expect(mod.sequelize.options.retry?.max).to.equal(5)
-			expect(mod.sequelize.options.dialectOptions['requestTimeout']).to.equal(5000)
+			expect((mod.sequelize.options.dialectOptions as Record<string, unknown>)['requestTimeout']).to.equal(5000)
 		})
 
 		it('retry.max and requestTimeout follow MARIADB_RETRY / MARIADB_TIMEOUT when set', async () => {
@@ -179,7 +179,7 @@ describe('MariaDB', () => {
 			const mod = await freshImport()
 			if (!mod) return
 			expect(mod.sequelize.options.retry?.max).to.equal(9)
-			expect(mod.sequelize.options.dialectOptions['requestTimeout']).to.equal(1234)
+			expect((mod.sequelize.options.dialectOptions as Record<string, unknown>)['requestTimeout']).to.equal(1234)
 		})
 
 		it('MARIADB_LOGGING=false → logging false; otherwise explicit undefined key', async () => {

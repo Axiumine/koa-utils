@@ -48,10 +48,9 @@ describe('uploadTempImage', () => {
 		const fakeScanner = { scanFile: sinon.stub().resolves({ isInfected: false, viruses: [] }) }
 		sinon.stub(NodeClam.prototype, 'init').resolves(fakeScanner as unknown as NodeClam)
 
-		const { initClamScan, uploadTempImage } = await import('../../dist/files/scanVirus.mjs').then(async (scanMod) => {
+		const { uploadTempImage } = await import('../../dist/files/scanVirus.mjs').then(async (scanMod) => {
 			await scanMod.initClamScan()
 			return import('../../dist/files/uploadTempImage.mjs').then((imgMod) => ({
-				initClamScan: scanMod.initClamScan,
 				uploadTempImage: imgMod.uploadTempImage
 			}))
 		})

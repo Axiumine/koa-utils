@@ -42,7 +42,7 @@ describe('setRedisLoginSession', () => {
 
 	it('happy path: stores access + refresh keys and sets their expiry', async () => {
 		hSetStub = sinon.stub(redisClient, 'hSet').resolves(1)
-		expireStub = sinon.stub(redisClient, 'expire').resolves(true)
+		expireStub = sinon.stub(redisClient, 'expire').resolves(1)
 		delStub = sinon.stub(redisClient, 'del').resolves(0)
 
 		const id = new Types.ObjectId()
@@ -69,7 +69,7 @@ describe('setRedisLoginSession', () => {
 	it('hSet rejection: deletes both keys and throws 500 Internal Server Error', async () => {
 		const boom = new Error('redis down')
 		hSetStub = sinon.stub(redisClient, 'hSet').rejects(boom)
-		expireStub = sinon.stub(redisClient, 'expire').resolves(true)
+		expireStub = sinon.stub(redisClient, 'expire').resolves(1)
 		delStub = sinon.stub(redisClient, 'del').resolves(1)
 
 		const id = new Types.ObjectId()
@@ -110,7 +110,7 @@ describe('setRedisLoginSession', () => {
 		process.env['REDIS_KEY'] = 's6-prefix:'
 		const prefix = 's6-prefix:'
 		const hSet = sinon.stub(redisClient, 'hSet').resolves(1)
-		const expire = sinon.stub(redisClient, 'expire').resolves(true)
+		const expire = sinon.stub(redisClient, 'expire').resolves(1)
 
 		await setRedisLoginSession(new Types.ObjectId(), 'acc-1', 60, 'ref-1')
 
@@ -125,7 +125,7 @@ describe('setRedisLoginSession', () => {
 		const prefix = 's6-prefix:'
 		const boom = new Error('redis down')
 		sinon.stub(redisClient, 'hSet').rejects(boom)
-		sinon.stub(redisClient, 'expire').resolves(true)
+		sinon.stub(redisClient, 'expire').resolves(1)
 		const del = sinon.stub(redisClient, 'del').resolves(1)
 		const sentry = spyOnSentry()
 		try {
@@ -146,7 +146,7 @@ describe('setRedisLoginSession', () => {
 
 	it('success: nothing reported to Sentry', async () => {
 		sinon.stub(redisClient, 'hSet').resolves(1)
-		sinon.stub(redisClient, 'expire').resolves(true)
+		sinon.stub(redisClient, 'expire').resolves(1)
 		const sentry = spyOnSentry()
 		try {
 			await setRedisLoginSession(new Types.ObjectId(), 'acc-3', 60, 'ref-3')

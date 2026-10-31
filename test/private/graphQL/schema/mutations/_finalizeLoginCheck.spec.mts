@@ -28,7 +28,7 @@ function fakeUser(overrides: Partial<{ account: object; login: object }> = {}): 
 			disabled: false,
 			...((overrides.account as object | undefined) ?? {})
 		}
-	} as ILoginUserShape
+	} as unknown as ILoginUserShape // deliberate: lastLogin undefined = never logged in, shape types it Date
 }
 
 describe('_finalizeLoginCheck', () => {

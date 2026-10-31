@@ -7,6 +7,9 @@
  * - hash !== dbHash → incReqTimes + wrongHash(uEmail, requestTimes + 1) → throw Error(EMAIL_CHECK_LINK)
  * - hash !== dbHash, requestTimes omitted → wrongHash called with 1
  * - hash === dbHash → resolve, no side effects
+ * - near-miss hash (prefix, longer, empty, 'undefined') + undefined dbHash → strike like any wrong hash
+ *
+ * Compare go through safeEqualSecret (constant time). Same outcome as old `!==` for every input.
  */
 import { createHandleIfHashBad, handleIfHashBad } from '@private/lib/access/handleIfHashBad.mjs'
 import { EMAIL_CHECK_LINK } from '@private/lib/access/Constants.mjs'
@@ -17,6 +20,7 @@ import sinon from 'sinon'
 import { Types } from 'mongoose'
 
 import { fakeVerifyEmailMailer, IFakeVerifyEmailMailer } from '../../../helpers/fakeVerifyEmailMailer.mjs'
+import { expectOneDigestCompare, releaseTimingSafeEqual, stubTimingSafeEqual } from '../../../helpers/timingSafeEqualProbe.mjs'
 
 // ---------------------------------------------------------------------------
 
@@ -32,7 +36,7 @@ describe('handleIfHashBad', () => {
 	})
 
 	afterEach(() => {
-		sinon.restore()
+		releaseTimingSafeEqual()
 	})
 
 	it('hash mismatch → increments requestTimes, sends wrongHash email, throws EMAIL_CHECK_LINK error', async () => {
@@ -81,6 +85,43 @@ describe('handleIfHashBad', () => {
 		expect(mailer.wrongHash.firstCall.args).to.deep.equal(['user@test.com', 1])
 	})
 
+	for (const [label, sent] of [
+		['strict prefix of dbHash', 'correctHas'],
+		['dbHash with 1 extra char', 'correctHash!'],
+		['empty hash', ''],
+		['literal "undefined"', 'undefined']
+	] as const) {
+		it(`near-miss hash (${label}) → still strike + wrongHash mail + throw`, async () => {
+			const uId = new Types.ObjectId()
+
+			let caught: unknown
+			try {
+				await guard({ uId, uEmail: 'user@test.com', hash: sent, requestTimes: 1, dbHash: 'correctHash' })
+			} catch (e) {
+				caught = e
+			}
+
+			expect((caught as Error).message).to.equal(EMAIL_CHECK_LINK)
+			expect(incReqTimesFake.calledOnceWith(uId)).to.equal(true)
+			expect(mailer.wrongHash.firstCall.args).to.deep.equal(['user@test.com', 2])
+		})
+	}
+
+	it('dbHash undefined never matches: literal "undefined" + empty hash both strike', async () => {
+		for (const sent of ['undefined', '']) {
+			incReqTimesFake.resetHistory()
+			let caught: unknown
+			try {
+				await guard({ uId: new Types.ObjectId(), uEmail: 'user@test.com', hash: sent, dbHash: undefined })
+			} catch (e) {
+				caught = e
+			}
+
+			expect((caught as Error).message, sent).to.equal(EMAIL_CHECK_LINK)
+			expect(incReqTimesFake.calledOnce, sent).to.equal(true)
+		}
+	})
+
 	it('hash matches dbHash → resolves without throwing and without side effects', async () => {
 		const uId = new Types.ObjectId()
 
@@ -89,6 +130,35 @@ describe('handleIfHashBad', () => {
 		expect(result).to.equal(undefined)
 		expect(incReqTimesFake.called).to.equal(false)
 		expect(mailer.wrongHash.called).to.equal(false)
+	})
+
+	// Revert of the call site to `hash !== dbHash` keep every spec above green: same verdict per input.
+	// Forced verdict split them → compare MUST go through safeEqualSecret → timingSafeEqual.
+	it('constant-time compare: forced "equal" verdict accepts a different hash, via 2 digests', async () => {
+		const probe = stubTimingSafeEqual(true)
+
+		const result = await guard({ uId: new Types.ObjectId(), uEmail: 'user@test.com', hash: 'wrongHash', dbHash: 'correctHash' })
+
+		expect(result).to.equal(undefined)
+		expectOneDigestCompare(probe)
+		expect(incReqTimesFake.called).to.equal(false)
+		expect(mailer.wrongHash.called).to.equal(false)
+	})
+
+	it('constant-time compare: forced "different" verdict rejects an identical hash', async () => {
+		const probe = stubTimingSafeEqual(false)
+
+		let caught: unknown
+		try {
+			await guard({ uId: new Types.ObjectId(), uEmail: 'user@test.com', hash: 'sameHash', dbHash: 'sameHash' })
+		} catch (e) {
+			caught = e
+		}
+
+		expect((caught as Error).message).to.equal(EMAIL_CHECK_LINK)
+		expectOneDigestCompare(probe)
+		expect(incReqTimesFake.calledOnce).to.equal(true)
+		expect(mailer.wrongHash.calledOnce).to.equal(true)
 	})
 
 	it('the bound default writes through UserBase and reaches SocketLabs wrongHash', async () => {

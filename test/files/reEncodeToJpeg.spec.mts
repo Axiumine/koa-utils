@@ -1,26 +1,17 @@
 import { expect } from 'chai'
 import sinon from 'sinon'
-import fsExtra from 'fs-extra'
-import sharp from 'sharp'
 
 // sharp is a fn (default export) → stub by sinon replace. Under ESM with tsx the default export from
 // 'sharp' is mutable on the module namespace object.
 // Strategy: stub the sharp chain + fs.promises.unlink.
 
 describe('reEncodeToJpeg', () => {
-	let fsEnsureDirStub: sinon.SinonStub
-
 	afterEach(() => {
 		sinon.restore()
 	})
 
 	it('calls reEncode and returns finalFilepath (jpeg, same ext)', async () => {
 		// .jpeg ext → no unlink (ext match format)
-		const toFileStub = sinon.stub().resolves()
-		const withExifStub = sinon.stub().returns({ toFile: toFileStub })
-		const withMetadataStub = sinon.stub().returns({ withExif: withExifStub })
-		const jpegChainStub = sinon.stub().returns({ withMetadata: withMetadataStub })
-
 		// `sharp` callable not directly stubbable in ESM, but sharp is a module with a callable default → sinon
 		// replace the default on the module object. In tsx/ESM the `sharp` module default may be writable via
 		// the namespace. Else: test the fn behaviour through what IS observable.

@@ -10,12 +10,12 @@
  * NODE_ENV itself — mocha set none, and a leaked 'undefined' from an earlier file silently turn
  * every bypass assert into a false-negative.
  */
-export const saveNodeEnv = (): string | undefined => process.env.NODE_ENV
+export const saveNodeEnv = (): string | undefined => process.env['NODE_ENV']
 
 export const restoreNodeEnv = (saved: string | undefined): void => {
 	if (typeof saved === 'undefined') {
-		delete process.env.NODE_ENV
+		delete process.env['NODE_ENV']
 	} else {
-		process.env.NODE_ENV = saved
+		process.env['NODE_ENV'] = saved
 	}
 }

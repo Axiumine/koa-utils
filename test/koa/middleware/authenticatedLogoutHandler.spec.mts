@@ -27,7 +27,7 @@ describe('authenticatedLogoutHandler', () => {
 		savedEnv = saveNodeEnv()
 		// Bypass env-gated since 6.0.0. Mocha set no NODE_ENV → gate refuse → every
 		// introspection spec below assert nothing unless env pinned to an allowed value.
-		process.env.NODE_ENV = 'test'
+		process.env['NODE_ENV'] = 'test'
 	})
 
 	afterEach(() => {
@@ -63,7 +63,7 @@ describe('authenticatedLogoutHandler', () => {
 
 	it('sets introspection=true and calls next when no cookie but introspection code present', async () => {
 		const savedCode = saveIntrospectionCode()
-		process.env.INTROSPECTION_CODE = 'icode'
+		process.env['INTROSPECTION_CODE'] = 'icode'
 		try {
 			const mw = authenticatedLogoutHandler(keys)
 			const ctx = {
@@ -80,7 +80,7 @@ describe('authenticatedLogoutHandler', () => {
 
 	it('sets introspection=true and calls next when no authorization but introspection code present', async () => {
 		const savedCode = saveIntrospectionCode()
-		process.env.INTROSPECTION_CODE = 'icode'
+		process.env['INTROSPECTION_CODE'] = 'icode'
 		try {
 			const mw = authenticatedLogoutHandler(keys)
 			const ctx = {
@@ -99,8 +99,8 @@ describe('authenticatedLogoutHandler', () => {
 		// Behaviour break shipped in 6.0.0. Secret set, header match it exactly — the missing
 		// cookie stop being tolerated purely because the process is not on the bypass allowlist.
 		const savedCode = saveIntrospectionCode()
-		process.env.NODE_ENV = 'production'
-		process.env.INTROSPECTION_CODE = 'icode'
+		process.env['NODE_ENV'] = 'production'
+		process.env['INTROSPECTION_CODE'] = 'icode'
 		try {
 			const mw = authenticatedLogoutHandler(keys)
 			const ctx = {
@@ -123,7 +123,7 @@ describe('authenticatedLogoutHandler', () => {
 		// Unset var → header value 'undefined' became a valid introspection bypass: caller
 		// skipped the whole logout body and still got a success response.
 		const savedCode = saveIntrospectionCode()
-		delete process.env.INTROSPECTION_CODE
+		delete process.env['INTROSPECTION_CODE']
 		try {
 			const mw = authenticatedLogoutHandler(keys)
 			const ctx = {

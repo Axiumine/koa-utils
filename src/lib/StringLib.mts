@@ -3,16 +3,69 @@ import { randomBytes, randomInt } from 'node:crypto'
 // 32 chars, a subset of base36. 256 % 32 === 0 so a byte maps uniformly with % 32.
 const RANDOM_ALPHABET = '0123456789abcdefghijklmnopqrstuv'
 
+/**
+ * Removes every `<...>` tag from `str` in linear time.
+ *
+ * Output is identical, for every string, to the regex this replaces: `str.replace(/(<([^>]+)>)/gi, '')`.
+ * That regex is quadratic (ReDoS, CWE-1333): on input with many `<` and no `>`, each `<` makes the engine
+ * scan to the end of the string before it fails, so n characters cost n^2 steps (80k characters took ~1.9 s).
+ *
+ * Reference semantics, kept exactly:
+ * - A tag starts at a `<` and needs at least one character that is not `>` (a newline counts), then a `>`.
+ *   Hence `<>` is not a tag, while `<\n>` is.
+ * - Tags are non-overlapping and found left to right. A `<` inside a tag is consumed with it (`<<a>` -> ``).
+ * - A `<` with no later `>` starts nothing, and neither does any `<` after it, so the rest is kept verbatim.
+ * - Anything that is not a string (or a `String` object) throws a `TypeError`. The regex form did too, since an
+ *   array or a Buffer has no `replace`. Without the check they would pass `indexOf` and `slice` and come back
+ *   unstripped, which turns a sanitizer into a pass-through for untyped input.
+ *
+ * Algorithm: for a `<` at `open`, the first `>` after it is at `close`. The characters between them are all
+ * non-`>` by construction, so `close > open + 1` is exactly the regex condition.
+ * - `close === -1`: no `>` exists at or after `open`, so no tag can start here or later. Stop.
+ * - `close === open + 1`: the text is `<>`, not a tag. Resume the search for `<` at `close`.
+ * - otherwise: drop `open..close`, resume the search for `<` after `close`.
+ *
+ * Termination and cost: `open` and `keepFrom` only move forward and every iteration advances `open` past its
+ * previous value (to a `<` strictly after `open`, or to -1). Each `indexOf('<')` call starts where the previous
+ * one stopped, and each `indexOf('>')` call either returns at once (the `<>` case, one character) or its scan
+ * ends at `close`, from where the next `<` search resumes. No character is scanned twice by the same search, so
+ * the total work is O(n). The single failing `indexOf('>')` (`close === -1`) ends the loop.
+ */
+function stripTags(input: unknown): string {
+	if (typeof input !== 'string' && !(input instanceof String)) {
+		throw new TypeError('cleanHtml expects a string')
+	}
+	const str = String(input)
+	let out = ''
+	let keepFrom = 0
+	let open = str.indexOf('<')
+	while (open !== -1) {
+		const close = str.indexOf('>', open + 1)
+		if (close === -1) {
+			break
+		}
+		if (close === open + 1) {
+			open = str.indexOf('<', close)
+		} else {
+			out += str.slice(keepFrom, open)
+			keepFrom = close + 1
+			open = str.indexOf('<', keepFrom)
+		}
+	}
+
+	return out + str.slice(keepFrom)
+}
+
 export class StringLib {
 	// implements IStringLib
 	constructor() {}
 
 	cleanHtml(str: string): string {
-		return str.replace(/(<([^>]+)>)/gi, '')
+		return stripTags(str)
 	}
 
 	cleanHtmlUndefined(str: string | undefined): string | undefined {
-		return typeof str === 'undefined' ? str : str.replace(/(<([^>]+)>)/gi, '')
+		return typeof str === 'undefined' ? str : stripTags(str)
 	}
 
 	/**

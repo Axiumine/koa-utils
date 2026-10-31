@@ -96,7 +96,7 @@ describe('handleIfMoreThan3DaysPassed', () => {
 	})
 
 	it('the bound default deletes through UserBase and reaches SocketLabs hashReqTooOld', async () => {
-		const deleteOneStub = sinon.stub(UserBase, 'deleteOne').resolves({ acknowledged: true, deletedCount: 1 } as never)
+		const deleteOneStub: sinon.SinonStub = sinon.stub(UserBase, 'deleteOne').resolves({ acknowledged: true, deletedCount: 1 } as never)
 		const hashReqTooOldStub = sinon.stub(SocketLabsLib.prototype, 'hashReqTooOld').resolves()
 		const fourDaysAgo = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000)
 		// Address used by this test only — default binding debounce per address + template.

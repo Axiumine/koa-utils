@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.1.1 — 2026-10-31
+
+Three weaknesses fixed, one of them a documented limit. Secret hashes were compared with `===`, `StringLib.cleanHtml`
+used a quadratic regex, and `SocketLabsLib` put caller-supplied values into email HTML without escaping them.
+
+No exported symbol, public method signature, `package.json` `exports` key or peer range changes. One effect is visible
+from outside: the HTML part of the library's emails now carries escaped text (see below). If you escaped values
+yourself, as limit L11 advised through 7.1.0, stop: `name`, `err`, the OTP, the ids, the subject, `PLATFORM_NAME` and the
+per-call `linkBase` are now escaped by the library, so your escaping would be applied twice.
+
+### Security
+
+- **Secret hash comparisons are now constant-time.** The reset hash in `updatePassword`, the activation hash in
+  `handleIfHashBad` and the email-change hash in `emailChangeHashVerify` were compared with `===` / `!==`, which returns
+  at the first differing character, so response time could reveal how much of a guessed hash was right. They now go
+  through an internal helper that hashes both sides with SHA-256 and compares the digests with `crypto.timingSafeEqual`.
+
+  There is no observable behaviour change besides timing: a wrong or missing hash still answers 403 (`updatePassword`)
+  or bumps the strike counter and mails the warning (activation, email change), and a right hash still passes. A
+  missing stored hash never matches, even against a missing input. The
+  hashes carry 250 bits from `crypto.randomBytes`, so guessing one is not feasible even with a timing signal; this
+  closes the side channel as defence in depth. `updatePassword` still has no strike counter.
+
+- **`StringLib.cleanHtml` and `cleanHtmlUndefined` no longer use a quadratic regex (ReDoS, CWE-1333).** On input with
+  many `<` and no `>` the old regex took about 1.9 s for 80,000 characters. They now use a linear scanner. The output is
+  identical to the old regex for every string, non-string input still throws `TypeError` as before, and the public
+  signatures are unchanged.
+
+- **`SocketLabsLib` HTML-escapes every value it places in an email's HTML part.** This closes known limit L11 of
+  `docs/security.md`, where `name`, the `err` of `alertDevTeam`, the OTP, the ids of `sendEmailPostReported`, the
+  platform name, the subject in `<title>` and the title of `getHtmlHeader` went into the HTML unescaped. `&`, `<`, `>`,
+  `"` and `'` are escaped by one helper; links are escaped as `href` values and as link text. The plain-text part and
+  the subject line are unchanged.
+
+  ⚠️ Observable change, HTML part only: a name, message, code or link containing `&`, `<`, `>`, `"` or `'` now appears
+  escaped in the HTML source (mail clients render it as typed). For example the legacy reset link of
+  `sendResetPwdConfirmationHash` reads `&amp;hash=` and `&amp;email=` in the `href` and in the link text.
+  `getHtmlHeader(title)` now escapes `title`, and so does `PLATFORM_NAME`: pass plain text, not pre-escaped text. L11
+  stays open only for what you configure: the constructor header and footer fragments are still inserted as given, and
+  `linkBase` is escaped for HTML but its scheme and target are not validated.
+
+### Internal
+
+- New private modules, none of them exported: `private/lib/access/safeEqualSecret`, `assertResetAllowed` and
+  `applyPasswordReset` (the reset checks and transaction body moved out of `updatePassword`),
+  `private/lib/access/emailChangeHandlers` (the lookup and branch handlers of `emailChangeHashVerify`), and
+  `private/email/*` (the `SocketLabsLib` copy builders and the one `escapeHtml` helper). `SocketLabsLib` is now a thin
+  dispatcher. The moves keep the order of checks and side effects, the error responses and the Sentry messages as they
+  were. The TypeScript-`private` members of `SocketLabsLib` (`fixName`, `htmlHeader1`, `htmlHeader2`, `sendEmail`,
+  `StringObj`) are gone from the class and its `.d.mts`, and the `mailer` option of `resetPwd` is now typed
+  `IResetPwdMailer | undefined` (a widening). Specs pin the constant-time compare at each call site.
+
+- Quality gates added since 7.1.0, all dev-only: code-size caps, an ESLint suppression ratchet, FTA complexity scores,
+  Knip, type-coverage, and Stryker mutation testing with a 100% score gate. The FTA cap is now 50 (it was 64). The
+  unused `tsx` devDependency was removed.
+
 ## 7.1.0 — 2026-08-28
 
 The Redis connection scheme is now configurable. `dataSources/Redis` hard-coded `redis://` for cluster root nodes and

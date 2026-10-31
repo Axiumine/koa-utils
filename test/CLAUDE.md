@@ -22,10 +22,19 @@ Every comment in `test/**/*.mts` written caveman ultra. Same spec as `CLAUDE.md`
 - 100% statements / branches / functions / lines, **per file**. Red gate → write test. Never lower threshold, never `.c8rc.json` exclude, never `/* c8 ignore */`.
 - Cover every branch, incl unreachable-feeling: each `if`/`else`, every `??` / `?.` / `||` fallback, every `catch`, every early return. 1 uncovered ternary arm in 1 file fail whole run.
 
+## Type-check — `yarn typecheck:tests`
+
+- Gate = `tsconfig.tests.json`, part of `yarn check:static` (after `typecheck:scripts`). Specs get same strict flags as `src/` (`exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`, `noUnusedLocals`). `tsconfig.build-tests.json` stay `noCheck` → mocha build never see a type error, this gate only one.
+- No `dist/` needed: `rootDirs` map relative `../dist/x.mjs` imports back to `src/`. Gate green without `yarn build`.
+- Fix by precise type first: typed fixture, `satisfies`, narrowing, `: sinon.SinonStub` annotation, `TFakeModel`-style intersection (real type + stub members). `process.env['X']` not `process.env.X`.
+- Stub return must match real signature: `redisClient.expire` → `.resolves(1)` not `.resolves(true)`.
+- Cast (`as never`, `as unknown as T`) only where spec deliberately feeds partial fake or invalid input. 1 comment on the cast, caveman ultra, say why.
+- No `@ts-ignore` / `@ts-expect-error` unless spec literally test a type error. Never change an assertion to silence the gate.
+
 ## Property specs — `test/property/*.spec.ts`
 
 - Ext `.ts` not `.mts`: Scorecard Fuzzing scan `*.ts` / `*.tsx` for `fast-check` import, `.mts` → score 0. Only `.ts` dir under `test/`.
-- `tsconfig.build-tests.json` + `tsconfig.test.json` include `test/**/*.ts`. `build:tests` rename emitted `.js` → `.mjs` → mocha glob pick it.
+- `tsconfig.build-tests.json` + `tsconfig.test.json` + `tsconfig.tests.json` include `test/**/*.ts`. `build:tests` rename emitted `.js` → `.mjs` → mocha glob pick it.
 - Cross-file by design → no `src/` mirror. Pure guards only: no DB, no net, no sinon. Import stay 1 line (`import fc from 'fast-check'`) → Scorecard regex per line.
 - Comments caveman ultra, same as `.mts`. `scripts/caveman-gate.sh` match `.mts` only → convention here, not machine-enforced. Extend gate = owner call.
 - Fail → fast-check print `seed` + `path`. Replay: `fc.assert(prop, { seed, path })`. Counterexample = real `src/` bug or wrong property. Never narrow generator to go green.
@@ -50,3 +59,5 @@ Every comment in `test/**/*.mts` written caveman ultra. Same spec as `CLAUDE.md`
 - **Projected reads.** Stub of `findOne` discarding `.select()` arg hide projection bug; `.lean()` make it silent — field outside projection simply absent, no error. Stub decide doc shape → doc never disagree with projection. Spec stub a projected read → capture projection string, assert it cover every field resolver read. Ref: `selectedFields` in `test/graphQL/schema/mutations/emailChangeHashVerify.spec.mts` + `test/private/lib/access/db/getResetPwd.spec.mts`. Cost 5.1.0 a 500 on every hash mismatch.
 - **Verify-email mailer debounce.** Build guard from its `create*` with `fakeVerifyEmailMailer()` (`test/helpers/fakeVerifyEmailMailer.mts`). Stubbing `SocketLabsLib.prototype` + driving same address twice — or 2 spec files reaching same template with same address — get 2nd send suppressed by **process-wide** 15 min per-address-per-template debounce → surface as bare `expected false to equal true`, order-dependent. Any test exercising bound default get its own unique address.
 - **Email copy.** Boolean-only assert on `SocketLabsLib` pin nothing. Read message back via `sentMessage()` in `test/email/SocketLabsLib.spec.mts` → assert `subject`, `textBody`, `htmlBody`.
+- **Constant-time compare call sites.** Revert of a `safeEqualSecret` call site to `===` / `!==` keep every behavioural spec green (same verdict per input), eslint `security/detect-possible-timing-attacks` miss member expressions (`args.hash`), Stryker has no mutator for it. Each call site needs a forced-verdict pair: `stubTimingSafeEqual(true)` + wrong hash → accepted, `stubTimingSafeEqual(false)` + right hash → rejected, `expectOneDigestCompare(probe)`. Helper `test/helpers/timingSafeEqualProbe.mts`; `afterEach` call `releaseTimingSafeEqual()` (restore + `syncBuiltinESMExports()`). New call site → same pair. Ref `test/private/lib/access/handleIfHashBad.spec.mts`.
+- **Perf bound on `cleanHtml`.** `indexOf` = memchr, so quadratic rescan mutants of `stripTags` cost only ~100 ms at 200k reps → stay green under a loose bound. `test/lib/StringLib.cleanHtml.spec.mts` run 100k (old regex dies here, fast) then 1M reps, best of 2. Never shrink `REPS` or widen `BOUND_MS` to go green; verify by hand-mutating `dist/lib/StringLib.mjs` (drop `break`, resume at `open + 1`) → spec must fail.

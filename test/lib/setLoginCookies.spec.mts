@@ -20,10 +20,10 @@ describe('setLoginCookies', () => {
 		const [key, value, opts] = setCookie.firstCall.args as [string, string, Record<string, unknown>]
 		expect(key).to.equal('refresh_token')
 		expect(value).to.equal('my-refresh-token')
-		expect(opts.httpOnly).to.equal(refreshTokenOptions.httpOnly)
-		expect(opts.sameSite).to.equal(refreshTokenOptions.sameSite)
-		expect(opts.secure).to.equal(refreshTokenOptions.secure)
-		expect(opts.maxAge).to.equal(REFRESH_TOKEN_EXPIRY * 1000)
+		expect(opts['httpOnly']).to.equal(refreshTokenOptions.httpOnly)
+		expect(opts['sameSite']).to.equal(refreshTokenOptions.sameSite)
+		expect(opts['secure']).to.equal(refreshTokenOptions.secure)
+		expect(opts['maxAge']).to.equal(REFRESH_TOKEN_EXPIRY * 1000)
 	})
 
 	it('maxAge equals 90 days in milliseconds', () => {
@@ -33,6 +33,6 @@ describe('setLoginCookies', () => {
 		setLoginCookies(ctx as never, 'token')
 
 		const opts = setCookie.firstCall.args[2] as Record<string, unknown>
-		expect(opts.maxAge).to.equal(90 * 24 * 60 * 60 * 1000)
+		expect(opts['maxAge']).to.equal(90 * 24 * 60 * 60 * 1000)
 	})
 })

@@ -28,9 +28,6 @@
     },
     "sonarjs/fixme-tag": {
       "count": 1
-    },
-    "sonarjs/super-linear-regex": {
-      "count": 2
     }
   },
   "src/files/storeUploadAsTemp.mts": {
@@ -39,11 +36,8 @@
     }
   },
   "src/graphQL/schema/mutations/emailChangeHashVerify.mts": {
-    "@typescript-eslint/no-unsafe-assignment": {
-      "count": 1
-    },
     "sonarjs/fixme-tag": {
-      "count": 2
+      "count": 1
     }
   },
   "src/graphQL/schema/mutations/logout.mts": {
@@ -59,17 +53,6 @@
       "count": 1
     },
     "sonarjs/no-try-promise": {
-      "count": 1
-    }
-  },
-  "src/graphQL/schema/mutations/updatePassword.mts": {
-    "@typescript-eslint/no-unnecessary-condition": {
-      "count": 2
-    },
-    "@typescript-eslint/restrict-plus-operands": {
-      "count": 1
-    },
-    "sonarjs/different-types-comparison": {
       "count": 1
     }
   },
@@ -140,9 +123,6 @@
   "src/lib/StringLib.mts": {
     "@typescript-eslint/no-useless-constructor": {
       "count": 1
-    },
-    "sonarjs/super-linear-regex": {
-      "count": 2
     }
   },
   "src/lib/db/log/logGraphql.mts": {

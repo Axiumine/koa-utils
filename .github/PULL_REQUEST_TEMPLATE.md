@@ -5,7 +5,7 @@
 ## Checklist
 
 - [ ] Changed `.mts` files under `src/` have tests in `test/`; `yarn test:coverage` shows 100% on all four metrics
-- [ ] `yarn check:static` is clean (caps, lint, typecheck, Knip, type-coverage, FTA)
+- [ ] `yarn check:static` is clean (caps, lint, typecheck of src, scripts and specs, Knip, type-coverage, FTA)
 - [ ] The matching `docs/code/*.md` page is updated (and `REPO.md` if a file under `src/` was added, moved or removed)
 - [ ] Any consumer-visible change is described below (the maintainer writes the `CHANGELOG.md` entry when the version is bumped)
 - [ ] No new `dependencies`; no peer-range change without a linked discussion

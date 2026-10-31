@@ -31,19 +31,19 @@ describe('redisNodeUrl', () => {
 	})
 
 	it('builds a plaintext redis:// URL when REDIS_TLS is unset', () => {
-		delete process.env.REDIS_TLS
+		delete process.env['REDIS_TLS']
 
 		expect(redisNodeUrl('node1.internal', '6379')).to.equal('redis://node1.internal:6379')
 	})
 
 	it('builds a rediss:// URL when REDIS_TLS is "true"', () => {
-		process.env.REDIS_TLS = 'true'
+		process.env['REDIS_TLS'] = 'true'
 
 		expect(redisNodeUrl('node1.internal', '6379')).to.equal('rediss://node1.internal:6379')
 	})
 
 	it('stays plaintext for a REDIS_TLS value that is not exactly "true"', () => {
-		process.env.REDIS_TLS = '1'
+		process.env['REDIS_TLS'] = '1'
 
 		expect(redisNodeUrl('node2.internal', '6380')).to.equal('redis://node2.internal:6380')
 	})
@@ -52,13 +52,13 @@ describe('redisNodeUrl', () => {
 		// Regression guard, not a wish. Previous inline template produced literal 'undefined' for an
 		// unset REDIS_DB1_HOST, and callers rely on the resulting connect error to surface the missing
 		// variable. Adding validation here would change observable failure mode of cluster boot.
-		delete process.env.REDIS_TLS
+		delete process.env['REDIS_TLS']
 
 		expect(redisNodeUrl(undefined, undefined)).to.equal('redis://undefined:undefined')
 	})
 
 	it('reads REDIS_TLS per call, so all 3 root nodes share one scheme', () => {
-		process.env.REDIS_TLS = 'true'
+		process.env['REDIS_TLS'] = 'true'
 
 		const nodes = [
 			redisNodeUrl('n1', '6379'),

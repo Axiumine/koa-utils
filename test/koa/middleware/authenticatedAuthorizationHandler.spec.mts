@@ -24,7 +24,7 @@ describe('authenticatedAuthorizationHandler', () => {
 		savedEnv = saveNodeEnv()
 		// Bypass env-gated since 6.0.0. Mocha set no NODE_ENV → gate refuse → every
 		// introspection spec below assert nothing unless env pinned to an allowed value.
-		process.env.NODE_ENV = 'test'
+		process.env['NODE_ENV'] = 'test'
 	})
 
 	afterEach(() => {
@@ -93,16 +93,16 @@ describe('authenticatedAuthorizationHandler', () => {
 	})
 
 	it('reads the session under REDIS_KEY prefix + refresh:<uuid>', async () => {
-		const savedKey = process.env.REDIS_KEY
-		process.env.REDIS_KEY = 'mutProbe:'
+		const savedKey = process.env['REDIS_KEY']
+		process.env['REDIS_KEY'] = 'mutProbe:'
 		const hGetAll = sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({ id: '507f1f77bcf86cd799439011' })
 		try {
 			const ctx = { request: { header: { cookie: VALID_COOKIE } }, state: {} } as never
 			await authenticatedAuthorizationHandler(keys)(ctx, async () => undefined)
 			expect(hGetAll.calledOnceWithExactly(`mutProbe:${REDIS_REFRESH_KEY}`)).to.equal(true)
 		} finally {
-			if (savedKey === undefined) delete process.env.REDIS_KEY
-			else process.env.REDIS_KEY = savedKey
+			if (savedKey === undefined) delete process.env['REDIS_KEY']
+			else process.env['REDIS_KEY'] = savedKey
 		}
 	})
 
@@ -162,7 +162,7 @@ describe('authenticatedAuthorizationHandler', () => {
 	it('calls next when Redis empty but introspection code matches', async () => {
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
 		const savedCode = saveIntrospectionCode()
-		process.env.INTROSPECTION_CODE = 'icode'
+		process.env['INTROSPECTION_CODE'] = 'icode'
 		try {
 			const mw = authenticatedAuthorizationHandler(keys)
 			const ctx = {
@@ -182,8 +182,8 @@ describe('authenticatedAuthorizationHandler', () => {
 		// refused purely because the process is not on the bypass allowlist.
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
 		const savedCode = saveIntrospectionCode()
-		process.env.NODE_ENV = 'production'
-		process.env.INTROSPECTION_CODE = 'icode'
+		process.env['NODE_ENV'] = 'production'
+		process.env['INTROSPECTION_CODE'] = 'icode'
 		try {
 			const mw = authenticatedAuthorizationHandler(keys)
 			const ctx = {
@@ -205,7 +205,7 @@ describe('authenticatedAuthorizationHandler', () => {
 		// 'undefined' → stale-but-signed cookie skip the expired-session rejection.
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
 		const savedCode = saveIntrospectionCode()
-		delete process.env.INTROSPECTION_CODE
+		delete process.env['INTROSPECTION_CODE']
 		try {
 			const mw = authenticatedAuthorizationHandler(keys)
 			const ctx = {

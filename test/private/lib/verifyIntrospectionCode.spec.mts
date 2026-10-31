@@ -35,7 +35,7 @@ describe('verifyIntrospectionCode', () => {
 		savedEnv = saveNodeEnv()
 		// Mocha set no NODE_ENV → gate refuse everything. Specs below exercise the secret compare,
 		// so they need an allowed env; the gate itself get its own cases at the bottom.
-		process.env.NODE_ENV = 'test'
+		process.env['NODE_ENV'] = 'test'
 	})
 
 	afterEach(() => {
@@ -44,13 +44,13 @@ describe('verifyIntrospectionCode', () => {
 	})
 
 	it('returns false for the literal string "undefined" when INTROSPECTION_CODE is unset', () => {
-		delete process.env.INTROSPECTION_CODE
+		delete process.env['INTROSPECTION_CODE']
 
 		expect(verifyIntrospectionCode('undefined')).to.equal(false)
 	})
 
 	it('returns false for any header value when INTROSPECTION_CODE is unset', () => {
-		delete process.env.INTROSPECTION_CODE
+		delete process.env['INTROSPECTION_CODE']
 
 		expect(verifyIntrospectionCode('anything')).to.equal(false)
 		expect(verifyIntrospectionCode('')).to.equal(false)
@@ -58,27 +58,27 @@ describe('verifyIntrospectionCode', () => {
 	})
 
 	it('returns false when INTROSPECTION_CODE is set to an empty string', () => {
-		process.env.INTROSPECTION_CODE = ''
+		process.env['INTROSPECTION_CODE'] = ''
 
 		expect(verifyIntrospectionCode('')).to.equal(false)
 		expect(verifyIntrospectionCode('anything')).to.equal(false)
 	})
 
 	it('returns false when the header is absent but INTROSPECTION_CODE is set', () => {
-		process.env.INTROSPECTION_CODE = 'secret'
+		process.env['INTROSPECTION_CODE'] = 'secret'
 
 		expect(verifyIntrospectionCode(undefined)).to.equal(false)
 	})
 
 	it('returns false when the header length differs from the code', () => {
-		process.env.INTROSPECTION_CODE = 'secret'
+		process.env['INTROSPECTION_CODE'] = 'secret'
 
 		expect(verifyIntrospectionCode('short')).to.equal(false)
 		expect(verifyIntrospectionCode('secretsecret')).to.equal(false)
 	})
 
 	it('returns false for a same-length header with different content', () => {
-		process.env.INTROSPECTION_CODE = 'secret'
+		process.env['INTROSPECTION_CODE'] = 'secret'
 
 		expect(verifyIntrospectionCode('xecret')).to.equal(false)
 	})
@@ -87,21 +87,21 @@ describe('verifyIntrospectionCode', () => {
 		// 'é' = 1 char, 2 UTF-8 bytes: compare char length instead of byte length →
 		// timingSafeEqual get 2 unequal buffers → RangeError → the guard become a crash any
 		// unauthenticated caller trigger at will.
-		process.env.INTROSPECTION_CODE = 'secret'
+		process.env['INTROSPECTION_CODE'] = 'secret'
 
 		expect(() => verifyIntrospectionCode('sécret')).to.not.throw()
 		expect(verifyIntrospectionCode('sécret')).to.equal(false)
 	})
 
 	it('returns true when the header matches INTROSPECTION_CODE exactly', () => {
-		process.env.INTROSPECTION_CODE = 'secret'
+		process.env['INTROSPECTION_CODE'] = 'secret'
 
 		expect(verifyIntrospectionCode('secret')).to.equal(true)
 	})
 
 	it('returns true when the header matches under NODE_ENV=development', () => {
-		process.env.NODE_ENV = 'development'
-		process.env.INTROSPECTION_CODE = 'secret'
+		process.env['NODE_ENV'] = 'development'
+		process.env['INTROSPECTION_CODE'] = 'secret'
 
 		expect(verifyIntrospectionCode('secret')).to.equal(true)
 	})
@@ -109,25 +109,25 @@ describe('verifyIntrospectionCode', () => {
 	it('returns false under NODE_ENV=production even with a correct code and a correct header', () => {
 		// Dominance assert. Secret set, header match it exactly → only the env gate can return
 		// false here. Pin the outcome, not the statement order; order get its own spec below.
-		process.env.NODE_ENV = 'production'
-		process.env.INTROSPECTION_CODE = 'secret'
+		process.env['NODE_ENV'] = 'production'
+		process.env['INTROSPECTION_CODE'] = 'secret'
 
 		expect(verifyIntrospectionCode('secret')).to.equal(false)
 	})
 
 	it('returns false when NODE_ENV is unset even with a correct code and a correct header', () => {
-		delete process.env.NODE_ENV
-		process.env.INTROSPECTION_CODE = 'secret'
+		delete process.env['NODE_ENV']
+		process.env['INTROSPECTION_CODE'] = 'secret'
 
 		expect(verifyIntrospectionCode('secret')).to.equal(false)
 	})
 
 	it('returns false for near-miss NODE_ENV values even with a correct code and a correct header', () => {
 		// Denylist form (`!== 'production'`) honour the header for every one of these.
-		process.env.INTROSPECTION_CODE = 'secret'
+		process.env['INTROSPECTION_CODE'] = 'secret'
 
 		for (const value of ['Production', 'prod', 'staging', '']) {
-			process.env.NODE_ENV = value
+			process.env['NODE_ENV'] = value
 
 			expect(verifyIntrospectionCode('secret'), value).to.equal(false)
 		}
@@ -144,8 +144,8 @@ describe('verifyIntrospectionCode', () => {
 		// So observe the read itself. `Object.defineProperty(process.env, k, { get })` throw —
 		// "'process.env' does not accept an accessor(getter/setter) descriptor" — but swapping the
 		// whole `process.env` slot for a recording Proxy work, and reads/writes pass through.
-		process.env.NODE_ENV = 'production'
-		process.env.INTROSPECTION_CODE = 'secret'
+		process.env['NODE_ENV'] = 'production'
+		process.env['INTROSPECTION_CODE'] = 'secret'
 
 		const realEnv = process.env
 		const readKeys: string[] = []

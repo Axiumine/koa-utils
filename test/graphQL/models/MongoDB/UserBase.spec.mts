@@ -82,7 +82,9 @@ describe('graphQL/models/MongoDB/UserBase', () => {
 	}
 
 	it('declares exactly these top-level and nested paths, nothing more', () => {
-		const declared = [...Object.keys(UserBase.schema.paths), ...Object.keys(UserBase.schema.singleNestedPaths)]
+		// deliberate: singleNestedPaths = runtime prop, absent from mongoose typings
+		const { singleNestedPaths } = UserBase.schema as unknown as { singleNestedPaths: object }
+		const declared = [...Object.keys(UserBase.schema.paths), ...Object.keys(singleNestedPaths)]
 		const expected = [...Object.keys(FIELDS), '_id']
 
 		expect([...new Set(declared)].sort()).to.deep.equal([...expected].sort())

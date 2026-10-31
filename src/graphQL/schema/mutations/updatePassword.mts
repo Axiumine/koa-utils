@@ -1,16 +1,14 @@
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { checkEmailLen } from '@lib/checkEmailLen.mjs'
 import { checkPwdLen } from '@lib/checkPwdLen.mjs'
-import { DateLib } from '@lib/DateLib.mjs'
 import { tryCatchRethrow } from '@lib/tryCatchRethrow.mjs'
+import { applyPasswordReset } from '@private/lib/access/applyPasswordReset.mjs'
 import { getResetPwd, TGetResetPwd } from '@private/lib/access/db/getResetPwd.mjs'
 import removeResetReq, { TRemoveResetReq } from '@private/lib/access/db/removeResetReq.mjs'
 import updatePasswordDb, { TUpdatePasswordDb } from '@private/lib/access/db/updatePasswordDb.mjs'
 import * as Sentry from '@sentry/node'
-import { throwForbiddenError } from '@throw/throwForbiddenError.mjs'
-import { throwInternalError } from '@throw/throwInternalError.mjs'
 import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'graphql'
-import mongoose, { ClientSession } from 'mongoose'
+import mongoose from 'mongoose'
 
 /** Arguments accepted by the `updatePassword` mutation. Exported so a consumer re-exporting the bound mutation can name its type. */
 export interface IUpdatePasswordArgs {
@@ -24,71 +22,6 @@ export interface IUpdatePasswordDeps {
 	getResetPwd: TGetResetPwd
 	updatePasswordDb: TUpdatePasswordDb
 	removeResetReq: TRemoveResetReq
-}
-
-/** Normalised inputs the transaction body works on, bundled to keep it within the max-params budget. */
-interface IUpdatePasswordInput {
-	uEmail: string
-	hash: string
-	password: string
-}
-
-/**
- * The transactional core: validate the reset hash, apply the new password and clear the request.
- * Extracted from resolve() only to keep it inside the max-lines-per-function budget — behaviour
- * unchanged. Returns the account holder's name so the caller can mail the post-commit confirmation.
- */
-async function applyPasswordReset(
-	deps: IUpdatePasswordDeps,
-	session: ClientSession,
-	input: IUpdatePasswordInput
-): Promise<string> {
-	const { uEmail, hash, password } = input
-	const resetPwd = await deps.getResetPwd(session, uEmail)
-
-	// check if email is present in db
-	if (resetPwd === null) {
-		throw throwForbiddenError() // don't reveal whether the email is present, for privacy
-	}
-
-	// No usable reset state. This is NOT an internal error as far as the caller is concerned:
-	// answering 500 here while an unknown address answers 403 turns this mutation into an
-	// account-enumeration oracle, because every registered account that has never requested a
-	// reset lands on this branch (getResetPwd yields resetHash === null whenever
-	// account.resetDateReq is undefined). Same 403 as the unknown-address path; the orphan
-	// state is reported to Sentry instead of to the caller.
-	if (resetPwd.resetHash === null) {
-		Sentry.captureMessage(`[updatePassword] no usable resetHash for ${uEmail}`)
-		throw throwForbiddenError()
-	}
-	/* c8 ignore next 4 -- defensive guard, resetDateReq cannot be null when resetHash is set */
-	if (resetPwd.resetDateReq === null) {
-		Sentry.captureMessage(`[updatePassword] resetHash set but resetDateReq missing for ${uEmail}`)
-		throw throwForbiddenError()
-	}
-
-	// check if hash is missing or invalid
-	// eslint-disable-next-line security/detect-possible-timing-attacks -- known limit, owner decision pending on crypto.timingSafeEqual, not constant-time; wrong guesses are not rate-limited (403 only, no strike counter); hash expires after 60 min and is removed on success
-	if (resetPwd.resetHash !== hash /* nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack */) {
-		throw throwForbiddenError() // don't reveal whether the email is present, for privacy
-	}
-
-	// check if the request was made within 1 hour
-	const dt1 = new Date('' + resetPwd.resetDateReq)
-	if (DateLib.minElapsed(dt1) > 60) {
-		throw throwForbiddenError() // The link is no longer valid
-	}
-
-	const update = await deps.updatePasswordDb(session, resetPwd._id, password)
-	if (!update) {
-		throw throwInternalError() // "System error while updating the password."
-	}
-
-	// delete password reset request data from db
-	await deps.removeResetReq(session, uEmail)
-
-	// the confirmation email is sent after the commit, not here
-	return resetPwd.name
 }
 
 /**

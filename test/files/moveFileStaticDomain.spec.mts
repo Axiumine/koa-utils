@@ -6,17 +6,17 @@ import { moveFileStaticDomain } from '../../dist/files/moveFileStaticDomain.mjs'
 describe('moveFileStaticDomain', () => {
 	let ensureDirStub: sinon.SinonStub
 	let moveStub: sinon.SinonStub
-	const originalStaticFolder = process.env.STATIC_FOLDER
+	const originalStaticFolder = process.env['STATIC_FOLDER']
 
 	beforeEach(() => {
 		ensureDirStub = sinon.stub(fsExtra, 'ensureDir').resolves()
 		moveStub = sinon.stub(fsExtra, 'move').resolves()
-		process.env.STATIC_FOLDER = '/var/www/static'
+		process.env['STATIC_FOLDER'] = '/var/www/static'
 	})
 
 	afterEach(() => {
 		sinon.restore()
-		process.env.STATIC_FOLDER = originalStaticFolder
+		process.env['STATIC_FOLDER'] = originalStaticFolder
 	})
 
 	it('ensures destination dir built from STATIC_FOLDER', async () => {
@@ -30,7 +30,7 @@ describe('moveFileStaticDomain', () => {
 	})
 
 	it('uses "undefined" string when STATIC_FOLDER env var is not set', async () => {
-		delete process.env.STATIC_FOLDER
+		delete process.env['STATIC_FOLDER']
 		await moveFileStaticDomain('/tmp/src.pdf', 'a', 'b', 'c')
 		const destArg = ensureDirStub.firstCall.args[0] as string
 		expect(destArg).to.equal('undefined/a/b')
@@ -83,6 +83,6 @@ describe('moveFileStaticDomain', () => {
 
 	it('allows a multi-segment folder (non-breaking)', async () => {
 		await moveFileStaticDomain('/tmp/src.pdf', '2026/07', 'docs', 'c')
-		expect(ensureDirStub.calledOnceWith(`${process.env.STATIC_FOLDER}/2026/07/docs`)).to.be.true
+		expect(ensureDirStub.calledOnceWith(`${process.env['STATIC_FOLDER']}/2026/07/docs`)).to.be.true
 	})
 })

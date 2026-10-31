@@ -70,7 +70,7 @@ describe('assertVerifyEmailAllowed', () => {
 		]) {
 			const proto = SocketLabsLib.prototype as unknown as Record<string, unknown>
 			if (typeof proto[m] === 'function') {
-				sinon.stub(SocketLabsLib.prototype as never, m as never).resolves()
+				sinon.stub(proto as Record<string, () => Promise<void>>, m).resolves()
 			}
 		}
 		sinon.stub(UserBase, 'updateOne').resolves({ modifiedCount: 1 } as never)

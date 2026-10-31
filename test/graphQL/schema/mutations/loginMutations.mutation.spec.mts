@@ -89,7 +89,7 @@ for (const c of cases) {
 			findOneStub = sinon.stub(c.model, 'findOne')
 			sinon.stub(c.model, 'updateOne').resolves({ modifiedCount: 1 } as never)
 			sinon.stub(redisClient, 'hSet').resolves(0)
-			sinon.stub(redisClient, 'expire').resolves(true)
+			sinon.stub(redisClient, 'expire').resolves(1)
 			sinon.stub(redisClient, 'del').resolves(0)
 			sinon.stub(SocketLabsLib.prototype, 'accountDisabled').resolves()
 			const bcryptMod = (await import('@node-rs/bcrypt')).default

@@ -82,10 +82,11 @@ describe('Redis', () => {
 		it('RedisConnect logs the attempt and the success, in order, around connect()', async () => {
 			const { redisClient, RedisConnect } = await import('../../dist/dataSources/Redis.mjs')
 			const info = sinon.stub(console, 'info')
-			sinon.stub(redisClient, 'connect').callsFake(async () => {
+			// deliberate: connect() result unread by RedisConnect → fake returns void, cast past client type
+			sinon.stub(redisClient, 'connect').callsFake((async () => {
 				// attempt line must already be out when connect() runs
 				expect(info.callCount).to.equal(1)
-			})
+			}) as never)
 
 			await RedisConnect()
 
