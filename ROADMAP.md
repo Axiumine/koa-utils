@@ -27,7 +27,7 @@ A TypeScript utility library for Koa + GraphQL backends: authentication flows an
 - Keep 100% line, statement, function and branch coverage per file.
 - Keep the documentation under `docs/code/` and `README.md` changed in the same commit as the code.
 - Finish the English clean-up of comments, mutation descriptions and constant names that is still on the maintainer's to-do list.
-- Look for a co-maintainer, so that more than one person knows the code, and name a backup owner and a second npm publisher ([GOVERNANCE.md](GOVERNANCE.md#bus-factor)).
+- Look for a co-maintainer, so that more than one person knows the code, and add a second npm publisher ([GOVERNANCE.md](GOVERNANCE.md#bus-factor)). The backup owner is named since 2026-11-01.
 
 ## Under consideration, no commitment
 
