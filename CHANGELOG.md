@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 7.2.0 — 2026-11-01
+
+Email links are now built only on an `http(s)` base, and a failed welcome mail can no longer break an activation that
+already succeeded. One effect is visible from outside: a deployment whose `APP_DOMAIN` is unset, empty or has no scheme
+gets an HTTP 500 on every send that carries a link (see below), where it used to mail a dead link.
+
+No exported symbol, public method signature, `package.json` `exports` key or peer range changes. This is the second
+release published through `release.yml`, with the same provenance bundle as 7.1.1.
 
 ### Security
 
