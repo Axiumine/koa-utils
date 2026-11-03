@@ -143,11 +143,12 @@ jobs:
           node-version: 26.13.0
           package-manager-cache: false
 
-      # Fail here, not later, if the Yarn shim ever runs on the wrong Node.
+      # Fail here, not later, if the Yarn shim ever runs on the wrong Node. `-s` silences Yarn's own
+      # banner ("yarn node v1.x", "Done in ...") so only the Node version is compared.
       - name: Check the toolchain
         run: |
           test "$(node -v)" = "v26.13.0"
-          test "$(yarn node -v)" = "v26.13.0"
+          test "$(yarn -s node -v)" = "v26.13.0"
 
       # The pool is persistent and shared: a Yarn cache under the runner user's home would carry
       # one job's downloads into the next, including a job of another repository.
