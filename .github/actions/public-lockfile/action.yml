@@ -1,0 +1,29 @@
+name: Public yarn.lock
+description: Makes the checked-out yarn.lock byte-identical to the committed one, and fails fast if it names any host but registry.npmjs.org.
+
+runs:
+  using: composite
+  steps:
+    # Why this exists: `yarn install` runs `prepare`, which runs `hooks:install`, which writes the maintainer's
+    # `yarnlock-registry` clean/smudge filter into the persistent runner workspace's .git/config. From then on a
+    # checkout can rewrite every `resolved` URL in yarn.lock to the LAN proxy, and a runner that cannot resolve
+    # that host (the Hetzner one) fails in "Fetching packages" with getaddrinfo ENOTFOUND yarnproxy.gio.lan.
+    # Yarn fetches the URL written in the lockfile, so only the lockfile content matters here.
+    - shell: bash
+      run: |
+        set -euo pipefail
+        # Drop the persisted filter, then replace the file with the committed blob itself. Not `git checkout`: it
+        # skips a file whose stat data matches the index entry, and a smudged copy written by an earlier checkout
+        # matches, so it would stay smudged. `cat-file blob` reads the raw blob, with no filter or attribute involved.
+        git config --local --remove-section filter.yarnlock-registry 2>/dev/null || true
+        tmp="$(mktemp yarn.lock.XXXXXX)"
+        git cat-file blob HEAD:yarn.lock > "$tmp"
+        mv -f -- "$tmp" yarn.lock
+        # Same invariant as the lockfile check in .githooks/pre-commit, now also enforced where Dependabot PRs run.
+        # No pipe into grep -q (SIGPIPE under pipefail): collect the hosts first, compare after.
+        hosts="$(sed -n -E 's#^[[:space:]]+resolved "https?://([^/]+)/.*#\1#p' yarn.lock | sort -u)"
+        if [ "$hosts" != "registry.npmjs.org" ]; then
+          echo "::error file=yarn.lock::every resolved URL must use https://registry.npmjs.org/ but found: $(echo "$hosts" | tr '\n' ' ')"
+          exit 1
+        fi
+        echo "yarn.lock: all $(grep -c -E '^[[:space:]]+resolved ' yarn.lock) resolved URLs use registry.npmjs.org" >> "$GITHUB_STEP_SUMMARY"

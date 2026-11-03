@@ -73,6 +73,11 @@ jobs:
       - name: Isolate the Yarn cache to this job
         run: echo "YARN_CACHE_FOLDER=$RUNNER_TEMP/yarn-cache" >> "$GITHUB_ENV"
 
+      # A persistent pool runner can hold a yarn.lock smudged to the LAN proxy, which the Hetzner runner cannot resolve.
+      # See .github/actions/public-lockfile.
+      - name: Use the public yarn.lock
+        uses: ./.github/actions/public-lockfile
+
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 

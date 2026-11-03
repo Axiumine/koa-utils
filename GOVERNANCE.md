@@ -21,7 +21,7 @@ The project uses a maintainer-led model: the maintainer makes the final call on 
 | Contributor | Anyone who opens an issue or pull request | Follow [CONTRIBUTING.md](CONTRIBUTING.md) and the Code of Conduct. |
 | Security reporter | Anyone who reports a vulnerability | Report privately as described in [SECURITY.md](SECURITY.md). Is credited unless they ask not to be. |
 
-`CODEOWNERS` lists the maintainer as owner of every path.
+`CODEOWNERS` lists the maintainer and the backup owner (`@vivi7`) as owners of every path; a review from either one satisfies the code-owner review rule.
 
 ## Continuity
 
