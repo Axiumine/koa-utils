@@ -21,7 +21,10 @@ jobs:
     # so the scan cannot start there. Skip it instead of failing; Qodana still runs on
     # the push to main after the merge. Fork PRs without the secret still fail, as before.
     if: github.event.pull_request.user.login != 'dependabot[bot]'
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
+    env:
+      # Keeps the maintainer's LAN proxy filter inert in the persistent checkout, see the header of ci.yml.
+      YARN_PROXY_REGISTRY: https://registry.npmjs.org/
     # Per qodana-action source (v2026.2.2): checks API for the check run and annotations,
     # issues API for the PR summary comment. `contents: write` is only used by push-fixes
     # (default `none`) and `security-events: write` is never used (this action does not
@@ -42,6 +45,13 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+
+      - name: Enable Yarn
+        run: corepack enable
+
+      # Persistent shared runner pool: per-job Yarn cache, see the header of ci.yml.
+      - name: Isolate the Yarn cache to this job
+        run: echo "YARN_CACHE_FOLDER=$RUNNER_TEMP/yarn-cache" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile

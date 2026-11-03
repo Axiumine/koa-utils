@@ -209,6 +209,15 @@ The next four rules are supply-chain security invariants, so they are written in
 - No workflow runs `npm install`, `pip install` or `curl ... | bash`. Dependencies come from `yarn install --frozen-lockfile` or from a pinned action or image.
 - Never put an expression such as `${{ github.event.* }}` inside a `run:` script, because event payload text is attacker-controlled. Pass it through `env:` and read the shell variable.
 
+The runner policy is a security invariant too, so it is also written in full sentences.
+
+- `release.yml` and `scorecard.yml` stay on GitHub-hosted runners (`ubuntu-24.04`) and never move to self-hosted. `release.yml` uses npm trusted publishing and the Sigstore provenance, which require a GitHub-hosted VM, and its `publish` job holds the OIDC token. `scorecard.yml` holds `id-token: write` and `security-events: write` and is kept hosted by owner policy. `ci.yml`, `qodana.yml`, `semgrep.yml` and `mutation.yml` use `runs-on: [self-hosted, Linux, X64]`, the persistent organisation pool in the Default runner group, which is shared with other repositories and open to this public repository.
+- The only gate between a fork's code and the pool machines is the repository setting `approval_policy: all_external_contributors`. Check it with `gh api repos/Axiumine/koa-utils/actions/permissions/fork-pr-contributor-approval` and never lower it. A fork can edit the workflow file it runs, so an `if:` guard inside a workflow is not a substitute. Never add a `pull_request_target` or `workflow_run` trigger: both run with the base repository's token and secrets.
+- Every listener started by a pool job binds to `127.0.0.1` on a port the operating system assigns, never on a fixed port, and no `docker run` publishes a port with `-p`. The only listener today is the in-memory mongod of the test suite. Its free-port probe is a brief wildcard bind before mongod starts, which cannot be removed without patching `mongodb-memory-server`.
+- A green `Test coverage` or `qodana.yml` run now comes from the shared pool, so a compromised runner could report green without checking anything. `release.yml` rebuilds and re-tests on a GitHub-hosted runner, which bounds that, but its `verify` job still accepts the `qodana.yml` run as reported.
+
+- Pool jobs: step `Isolate the Yarn cache to this job` set `YARN_CACHE_FOLDER=$RUNNER_TEMP/yarn-cache` → Yarn downloads not shared across jobs or repos (mongod binary + tool cache still persist on runner). Job env `YARN_PROXY_REGISTRY=https://registry.npmjs.org/` → `prepare` filter inert, `yarn.lock` never rewritten to LAN host. `corepack enable` after Setup Node → Yarn present on bare runner. Node 26 ship no Corepack (dropped in Node 25) → Node 26 job: Setup Node 24.14.0 → `corepack enable` → Setup Node 26.13.0 → step `Check the toolchain` assert `node -v` + `yarn node -v` = `v26.13.0`. Never `npm install -g corepack` (CI rule above). Assumed on runner: docker (user in group), git, python3, curl, libcurl4 + libssl3 (mongod).
+- Pool offline → `Test coverage`, `qodana.yml`, release `verify` (needs green `qodana.yml`) all stall. Owner-only `--admin` bypass, only after local `yarn test:coverage` green.
 - Job `Test coverage` (required check, name fixed) hold step `Static gates` = `yarn check:static`, before `yarn test:coverage`. Old `Coding standard` step folded in. Static gate → inside this job, never a new required context.
 - Node pin in `ci.yml`: `Test coverage` = `24.14.0`, `Test coverage (Node 26.13.0)` = `26.13.0` → exact `engines` floors, never floating `24` / `26`. Widen/raise `engines` → both jobs + README + CONTRIBUTING + REPO + `docs/code/README.md` same change. Node 26 job not required until owner add it to ruleset. No `engines` widen before `yarn test:coverage` green on that Node.
 - Advisory jobs, not required checks: `Trivy` (digest-pinned image, `--exit-code 1`; ghcr rate limit → red = rerun first), `Leak check` (schedule/dispatch only), `mutation.yml` (weekly Sun 03:43 UTC + dispatch, 120 min). Never hook, never required without ruleset edit. Semgrep registry packs (`--registry`) = CI `semgrep.yml` only, never hook, never `release.yml`.
@@ -289,31 +298,31 @@ Ordered. Do not reorder.
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **koa-utils**. Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **koa-utils**.
 
-> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
+> Index stale? Run `node .gitnexus/run.cjs analyze --index-only` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
 
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user. For unified PDG impact, add `mode: "pdg"` with optional `line: <N>` — it returns statement-level `affectedStatements` over CDG + REACHING_DEF and inter-procedural symbols in `interproceduralByDepth`/`byDepth`; no-layer/degraded PDG results are UNKNOWN-risk notes (`--pdg` layer).
-- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `query({search_query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
+- **MUST run impact before editing.** Use `impact({target: "symbolName", direction: "upstream"})` or `node .gitnexus/run.cjs impact "symbolName" --direction upstream --repo .`; report callers, processes, and risk. Never substitute grep for graph analysis. For unified PDG impact, add `mode: "pdg"` with optional `line: <N>` — it returns statement-level `affectedStatements` over CDG + REACHING_DEF and inter-procedural symbols in `interproceduralByDepth`/`byDepth`; no-layer/degraded PDG results are UNKNOWN-risk notes (`--pdg` layer). CLI equivalent: `node .gitnexus/run.cjs impact "symbolName" --direction upstream --mode pdg --line <N> --repo .`.
+- **MUST analyze graph changes before committing.** Use `detect_changes({scope: "all"})` (MCP) or `node .gitnexus/run.cjs detect-changes --scope all --repo .` (CLI fallback). `partial: true` or `truncated: true` is not a clean check — a zero means unseen, not unaffected; re-run it. For regression review: `detect_changes({scope: "compare", base_ref: "main"})` or `node .gitnexus/run.cjs detect-changes --scope compare --base-ref "main" --repo .`.
+- MUST warn on HIGH/CRITICAL `risk` pre-edit; never use `riskSharedAxes` to waive a HIGH/CRITICAL `risk` warning. Compare File/symbol: MCP File omits axes; Graph-RAG expands File.
+- **MUST treat `risk: UNKNOWN` as unresolved, not as low.** An empty caller set is not evidence the symbol is unused — it can also mean the callers are not resolvable by the index (plain-object property access, dynamic dispatch, cross-language calls). `impact` pairs `UNKNOWN` with a `riskNote` saying so. Confirm with a text search before treating the symbol as safe to change or delete; do not proceed on the strength of a zero.
+- **MUST use `query({search_query: "concept"})` for concepts/flows, `context({name: "symbolName"})` for a named symbol, or `impact` for blast radius, on read-only callers, dependencies, imports, or execution flow.** Graph first; text search only for empty/`UNKNOWN`/literals.
 - For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
 - For control/data dependence, `pdg_query({mode: "controls", target: "fileOrSymbol"})` answers "under what condition does X run?" (CDG, incl. guard clauses) and `pdg_query({mode: "flows", target, variable})` traces "where does variable Y flow?" (REACHING_DEF). `--pdg` layer.
 
 ## Never Do
 
-- NEVER edit a function, class, or method without first running `impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
+- NEVER edit a function, class, or method before MCP/CLI impact analysis.
+- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis, and never read `UNKNOWN` as an all-clear — it means the walk could not answer, which is the one verdict that requires confirming by other means.
 - NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
-- NEVER commit changes without running `detect_changes()` to check affected scope.
+- NEVER commit before MCP/CLI graph change analysis.
 
 ## Resources
 
 | Resource | Use for |
-|----------|---------|
+| --- | --- |
 | `gitnexus://repo/koa-utils/context` | Codebase overview, check index freshness |
 | `gitnexus://repo/koa-utils/clusters` | All functional areas |
 | `gitnexus://repo/koa-utils/processes` | All execution flows |
@@ -322,12 +331,12 @@ This project is indexed by GitNexus as **koa-utils**. Use the GitNexus MCP tools
 ## CLI
 
 | Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+| --- | --- |
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus-exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus-debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.claude/skills/gitnexus-refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.claude/skills/gitnexus-guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
