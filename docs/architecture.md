@@ -38,7 +38,7 @@ flowchart LR
 
 | Area | Responsibility | Talks to |
 |---|---|---|
-| `koa/` | Middleware that authenticates a request (`authenticatedResourceHandler`, `authenticatedAuthorizationHandler`, `authenticatedLogoutHandler`), the top-level error handler, the verify-email router | Redis, Keygrip |
+| `koa/` | Middleware that authenticates a request (`authenticatedResourceHandler`, `authenticatedAuthorizationHandler`, `authenticatedLogoutHandler`), the top-level error handler (`createKoaErrorHandler`, a factory with no peer, and `tdwKoaErrorHandler`, its GraphQL + Sentry wrapper), the verify-email router | Redis, Keygrip |
 | `graphQL/` | Mutation definitions (`signUp`, `login*`, `refresh`, `logout`, `resetPwd`, `updatePassword`, `emailChangeHashVerify`), object and input types, `throw*` error helpers, Mongoose models | MongoDB, Redis, SocketLabs |
 | `lib/access/` | Model-agnostic factories (`createResetPwdFlow`, `createVerifyEmailFlow`) that bind the reset and verification flows to any Mongoose model and field layout | MongoDB |
 | `lib/` | Token generation, bcrypt helpers, cookie options, input validators, redirect allowlist, small utility classes, and `lib/db/` (user registration and lookup, request and error logs) | MongoDB (through `lib/db/` only) |
