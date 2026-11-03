@@ -25,7 +25,20 @@ const keys = Object.keys(pkg.exports).sort()
 // Peer absent here = unscoped (purpose too broad for 1 regex). /^$/ = no subpath: only lazy, via private facade
 const PEER_SCOPE: Record<string, RegExp> = {
 	'@sentry/node': /^$/,
-	dotenv: /^$/
+	dotenv: /^$/,
+	// models, data source, flows, mutations, Koa user readers, db helpers, ObjectId sentinel
+	mongoose:
+		/^\.\/(dataSources\/MongoDB|graphQL\/(models|schema\/mutations)\/|koa\/(middleware|router)\/|lib\/(OBJECTID_0_OBJ|access\/|db\/))/
+}
+
+// subpath → the only peers it may reach (runtime, lazy or types). [] = none. Snapshot regen cannot add one.
+// Constants + emailHash + tokens were freed from mongoose / uuid in 8.0.0 → pinned. New peerless subpath → append with []
+const PEER_BUDGET: Record<string, string[]> = {
+	'./lib/Constants': [],
+	'./lib/emailHash': [],
+	'./lib/tokens': [],
+	'./lib/checkEmailLen': ['graphql'],
+	'./lib/checkPwdLen': ['graphql']
 }
 
 // 1st alt: import|export … from 'x' (multi-line ok). 2nd alt: side-effect import 'x'.
@@ -115,6 +128,18 @@ describe('package/peerReach', () => {
 			assert.ok(peers.includes(peer), `scope names a pkg that is no peer: ${peer}`)
 			const outside = (byPeer[peer]?.runtime ?? []).filter((key) => !scope.test(key))
 			assert.deepEqual(outside, [], `${peer} loaded at import outside ${String(scope)}`)
+		}
+	})
+
+	it('budgeted subpaths reach no peer beyond their budget', () => {
+		for (const [key, allowed] of Object.entries(PEER_BUDGET)) {
+			assert.ok(keys.includes(key), `budget names a subpath that is not exported: ${key}`)
+			const reached = peers.filter((peer) => Object.values(byPeer[peer] ?? {}).some((list: string[]) => list.includes(key)))
+			assert.deepEqual(
+				reached.filter((peer) => !allowed.includes(peer)),
+				[],
+				`${key} reaches a peer outside its budget [${allowed.join(', ')}]`
+			)
 		}
 	})
 

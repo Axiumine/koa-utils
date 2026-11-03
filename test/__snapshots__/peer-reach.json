@@ -258,18 +258,15 @@
 			"./koa/middleware/authenticatedAuthorizationHandler",
 			"./koa/middleware/authenticatedResourceHandler",
 			"./koa/router/verifyEmail",
-			"./lib/Constants",
+			"./lib/OBJECTID_0_OBJ",
 			"./lib/access/createResetPwdFlow",
 			"./lib/access/createVerifyEmailFlow",
-			"./lib/checkEmailLen",
-			"./lib/checkPwdLen",
 			"./lib/db/log/hitStat",
 			"./lib/db/log/logGlobalError",
 			"./lib/db/log/logGraphql",
 			"./lib/db/log/logThrow",
 			"./lib/db/registerNewUser",
-			"./lib/db/userExist",
-			"./lib/emailHash"
+			"./lib/db/userExist"
 		],
 		"lazy": [],
 		"typesOnly": [
@@ -327,21 +324,6 @@
 			"./files/reEncodeToPng",
 			"./files/reEncodeToWebp",
 			"./files/uploadTempImage"
-		],
-		"lazy": [],
-		"typesOnly": []
-	},
-	"uuid": {
-		"runtime": [
-			"./files/storeUploadAsTemp",
-			"./files/uploadTempImage",
-			"./files/uploadTempPdf",
-			"./graphQL/schema/mutations/login4Ever",
-			"./graphQL/schema/mutations/loginAdmin",
-			"./graphQL/schema/mutations/loginRememberme",
-			"./graphQL/schema/mutations/refresh",
-			"./lib/setLoginCookies",
-			"./lib/tokens"
 		],
 		"lazy": [],
 		"typesOnly": []

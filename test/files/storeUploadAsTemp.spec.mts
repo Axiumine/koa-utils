@@ -1,3 +1,4 @@
+import { isValidUuidV4 } from '@lib/isValidUuidV4.mjs'
 import { expect } from 'chai'
 import { createReadStream, unlinkSync, existsSync, statSync } from 'node:fs'
 import { writeFileSync } from 'node:fs'
@@ -50,6 +51,8 @@ describe('storeUploadAsTemp', () => {
 
 		expect(result.originalFilename).to.equal('photo.JPG')
 		expect(result.fileName).to.match(/^[0-9a-f-]+\.jpg$/)
+		// stem = lowercase v4 uuid (node:crypto randomUUID)
+		expect(isValidUuidV4(result.fileName.slice(0, -'.jpg'.length))).to.equal(true)
 		expect(result.filePath).to.equal(`/tmp/${result.fileName}`)
 
 		// clean up the dest file too

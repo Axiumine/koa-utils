@@ -11,7 +11,7 @@ Core, dependency-light building blocks used across the auth flow (`signUp` → `
 export function generateAccessToken(): string
 ```
 
-Generates a new access token. Internally calls a private `generateToken()` helper that wraps `uuidv4()` from the `uuid` package — the token is an opaque random UUID v4 string, not a JWT. Call this on successful login to mint the token that is returned to the client as `{ accessToken }` in the response body and stored server-side in Redis under `${REDIS_KEY}access:<uuid>`.
+Generates a new access token. Internally calls a private `generateToken()` helper that wraps `randomUUID()` from `node:crypto` (the `uuid` package is no longer a peer dependency since 8.0.0; the output is the same lowercase v4 string) — the token is an opaque random UUID v4 string, not a JWT. Call this on successful login to mint the token that is returned to the client as `{ accessToken }` in the response body and stored server-side in Redis under `${REDIS_KEY}access:<uuid>`.
 
 **Returns:** `string` — a UUID v4 string.
 
@@ -269,7 +269,7 @@ The canonical all-zero MongoDB ObjectId, as a 24-character hex string. Useful as
 
 ## `OBJECTID_0_OBJ`
 
-**Import:** `import { OBJECTID_0_OBJ } from '@axiumine/koa-utils/lib/Constants'`
+**Import:** `import { OBJECTID_0_OBJ } from '@axiumine/koa-utils/lib/OBJECTID_0_OBJ'`
 
 **Signature:**
 ```ts
@@ -277,6 +277,8 @@ export const OBJECTID_0_OBJ = new Types.ObjectId(OBJECTID_0_STR)
 ```
 
 The same all-zero sentinel id as `OBJECTID_0_STR`, pre-constructed as a Mongoose `Types.ObjectId` instance for direct use in queries/documents without re-parsing the string on every use.
+
+**Breaking in 8.0.0:** through 7.2.0 this constant was exported by `lib/Constants`. It has its own subpath now because it is the only thing in `Constants` that needs `mongoose`: with it there, `lib/Constants`, `lib/emailHash`, `lib/checkEmailLen` and `lib/checkPwdLen` all loaded `mongoose` for nothing. Change the import path; the value is the same. Importing this subpath needs `mongoose` installed; `lib/Constants` does not.
 
 **Returns:** `Types.ObjectId` — instance wrapping `OBJECTID_0_STR`.
 

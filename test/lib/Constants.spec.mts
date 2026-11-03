@@ -1,13 +1,6 @@
-import {
-	EMAIL_HASH_LEN,
-	EMAIL_MAX_LEN,
-	MAX_PWD_LENGTH,
-	MIN_PWD_LENGTH,
-	OBJECTID_0_OBJ,
-	OBJECTID_0_STR
-} from '@lib/Constants.mjs'
+import * as Constants from '@lib/Constants.mjs'
+import { EMAIL_HASH_LEN, EMAIL_MAX_LEN, MAX_PWD_LENGTH, MIN_PWD_LENGTH, OBJECTID_0_STR } from '@lib/Constants.mjs'
 import { expect } from 'chai'
-import { Types } from 'mongoose'
 
 describe('Constants', () => {
 	it('OBJECTID_0_STR is 24-char zero ObjectId hex', () => {
@@ -15,9 +8,9 @@ describe('Constants', () => {
 		expect(OBJECTID_0_STR).to.have.lengthOf(24)
 	})
 
-	it('OBJECTID_0_OBJ is a mongoose ObjectId matching the zero string', () => {
-		expect(OBJECTID_0_OBJ).to.be.instanceOf(Types.ObjectId)
-		expect(OBJECTID_0_OBJ.toString()).to.equal(OBJECTID_0_STR)
+	// 8.0.0 breaking: OBJECTID_0_OBJ moved to lib/OBJECTID_0_OBJ → Constants must not load mongoose (peer-reach guard pins it too)
+	it('does not export OBJECTID_0_OBJ any more', () => {
+		expect(Object.keys(Constants)).to.not.include('OBJECTID_0_OBJ')
 	})
 
 	it('EMAIL_MAX_LEN = 255', () => {

@@ -1,9 +1,10 @@
-import { v4 as uuidv4 } from 'uuid'
+import { randomUUID } from 'node:crypto'
 
 export const REFRESH_TOKEN_EXPIRY = 90 * 24 * 60 * 60 // 90 days
 
-function generateToken() {
-	return uuidv4()
+// typed `string`, as uuid v4() was: randomUUID() returns a template literal type that would narrow every caller
+function generateToken(): string {
+	return randomUUID()
 }
 
 export function generateAccessToken() {

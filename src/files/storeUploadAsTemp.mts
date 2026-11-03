@@ -1,7 +1,7 @@
+import { randomUUID } from 'node:crypto'
 import { createWriteStream, unlink } from 'node:fs'
 
 import path from 'path'
-import { v4 as uuidv4 } from 'uuid'
 
 import { IFileUpload } from '../koa/IFileUpload.mjs'
 import { IStoreFile, UPLOAD_TEMP_DIRECTORY_URL } from './fileConst.mjs'
@@ -13,7 +13,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB size limit
 export async function storeUploadAsTemp(upload: Promise<IFileUpload>, maxFileSize: number = MAX_FILE_SIZE): Promise<IStoreFile> {
 	const { createReadStream, filename } = await upload
 	const stream = createReadStream()
-	const storedFileName = uuidv4() + path.extname(filename).toLowerCase()
+	const storedFileName = randomUUID() + path.extname(filename).toLowerCase()
 	const storedFileUrl = `${UPLOAD_TEMP_DIRECTORY_URL}/${storedFileName}`
 	let fileSize = 0 // Variable to track file size
 	let sizeExceeded = false // Set once the limit is passed; read by the 'close' handler

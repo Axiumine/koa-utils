@@ -1,9 +1,5 @@
-import {
-	accessTokenExpiry,
-	generateAccessToken,
-	generateRefreshToken,
-	REFRESH_TOKEN_EXPIRY
-} from '@lib/tokens.mjs'
+import { accessTokenExpiry, generateAccessToken, generateRefreshToken, REFRESH_TOKEN_EXPIRY } from '@lib/tokens.mjs'
+import { isValidUuidV4 } from '@lib/isValidUuidV4.mjs'
 import { expect } from 'chai'
 import sinon from 'sinon'
 
@@ -20,6 +16,14 @@ describe('tokens', () => {
 
 	it('generateRefreshToken returns uuid v4', () => {
 		expect(generateRefreshToken()).to.match(UUID_V4_RE)
+	})
+
+	// node:crypto randomUUID replaced the uuid pkg → lowercase v4 stay what the access guards accept
+	it('tokens are lowercase and pass isValidUuidV4, the check of the access guards', () => {
+		for (const token of [generateAccessToken(), generateRefreshToken()]) {
+			expect(token).to.equal(token.toLowerCase())
+			expect(isValidUuidV4(token)).to.equal(true)
+		}
 	})
 
 	it('access + refresh tokens are unique across calls', () => {

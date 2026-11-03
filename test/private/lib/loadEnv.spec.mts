@@ -9,6 +9,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import sinon from 'sinon'
+import { copyDistToTemp } from '../../helpers/isolatedDist.mjs'
 
 describe('loadEnv', () => {
 	it('default loader = real dotenv: reads the env file of cwd into process.env', () => {
@@ -35,6 +36,31 @@ describe('loadEnv', () => {
 
 	it('returns nothing, whatever config() returns', () => {
 		expect(loadEnv({ config: () => ({ parsed: { A: '1' } }) })).to.equal(undefined)
+	})
+
+	// real resolution, no mock: copy of facade in a dir where `dotenv` cannot be resolved. Control first: same env file,
+	// real facade loads it → proves the env file is the thing the copy leaves alone
+	it('dotenv really not installed: importing the facade does not fail, loadEnv() loads nothing', async () => {
+		const key = `KOA_UTILS_LOAD_ENV_ABSENT_${process.pid}`
+		const envDir = mkdtempSync(join(tmpdir(), 'load-env-absent-'))
+		const isolated = copyDistToTemp(['private/lib/loadEnv.mjs', 'private/lib/importOptional.mjs'])
+		const prevCwd = process.cwd()
+		try {
+			writeFileSync(join(envDir, '.env'), `${key}=from-file\n`)
+			process.chdir(envDir)
+			loadEnv()
+			expect(process.env[key], 'control: real facade loads the file').to.equal('from-file')
+			delete process.env[key]
+
+			const copy = (await import(isolated.urlOf('private/lib/loadEnv.mjs'))) as { loadEnv: () => void }
+			expect(() => copy.loadEnv()).to.not.throw()
+			expect(process.env[key], 'dotenv resolvable from temp dir → isolation broken').to.equal(undefined)
+		} finally {
+			process.chdir(prevCwd)
+			delete process.env[key]
+			isolated.cleanup()
+			rmSync(envDir, { recursive: true, force: true })
+		}
 	})
 
 	it('null = dotenv not installed → no-op, no throw', () => {
