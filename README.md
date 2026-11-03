@@ -9,7 +9,7 @@ TypeScript utility library for Koa + GraphQL backends. Ships authentication midd
 - **Node:** `^24.14.0 || ^26.13.0` (24 and 26 are the LTS lines; the suite runs on both)
 - **TypeScript:** `6.0`
 - **License:** GPL-3.0-or-later
-- **Maintainer:** [Giovanni Manzoni](https://www.giovannimanzoni.com)
+- **Maintainers:** [Giovanni Manzoni](https://www.giovannimanzoni.com) and [Vincenzo Favara](https://github.com/vivi7)
 - **Project:** [Contributing](https://github.com/Axiumine/koa-utils/blob/main/CONTRIBUTING.md) · [Governance](https://github.com/Axiumine/koa-utils/blob/main/GOVERNANCE.md) · [Roadmap](https://github.com/Axiumine/koa-utils/blob/main/ROADMAP.md) · [Security policy](https://github.com/Axiumine/koa-utils/blob/main/SECURITY.md) · [Code of Conduct](https://github.com/Axiumine/koa-utils/blob/main/CODE_OF_CONDUCT.md) · [Changelog](https://github.com/Axiumine/koa-utils/blob/main/CHANGELOG.md)
 
 ## Install
