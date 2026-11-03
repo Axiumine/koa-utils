@@ -309,7 +309,7 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - `z-ram.sh` — local helper script (RAM tweak, not part of library).
 - `deploy-local.sh` — maintainer-only. Builds, then rsyncs `dist/` into every consumer's `node_modules/@axiumine/koa-utils` inside one workspace, so an unpublished version can be exercised against the real services first. `npm publish` is a one-way door; this is not a release step and touches nothing outside the local machine.
 - `scripts/migrate-account-disabled-to-boolean.mjs` — one-shot data migration for consumers. Rewrites `account.disabled`/`account.deleted` from string to boolean in the `user` and `userAdmin` collections. Dry run unless `--apply`; needs `MONGO_URI`. Required once when upgrading from **5.0.3 or earlier** — see the "Migration required" section in `CHANGELOG.md`.
-- `CODEOWNERS` — single owner `@giovannimanzoni`.
+- `CODEOWNERS` — owners `@giovannimanzoni` and `@vivi7` (backup owner).
 - `LICENSE` — the canonical GPL-3.0 text with nothing prepended, so GitHub's license detection reports `GPL-3.0`. The copyright holder is named in `README.md` and `package.json` (`author`). Shipped in the npm tarball.
 - `SECURITY.md` — vulnerability reporting policy and supported-versions table (private advisory or email, response targets). Update the table on every major `version` bump.
 - `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `GOVERNANCE.md`, `ROADMAP.md` — community files. Not published to npm. `GOVERNANCE.md` names the backup owner and the npm publishing gap, so update it when either changes.
