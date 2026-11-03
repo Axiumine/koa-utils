@@ -3,7 +3,7 @@ import { redisClient } from '@dataSources/Redis.mjs'
 import { buildPrefixedRedisKey } from '@lib/Redis/buildPrefixedRedisKey.mjs'
 import { refreshTokenOptions } from '@lib/tokenOptions.mjs'
 import { loadEnv } from '@private/lib/loadEnv.mjs'
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 import { GraphQLBoolean, GraphQLNonNull } from 'graphql'
 
 loadEnv()

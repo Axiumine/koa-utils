@@ -6,7 +6,7 @@ import { StringLib } from '@lib/StringLib.mjs'
 import { tryCatchRethrow } from '@lib/tryCatchRethrow.mjs'
 import { getResetPwd, TGetResetPwd } from '@private/lib/access/db/getResetPwd.mjs'
 import { saveResetReq, TSaveResetReq } from '@private/lib/access/db/saveResetReq.mjs'
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'graphql'
 import mongoose from 'mongoose'
 

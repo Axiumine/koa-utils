@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 
 import { EMAIL_CHECK_LINK } from './Constants.mjs'
 

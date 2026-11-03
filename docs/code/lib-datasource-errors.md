@@ -147,7 +147,7 @@ Top-level MongoDB error handler for mutation `catch` blocks. First delegates to 
 
 **Throws:**
 - `409 Conflict` / `400 Bad Request` — re-thrown from `throwIfMongoErr` for the recognized cases (see above).
-- `500 Internal Server Error` (via `throwInternalError`) — for any other error, after reporting it to Sentry (`@sentry/node`, a peer dependency).
+- `500 Internal Server Error` (via `throwInternalError`) — for any other error, after reporting it to Sentry (`@sentry/node`, an optional peer dependency: without it nothing is reported).
 
 **Notes:** The exported symbol name is `throwMongoDBErrors`, which differs from both the source filename (`throwMongoErrors.mts`) and the package.json export key (`./lib/MongoDB/throwMongoErrors`) — import the subpath as written but name the binding `throwMongoDBErrors` to match what the module actually exports.
 

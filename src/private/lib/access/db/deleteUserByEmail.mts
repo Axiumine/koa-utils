@@ -1,6 +1,6 @@
 import { DEFAULT_VERIFY_EMAIL_PATHS, IVerifyEmailPaths, TAccessModel } from '@lib/access/accessPaths.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 
 /**
  * Hard delete of an abandoned pending registration, keyed by the login-email path.

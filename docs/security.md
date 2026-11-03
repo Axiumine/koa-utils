@@ -110,7 +110,7 @@ flowchart LR
 | A06 Vulnerable components, CWE-1104 | Zero runtime dependencies; dev tree under Dependabot, a weekly audit, Qodana and Semgrep. | R12, [SECURITY.md](../SECURITY.md#dependencies) |
 | A07 Identification and authentication failures, CWE-287, CWE-307, CWE-640 | Session design (R2, R3), signed refresh cookie, throttled reset. No login lockout (L3). | R1 to R6 |
 | A08 Software and data integrity failures, CWE-494 | Signed tags, reproducible tarball, a locked dependency tree with a pre-commit check that the lockfile names only `registry.npmjs.org`, and GitHub Actions pinned by commit SHA. | R13, `.githooks/pre-commit`, `.github/workflows/` |
-| A09 Logging and monitoring failures | Failures are captured with Sentry where the library catches them (the consumer calls `Sentry.init()`); request logging is the consumer's. | `src/lib/tryCatchRethrow.mts` |
+| A09 Logging and monitoring failures | Failures are captured with Sentry where the library catches them (the consumer calls `Sentry.init()`; `@sentry/node` is an optional peer, and without it nothing is reported); request logging is the consumer's. | `src/lib/tryCatchRethrow.mts` |
 | A10 Server-side request forgery, CWE-918 | The library connects only to the database hosts the consumer configures and to the SocketLabs API through its SDK, never to a URL taken from request input. | R8, R11 |
 | Open redirect, CWE-601 | Redirect targets must match an anchored allowlist; a scheme-relative or absolute URL fails. | R8; CHANGELOG 4.0.0; `test/lib/isSafeRedirectTarget.spec.mts` |
 | Unrestricted upload, CWE-434 | Upload pipeline. | R9, L9, L13 |

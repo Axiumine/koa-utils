@@ -746,7 +746,7 @@ The transaction body of `updatePassword`, moved out of the resolver file only to
 export async function importOptional<T>(specifier: string, load: () => Promise<T>): Promise<T | null>
 ```
 
-Loads an optional peer dependency. `load` is the caller's own `() => import('pkg')`, so the specifier stays a literal at the call site; `specifier` repeats the name for the error match. Resolves `null` only when Node reports that `specifier` itself is not installed (`code` is `ERR_MODULE_NOT_FOUND` or `MODULE_NOT_FOUND` **and** the message names `'<specifier>'`). Every other failure is rethrown unchanged, including the same code raised for a *different* package: an installed peer that cannot load one of its own dependencies is a broken install, not an absent peer, and must not be hidden. Used by the `loadEnv` facade.
+Loads an optional peer dependency. `load` is the caller's own `() => import('pkg')`, so the specifier stays a literal at the call site; `specifier` repeats the name for the error match. Resolves `null` only when Node reports that `specifier` itself is not installed (`code` is `ERR_MODULE_NOT_FOUND` or `MODULE_NOT_FOUND` **and** the message names `'<specifier>'`). Every other failure is rethrown unchanged, including the same code raised for a *different* package: an installed peer that cannot load one of its own dependencies is a broken install, not an absent peer, and must not be hidden. Used by the `loadEnv` and `sentry` facades.
 
 ## `lib/loadEnv`
 
@@ -758,6 +758,23 @@ export function loadEnv(loader: { config(): unknown } | null = dotenv): void
 ```
 
 The one place the package touches `dotenv`, which is an optional peer. The module awaits `importOptional('dotenv', () => import('dotenv'))` at top level, once, and `loadEnv()` calls `config()` on the result (the argument-less `dotenv.config()` the package always ran), or does nothing when `dotenv` is not installed. The 13 modules that used to call `dotenv.config()` now call `loadEnv()` at module scope, after their imports, so the environment file is still read when the module is evaluated and still after its siblings have loaded. Without `dotenv` nothing is read and nothing fails: `process.env` must already hold the values. Top-level `await` is safe because every `exports` entry has only the `import` and `types` conditions, so a CommonJS `require()` cannot load the package (`ERR_PACKAGE_PATH_NOT_EXPORTED`). The `loader` parameter exists for tests (`null` stands for "not installed").
+
+## `lib/sentry`, `lib/createSentryClient`, `lib/ISentryClient`
+
+**Import:** _internal — not exported_ (`src/private/lib/sentry.mts`, `createSentryClient.mts`, `ISentryClient.mts`)
+
+**Signatures:**
+```ts
+// sentry.mts
+export const captureException: typeof import('@sentry/node').captureException
+export const captureMessage: typeof import('@sentry/node').captureMessage
+export const withScope: <T>(callback: (scope: Scope) => T) => T
+
+// createSentryClient.mts
+export function createSentryClient(sdk: ISentryClient | null): ISentryClient
+```
+
+The one place the package touches `@sentry/node`, which is an optional peer. `sentry.mts` awaits `importOptional('@sentry/node', () => import('@sentry/node'))` at top level and exports the three calls the package makes, under the SDK's own names and signatures. The 24 modules that reported to Sentry swapped only the import line (`import * as Sentry from '@private/lib/sentry.mjs'`); every `Sentry.captureException(...)` call kept its shape and stays synchronous, so its order against the `throw` or `return` after it, and against the `withScope` callback in `scanVirus`, is unchanged. With the SDK installed the exports **are** the SDK functions (the same references), so a consumer's `Sentry.init()` governs them exactly as before. Without it `createSentryClient(null)` returns a no-op client: both capture calls return the empty string (no event exists), and `withScope` runs its callback once, with a scope whose every method is a chainable no-op, and returns the callback's result. That scope answers `undefined` for `then`, so an `async` callback that returns it cannot hang. Nothing is reported and nothing fails when `@sentry/node` is absent.
 
 ## `lib/makeBodyJson`
 

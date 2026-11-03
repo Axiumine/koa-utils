@@ -1,5 +1,5 @@
 import { loadEnv } from '@private/lib/loadEnv.mjs'
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 import pg from 'pg'
 
 const { Client, Pool } = pg

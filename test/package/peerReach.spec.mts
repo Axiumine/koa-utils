@@ -24,6 +24,7 @@ const keys = Object.keys(pkg.exports).sort()
 // peer → regex of subpaths allowed to load it AT IMPORT. Snapshot regen cannot widen reach past this.
 // Peer absent here = unscoped (purpose too broad for 1 regex). /^$/ = no subpath: only lazy, via private facade
 const PEER_SCOPE: Record<string, RegExp> = {
+	'@sentry/node': /^$/,
 	dotenv: /^$/
 }
 

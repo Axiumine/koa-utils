@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 import { throwInternalError } from '@throw/throwInternalError.mjs'
 import { promises as fs } from 'fs'
 import sharp, { FormatEnum } from 'sharp'

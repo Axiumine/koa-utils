@@ -1,7 +1,7 @@
 import { redisClient } from '@dataSources/Redis.mjs'
 import { REFRESH_TOKEN_EXPIRY } from '@lib/tokens.mjs'
 import { loadEnv } from '@private/lib/loadEnv.mjs'
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 import { throwInternalError } from '@throw/throwInternalError.mjs'
 import { Types } from 'mongoose'
 

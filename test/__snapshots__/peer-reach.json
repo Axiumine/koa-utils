@@ -15,7 +15,8 @@
 		"typesOnly": []
 	},
 	"@sentry/node": {
-		"runtime": [
+		"runtime": [],
+		"lazy": [
 			"./dataSources/MariaDB",
 			"./dataSources/PostgreSQL",
 			"./dataSources/Redis",
@@ -47,7 +48,6 @@
 			"./lib/access/verifyEmailMailer",
 			"./lib/tryCatchRethrow"
 		],
-		"lazy": [],
 		"typesOnly": []
 	},
 	"@socketlabs/email": {

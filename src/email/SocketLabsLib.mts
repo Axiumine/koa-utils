@@ -13,7 +13,7 @@ import * as notice from '@private/email/noticeMessages.mjs'
 import { orFalse } from '@private/email/orFalse.mjs'
 import * as reset from '@private/email/resetMessages.mjs'
 import { loadEnv } from '@private/lib/loadEnv.mjs'
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 import { BasicMessage, SocketLabsClient } from '@socketlabs/email'
 
 loadEnv()

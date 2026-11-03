@@ -2,7 +2,7 @@ import { isRedisTlsRequired } from '@private/dataSources/isRedisTlsRequired.mjs'
 import { redisNodeUrl } from '@private/dataSources/redisNodeUrl.mjs'
 import { resolveRedisUrl } from '@private/dataSources/resolveRedisUrl.mjs'
 import { loadEnv } from '@private/lib/loadEnv.mjs'
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 import { createClient, createCluster } from 'redis'
 
 loadEnv()

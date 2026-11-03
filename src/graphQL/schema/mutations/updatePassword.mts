@@ -6,7 +6,7 @@ import { applyPasswordReset } from '@private/lib/access/applyPasswordReset.mjs'
 import { getResetPwd, TGetResetPwd } from '@private/lib/access/db/getResetPwd.mjs'
 import removeResetReq, { TRemoveResetReq } from '@private/lib/access/db/removeResetReq.mjs'
 import updatePasswordDb, { TUpdatePasswordDb } from '@private/lib/access/db/updatePasswordDb.mjs'
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 import { GraphQLBoolean, GraphQLError, GraphQLNonNull, GraphQLString } from 'graphql'
 import mongoose from 'mongoose'
 
