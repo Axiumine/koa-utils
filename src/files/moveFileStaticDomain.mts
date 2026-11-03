@@ -14,7 +14,7 @@ export async function moveFileStaticDomain(sourceFilePath: string, folder: strin
 	assertNoTraversal(folder, 'folder')
 	assertNoTraversal(secondFolder, 'secondFolder')
 
-	const destinationDir = `${process.env.STATIC_FOLDER}/${folder}/${secondFolder}`
+	const destinationDir = `${process.env['STATIC_FOLDER']}/${folder}/${secondFolder}`
 
 	await moveTempFile(sourceFilePath, destFilename, destinationDir)
 }

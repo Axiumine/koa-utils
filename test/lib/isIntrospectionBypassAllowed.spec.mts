@@ -33,19 +33,19 @@ describe('isIntrospectionBypassAllowed', () => {
 	})
 
 	it('returns true under NODE_ENV=development', () => {
-		process.env.NODE_ENV = 'development'
+		process.env['NODE_ENV'] = 'development'
 
 		expect(isIntrospectionBypassAllowed()).to.equal(true)
 	})
 
 	it('returns true under NODE_ENV=test', () => {
-		process.env.NODE_ENV = 'test'
+		process.env['NODE_ENV'] = 'test'
 
 		expect(isIntrospectionBypassAllowed()).to.equal(true)
 	})
 
 	it('returns false under NODE_ENV=production', () => {
-		process.env.NODE_ENV = 'production'
+		process.env['NODE_ENV'] = 'production'
 
 		expect(isIntrospectionBypassAllowed()).to.equal(false)
 	})
@@ -53,13 +53,13 @@ describe('isIntrospectionBypassAllowed', () => {
 	it('returns false when NODE_ENV is unset', () => {
 		// Ordinary failure of a container runtime — no NODE_ENV in env. Denylist form
 		// (`!== 'production'`) return true here → bypass live in prod.
-		delete process.env.NODE_ENV
+		delete process.env['NODE_ENV']
 
 		expect(isIntrospectionBypassAllowed()).to.equal(false)
 	})
 
 	it('returns false when NODE_ENV is an empty string', () => {
-		process.env.NODE_ENV = ''
+		process.env['NODE_ENV'] = ''
 
 		expect(isIntrospectionBypassAllowed()).to.equal(false)
 	})
@@ -67,7 +67,7 @@ describe('isIntrospectionBypassAllowed', () => {
 	it('returns false for NODE_ENV values that only look like production', () => {
 		// Deploy-script typos + house conventions. Denylist form accept all 3.
 		for (const value of ['Production', 'PRODUCTION', 'prod']) {
-			process.env.NODE_ENV = value
+			process.env['NODE_ENV'] = value
 
 			expect(isIntrospectionBypassAllowed(), value).to.equal(false)
 		}
@@ -75,7 +75,7 @@ describe('isIntrospectionBypassAllowed', () => {
 
 	it('returns false under NODE_ENV=staging', () => {
 		// Real env, not on allowlist → refuse. Deliberate: staging carry real data.
-		process.env.NODE_ENV = 'staging'
+		process.env['NODE_ENV'] = 'staging'
 
 		expect(isIntrospectionBypassAllowed()).to.equal(false)
 	})
@@ -83,7 +83,7 @@ describe('isIntrospectionBypassAllowed', () => {
 	it('returns false for case variants of the allowed values', () => {
 		// Compare exact, no case fold.
 		for (const value of ['Development', 'TEST', 'Test']) {
-			process.env.NODE_ENV = value
+			process.env['NODE_ENV'] = value
 
 			expect(isIntrospectionBypassAllowed(), value).to.equal(false)
 		}

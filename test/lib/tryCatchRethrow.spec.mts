@@ -1,7 +1,9 @@
 import { tryCatchRethrow } from '@lib/tryCatchRethrow.mjs'
+import { expect } from 'chai'
 import { GraphQLError } from 'graphql'
 
 import { expectGraphQLError } from '../helpers/assertGraphQLError.mjs'
+import { startSentryCapture } from '../helpers/sentryEventCapture.mjs'
 
 // NOTE: Sentry.captureException not stubbable (ESM non-writable export).
 // No init → no-op → assert the rethrow only.
@@ -40,12 +42,36 @@ describe('tryCatchRethrow', () => {
 		expectGraphQLError(() => tryCatchRethrow(original), 500, 'NoExt', '')
 	})
 
-	it('reports unknown plain Error to Sentry then throws 500 internal', () => {
-		expectGraphQLError(
-			() => tryCatchRethrow(new Error('boom')),
-			500,
-			'Internal Server Error',
-			'Error reported to Dev Team.'
-		)
+	it('falls back to status 500 when a GraphQLError-derived object has no extensions at all', () => {
+		// optional chaining guard: instanceof pass for prototype-only object, extensions undefined
+		const bare = Object.assign(Object.create(GraphQLError.prototype) as GraphQLError, { message: 'Bare' })
+		expectGraphQLError(() => tryCatchRethrow(bare), 500, 'Bare', '')
+	})
+
+	it('reports unknown plain Error to Sentry then throws 500 internal', async () => {
+		const capture = startSentryCapture()
+		const boom = new Error('boom')
+		try {
+			expectGraphQLError(
+				() => tryCatchRethrow(boom),
+				500,
+				'Internal Server Error',
+				'Error reported to Dev Team.'
+			)
+		} finally {
+			await capture.stop()
+		}
+		expect(capture.events).to.have.length(1)
+		expect(capture.events[0]?.exception?.values?.[0]).to.deep.include({ type: 'Error', value: 'boom' })
+	})
+
+	it('does not report a GraphQLError to Sentry', async () => {
+		const capture = startSentryCapture()
+		try {
+			expectGraphQLError(() => tryCatchRethrow(new GraphQLError('Known')), 500, 'Known', '')
+		} finally {
+			await capture.stop()
+		}
+		expect(capture.events).to.have.length(0)
 	})
 })

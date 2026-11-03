@@ -6,10 +6,14 @@
  */
 import { logout } from '../../../../dist/graphQL/schema/mutations/logout.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
+import type { IContextLogout } from '@context/IContextLogout.mjs'
 import { expect } from 'chai'
 import sinon from 'sinon'
 
 // ---------------------------------------------------------------------------
+
+// deliberate: partial fake stands in for the Koa ctx, cookies.set kept as stub → spec reads calls back
+type TCtx = IContextLogout & { cookies: { set: sinon.SinonStub } }
 
 function makeCtx(refreshToken: string, accessToken = '') {
 	return {
@@ -20,7 +24,7 @@ function makeCtx(refreshToken: string, accessToken = '') {
 			}
 		},
 		cookies: { set: sinon.stub() }
-	} as never
+	} as unknown as TCtx
 }
 
 // ---------------------------------------------------------------------------
@@ -45,7 +49,7 @@ describe('logout — resolve', () => {
 		const ctx = {
 			state: { user: { refreshToken: 'myRefreshToken' } },
 			cookies: { set: sinon.stub() }
-		} as never
+		} as unknown as TCtx
 		const result = await logout.resolve(null, {}, ctx)
 
 		expect(result).to.equal(true)

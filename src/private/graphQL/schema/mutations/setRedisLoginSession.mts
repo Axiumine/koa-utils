@@ -11,8 +11,8 @@ export async function setRedisLoginSession(id: Types.ObjectId, accessToken: stri
 	const keyDataAccess = { id: id.toString() }
 	const keyDataRefresh = { ...keyDataAccess, access: accessToken }
 
-	const keyAccess = `${process.env.REDIS_KEY}access:${accessToken}`
-	const keyRefresh = `${process.env.REDIS_KEY}refresh:${refreshToken}`
+	const keyAccess = `${process.env['REDIS_KEY']}access:${accessToken}`
+	const keyRefresh = `${process.env['REDIS_KEY']}refresh:${refreshToken}`
 
 	try {
 		// Store session in Redis

@@ -36,9 +36,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at dev@giovannimanzoni.com. If the report concerns the maintainer, report it to GitHub at <https://github.com/contact/report-abuse>, because the project has no declared backup owner yet (see [GOVERNANCE.md](GOVERNANCE.md#roles-and-responsibilities)). All complaints will be reviewed and investigated promptly and fairly.
-
-<!-- OWNER (backup owner): once a backup owner is named in GOVERNANCE.md, replace the sentence about GitHub with: If the report concerns the maintainer, send it instead to the backup owner listed in [GOVERNANCE.md](GOVERNANCE.md#roles-and-responsibilities). -->
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at dev@giovannimanzoni.com. If the report concerns the maintainer, send it instead to the backup owner listed in [GOVERNANCE.md](GOVERNANCE.md#roles-and-responsibilities); if that is not possible, report it to GitHub at <https://github.com/contact/report-abuse>. All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 

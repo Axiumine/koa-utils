@@ -1,0 +1,19 @@
+{
+	// Type-check gate for scripts/ (yarn typecheck:scripts): never emits. Node runs these files directly (type stripping),
+	// so only erasable syntax and real `.mts` import extensions are allowed.
+	"compilerOptions": {
+		"target": "ES2023",
+		"lib": ["ES2023"],
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"noEmit": true,
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"allowImportingTsExtensions": true,
+		"erasableSyntaxOnly": true,
+		"verbatimModuleSyntax": true,
+		"skipLibCheck": true,
+		"types": ["node", "mocha", "chai", "sinon"]
+	},
+	"include": ["scripts/**/*.mts"]
+}

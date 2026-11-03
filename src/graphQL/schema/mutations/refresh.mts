@@ -14,6 +14,7 @@ export const refresh = {
 	description: 'refresh token',
 	type: new GraphQLNonNull(RefreshType),
 	async resolve(_: unknown, {}, ctx: IContextRefresh) {
+		// Stryker disable next-line BooleanLiteral: every path that returns assigns status = true first; the catch path always throws via tryCatchRethrow, so the initial value is never read
 		let status = false // default
 
 		// has the refresh token, access token already expired
@@ -23,11 +24,11 @@ export const refresh = {
 
 		// generates the 2 new tokens
 		let accessToken = generateAccessToken()
-		let refreshToken = generateRefreshToken()
-		const keyAccess = `${process.env.REDIS_KEY}access:${accessToken}`
-		const keyRefresh = `${process.env.REDIS_KEY}refresh:${refreshToken}`
+		const refreshToken = generateRefreshToken()
+		const keyAccess = `${process.env['REDIS_KEY']}access:${accessToken}`
+		const keyRefresh = `${process.env['REDIS_KEY']}refresh:${refreshToken}`
 
-		let accessTokenData = ctx.state.user
+		const accessTokenData = ctx.state.user
 		const oldRefresh = ctx.state.user.refreshToken
 		// @ts-expect-error delete refresh
 		delete accessTokenData.refreshToken
@@ -48,13 +49,14 @@ export const refresh = {
 			setLoginCookies(ctx, refreshToken)
 
 			// deletes the refresh token used to make this call
-			await redisClient.del(`${process.env.REDIS_KEY}${oldRefresh}`)
+			await redisClient.del(`${process.env['REDIS_KEY']}${oldRefresh}`)
 
 			status = true
 		} catch (e: unknown) {
 			Sentry.captureException(e)
 			// delete keys
 			await Promise.all([redisClient.del(keyAccess), redisClient.del(keyRefresh)])
+			// Stryker disable next-line StringLiteral: tryCatchRethrow right below always throws (throwIfMongoErr throws or returns, then both branches throw), so this reset is never read by the return
 			accessToken = ''
 			tryCatchRethrow(e as GraphQLError | Error)
 		}

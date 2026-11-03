@@ -8,6 +8,7 @@ import { loginAdmin } from '../../../../dist/graphQL/schema/mutations/loginAdmin
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
 import UserAdminKoaUtils from '@private/graphQL/models/MongoDB/private/UserAdminKoaUtils.mjs'
+import type { IContextLogin } from '@context/IContextLogin.mjs'
 import { expect } from 'chai'
 import sinon from 'sinon'
 import mongoose, { Types } from 'mongoose'
@@ -30,11 +31,14 @@ function makeQuery(value: unknown) {
 		lean: () => Promise.resolve(value),
 		exec: () => Promise.resolve(value)
 	}
-	return q
+	return q as never // deliberate: partial fake stands in for mongoose Query
 }
 
+// deliberate: partial fake stands in for the Koa ctx, cookies.set kept as stub → spec reads calls back
+type TCtx = IContextLogin & { cookies: { set: sinon.SinonStub } }
+
 function makeCtx() {
-	return { cookies: { set: sinon.stub() } } as never
+	return { cookies: { set: sinon.stub() } } as unknown as TCtx
 }
 
 function fakeAdminUser(overrides: Partial<{ account: object; login: object }> = {}) {
@@ -57,7 +61,6 @@ describe('loginAdmin — resolve (deep stubs)', () => {
 	let findOneStub: sinon.SinonStub
 	let updateOneStub: sinon.SinonStub
 	let hSetStub: sinon.SinonStub
-	let expireStub: sinon.SinonStub
 	let accountDisabledStub: sinon.SinonStub
 
 	beforeEach(async () => {
@@ -65,7 +68,7 @@ describe('loginAdmin — resolve (deep stubs)', () => {
 		findOneStub = sinon.stub(UserAdminKoaUtils, 'findOne')
 		updateOneStub = sinon.stub(UserAdminKoaUtils, 'updateOne').resolves({ modifiedCount: 1 } as never)
 		hSetStub = sinon.stub(redisClient, 'hSet').resolves(0)
-		expireStub = sinon.stub(redisClient, 'expire').resolves(true)
+		sinon.stub(redisClient, 'expire').resolves(1)
 		sinon.stub(redisClient, 'del').resolves(0)
 		accountDisabledStub = sinon.stub(SocketLabsLib.prototype, 'accountDisabled').resolves()
 
@@ -136,7 +139,7 @@ describe('loginAdmin — resolve (deep stubs)', () => {
 		sinon.stub(UserAdminKoaUtils, 'findOne').returns(makeQuery(fakeAdminUser()))
 		sinon.stub(UserAdminKoaUtils, 'updateOne').resolves({ modifiedCount: 1 } as never)
 		sinon.stub(redisClient, 'hSet').resolves(0)
-		sinon.stub(redisClient, 'expire').resolves(true)
+		sinon.stub(redisClient, 'expire').resolves(1)
 		sinon.stub(redisClient, 'del').resolves(0)
 		sinon.stub(SocketLabsLib.prototype, 'accountDisabled').resolves()
 		const bcryptMod = (await import('@node-rs/bcrypt')).default

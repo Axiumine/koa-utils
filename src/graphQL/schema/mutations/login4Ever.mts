@@ -52,6 +52,7 @@ export const login4Ever = {
 				setLoginCookies(ctx, refreshToken)
 			})
 		} catch (e: unknown) {
+			// Stryker disable next-line StringLiteral: tryCatchRethrow below always throws (throwIfMongoErr throws or returns, then both branches throw), so this reset is never read by the return
 			accessToken = ''
 			Sentry.captureException(e)
 			tryCatchRethrow(e as GraphQLError | Error)

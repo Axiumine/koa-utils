@@ -103,4 +103,25 @@ describe('uploadTempPdf', () => {
 		expect(err).to.be.instanceOf(Error)
 		expect((err as Error).message).to.equal('Error storing pdf')
 	})
+
+	it('logs the underlying failure with console.error("Error storing pdf:", cause) before rethrowing', async () => {
+		const consoleErr = sinon.stub(console, 'error')
+		const src = makeSrcFile(Buffer.from('text content'), `src-pdf-log-${Date.now()}.tmp`)
+		const upload = makeUploadFromFile(src, 'document.txt')
+
+		const { uploadTempPdf } = await import('../../dist/files/uploadTempPdf.mjs')
+		let err: unknown
+		try {
+			await uploadTempPdf(upload)
+		} catch (e) {
+			err = e
+		}
+
+		expect(err).to.be.instanceOf(Error)
+		expect(consoleErr.callCount).to.equal(1)
+		expect(consoleErr.firstCall.args[0]).to.equal('Error storing pdf:')
+		expect(consoleErr.firstCall.args[1]).to.be.instanceOf(Error)
+		// logged cause is the real failure, not the generic rethrown error
+		expect(consoleErr.firstCall.args[1]).to.not.equal(err)
+	})
 })

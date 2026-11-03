@@ -16,7 +16,7 @@ export interface IInfoUserAdminForLogin {
 	}
 }
 
-export interface IUserAdminKoaUtilsSchema {
+interface IUserAdminKoaUtilsSchema {
 	_id: Types.ObjectId
 	login: {
 		_id?: boolean

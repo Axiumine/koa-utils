@@ -26,6 +26,13 @@ describe('DateLib', () => {
 		it('returns absolute diff (lastReq > now)', () => {
 			expect(DateLib.timeDiffMin(120 * 1000, 0)).to.equal(2)
 		})
+		it('subtracts now from lastReq when lastReq > now and now is non-zero', () => {
+			// sum 4 min, diff 2 min → kill lastReq + now
+			expect(DateLib.timeDiffMin(180 * 1000, 60 * 1000)).to.equal(2)
+		})
+		it('returns 0 when lastReq equals now', () => {
+			expect(DateLib.timeDiffMin(60 * 1000, 60 * 1000)).to.equal(0)
+		})
 	})
 
 	describe('minElapsed', () => {

@@ -41,7 +41,7 @@ JSON="$(docker run --rm \
   -v "$CANARIES:/src:ro" \
   -v "$ROOT/.semgrep:/rules:ro" \
   -w /src \
-  "$IMAGE" semgrep --config=/rules --metrics=off --no-git-ignore --json 2>/dev/null)"
+  "$IMAGE" semgrep --config=/rules --metrics=off --disable-version-check --no-git-ignore --json 2>/dev/null)"
 
 export CANARIES
 

@@ -1,0 +1,458 @@
+{
+	"./dataSources/MariaDB": [
+		"MariaDBConnect",
+		"MariaDBDisconnect",
+		"sequelize"
+	],
+	"./dataSources/MongoDB": [
+		"MongoDBConnect",
+		"MongoDBDisconnect"
+	],
+	"./dataSources/PostgreSQL": [
+		"PostgreSQLClientConnect",
+		"PostgreSQLClientDisconnect",
+		"PostgreSQLPoolDisconnect",
+		"pgClient",
+		"pgPool"
+	],
+	"./dataSources/Redis": [
+		"RedisConnect",
+		"RedisDisconnect",
+		"redisClient"
+	],
+	"./email/SocketLabsLib": [
+		"SocketLabsLib"
+	],
+	"./files/IUploadTemp": [],
+	"./files/fileConst": [
+		"UPLOAD_IMG_DIRECTORY_URL",
+		"UPLOAD_TEMP_DIRECTORY_URL"
+	],
+	"./files/moveFileStaticDomain": [
+		"moveFileStaticDomain"
+	],
+	"./files/moveImageFile": [
+		"moveImageFile"
+	],
+	"./files/moveTempFile": [
+		"moveTempFile"
+	],
+	"./files/reEncodeToJpeg": [
+		"reEncodeToJpeg"
+	],
+	"./files/reEncodeToPng": [
+		"reEncodeToPng"
+	],
+	"./files/reEncodeToWebp": [
+		"reEncodeToWebp"
+	],
+	"./files/scanVirus": [
+		"initClamScan",
+		"scanVirus"
+	],
+	"./files/storeUploadAsTemp": [
+		"storeUploadAsTemp"
+	],
+	"./files/uploadTempImage": [
+		"uploadTempImage"
+	],
+	"./files/uploadTempPdf": [
+		"uploadTempPdf"
+	],
+	"./files/validateExtension": [
+		"validateExtension"
+	],
+	"./files/validateJpgPngExtension": [
+		"validateJpgPngExtension"
+	],
+	"./files/validateJpgPngMimeType": [
+		"validateJpgPngMimeType"
+	],
+	"./files/validateMimeType": [
+		"validateMimeType"
+	],
+	"./files/validateMimeTypeImages": [
+		"validateJpgPngMimeType"
+	],
+	"./files/validatePdfExtension": [
+		"validatePdfExtension"
+	],
+	"./graphQL/models/MongoDB/UserBase": [
+		"UserBase"
+	],
+	"./graphQL/models/MongoDB/log/DevStatsGraphQLCalls": [
+		"DevStatsGraphQLCalls"
+	],
+	"./graphQL/models/MongoDB/log/LogGlobalError": [
+		"LogGlobalError"
+	],
+	"./graphQL/models/MongoDB/log/LogStatsGraphql": [
+		"LogStatsGraphql"
+	],
+	"./graphQL/models/MongoDB/log/LogThrow": [
+		"LogThrow"
+	],
+	"./graphQL/schema/GraphQLInput/GraphQLInputLogin": [
+		"GraphQLInputLogin"
+	],
+	"./graphQL/schema/context/IContextAuthenticatedResource": [],
+	"./graphQL/schema/context/IContextKoaErrorHandler": [],
+	"./graphQL/schema/context/IContextLogin": [],
+	"./graphQL/schema/context/IContextLogout": [],
+	"./graphQL/schema/context/IContextRefresh": [],
+	"./graphQL/schema/context/TCommonHeaders": [],
+	"./graphQL/schema/interfaces/IFindAndUpdate": [],
+	"./graphQL/schema/mutations/emailChangeHashVerify": [
+		"createEmailChangeHashVerifyMutation",
+		"emailChangeHashVerify"
+	],
+	"./graphQL/schema/mutations/login4Ever": [
+		"login4Ever"
+	],
+	"./graphQL/schema/mutations/loginAdmin": [
+		"loginAdmin"
+	],
+	"./graphQL/schema/mutations/loginRememberme": [
+		"loginRememberme"
+	],
+	"./graphQL/schema/mutations/logout": [
+		"logout"
+	],
+	"./graphQL/schema/mutations/refresh": [
+		"refresh"
+	],
+	"./graphQL/schema/mutations/resetPwd": [
+		"createResetPwdMutation",
+		"resetPwd"
+	],
+	"./graphQL/schema/mutations/signUp": [
+		"signUp"
+	],
+	"./graphQL/schema/mutations/updatePassword": [
+		"createUpdatePasswordMutation",
+		"updatePassword"
+	],
+	"./graphQL/schema/status": [
+		"stErrBackend",
+		"stExist",
+		"stExpired",
+		"stFailToSendEmail",
+		"stNotFoundNotMatch",
+		"stOk",
+		"stWait"
+	],
+	"./graphQL/schema/types/DeleteType": [
+		"DeleteType",
+		"RET_DEL_ROLLBACK"
+	],
+	"./graphQL/schema/types/DoneType": [
+		"DoneType"
+	],
+	"./graphQL/schema/types/FindOneAndUpdateType": [
+		"FindOneAndUpdateType"
+	],
+	"./graphQL/schema/types/LoginAppType": [
+		"LoginAppType"
+	],
+	"./graphQL/schema/types/LoginType": [
+		"LoginType"
+	],
+	"./graphQL/schema/types/MidNameType": [
+		"MidNameType"
+	],
+	"./graphQL/schema/types/OnlyIdType": [
+		"OnlyIdType"
+	],
+	"./graphQL/schema/types/RefreshType": [
+		"RefreshType"
+	],
+	"./graphQL/schema/types/RetStatusMexType": [
+		"RetStatusMexType"
+	],
+	"./graphQL/schema/types/RetStatusType": [
+		"RetStatusType"
+	],
+	"./graphQL/schema/types/SaveType": [
+		"SaveType"
+	],
+	"./graphQL/schema/types/SidNameType": [
+		"SidNameType"
+	],
+	"./graphQL/schema/types/SidNomeType": [
+		"SidNomeType"
+	],
+	"./graphQL/schema/types/UpdateResultType": [
+		"UpdateResultType"
+	],
+	"./graphQL/status": [
+		"stErrBackend",
+		"stExist",
+		"stExpired",
+		"stFailToSendEmail",
+		"stNotFoundNotMatch",
+		"stOk",
+		"stWait"
+	],
+	"./graphQL/throw/throwAccessTokenExpiredOrDeleted": [
+		"throwAccessTokenExpiredOrDeleted"
+	],
+	"./graphQL/throw/throwAccessTokenRequired": [
+		"throwAccessTokenRequired"
+	],
+	"./graphQL/throw/throwAlreadyDone": [
+		"throwAlreadyDone"
+	],
+	"./graphQL/throw/throwAlreadyTakenError": [
+		"throwAlreadyTakenError"
+	],
+	"./graphQL/throw/throwConflictError": [
+		"throwConflictError"
+	],
+	"./graphQL/throw/throwErrorWrongUserInput": [
+		"throwErrorWrongUserInput"
+	],
+	"./graphQL/throw/throwForbiddenError": [
+		"throwForbiddenError"
+	],
+	"./graphQL/throw/throwGoneError": [
+		"throwGoneError"
+	],
+	"./graphQL/throw/throwGraphQLError": [
+		"throwGraphQLError"
+	],
+	"./graphQL/throw/throwInternalError": [
+		"throwInternalError"
+	],
+	"./graphQL/throw/throwMethodNotAllowedError": [
+		"throwMethodNotAllowedError"
+	],
+	"./graphQL/throw/throwMissingMalformedInvalidToken": [
+		"throwMissingMalformedInvalidToken"
+	],
+	"./graphQL/throw/throwNotAcceptableError": [
+		"throwNotAcceptableError"
+	],
+	"./graphQL/throw/throwNotFoundError": [
+		"throwNotFoundError"
+	],
+	"./graphQL/throw/throwNotImplementedError": [
+		"throwNotImplementedError"
+	],
+	"./graphQL/throw/throwPaymentRequiredError": [
+		"throwPaymentRequiredError"
+	],
+	"./graphQL/throw/throwPreconditionFailedNoAuthCookie": [
+		"throwPreconditionFailedNoAuthCookie"
+	],
+	"./graphQL/throw/throwPreconditionFailedNoAuthHeader": [
+		"throwPreconditionFailedNoAuthHeader"
+	],
+	"./graphQL/throw/throwRefreshTokenExpiredOrDeleted": [
+		"throwRefreshTokenExpiredOrDeleted"
+	],
+	"./graphQL/throw/throwRefreshTokenRequired": [
+		"throwRefreshTokenRequired"
+	],
+	"./graphQL/throw/throwRefreshTokenSignatureRequired": [
+		"throwRefreshTokenSignatureRequired"
+	],
+	"./graphQL/throw/throwTooManyRequestsError": [
+		"throwTooManyRequestsError"
+	],
+	"./graphQL/throw/throwUnauthorizedError": [
+		"throwUnauthorizedError"
+	],
+	"./graphQL/throw/throwUnprocessableContentError": [
+		"throwUnprocessableContentError"
+	],
+	"./graphQL/throw/throwUnsupportedMediaTypeError": [
+		"throwUnsupportedMediaTypeError"
+	],
+	"./koa/IFileUpload": [],
+	"./koa/IKoaError": [],
+	"./koa/customFormatErrorFn": [
+		"customFormatErrorFn"
+	],
+	"./koa/logRequestToDb": [
+		"logRequestToDb"
+	],
+	"./koa/middleware/authenticatedAuthorizationHandler": [
+		"authenticatedAuthorizationHandler"
+	],
+	"./koa/middleware/authenticatedAuthorizationHandler/TCookieRefreshToken": [],
+	"./koa/middleware/authenticatedAuthorizationHandler/verifySignedRefreshToken": [
+		"verifySignedRefreshToken"
+	],
+	"./koa/middleware/authenticatedLogoutHandler": [
+		"authenticatedLogoutHandler"
+	],
+	"./koa/middleware/authenticatedResourceHandler": [
+		"authenticatedResourceHandler"
+	],
+	"./koa/middleware/debug": [
+		"debugHandler"
+	],
+	"./koa/router/verifyEmail": [
+		"createVerifyEmailRouter",
+		"routerVerifyEmail"
+	],
+	"./koa/tdwKoaErrorHandler": [
+		"tdwKoaErrorHandler"
+	],
+	"./lib/ArrayLib": [
+		"ArrayLib"
+	],
+	"./lib/Constants": [
+		"EMAIL_HASH_LEN",
+		"EMAIL_MAX_LEN",
+		"MAX_PWD_LENGTH",
+		"MIN_PWD_LENGTH",
+		"OBJECTID_0_OBJ",
+		"OBJECTID_0_STR"
+	],
+	"./lib/DateLib": [
+		"DateLib"
+	],
+	"./lib/IAuthorizationDisDel": [],
+	"./lib/ICookies": [],
+	"./lib/MariaDB/IMariaDBErr": [],
+	"./lib/MariaDB/MariaDBErrType": [
+		"MariaDBErrType"
+	],
+	"./lib/MariaDB/throwSqlErrors": [
+		"throwSqlErrors"
+	],
+	"./lib/MongoDB/IMongoDBError": [],
+	"./lib/MongoDB/IOnboarding": [],
+	"./lib/MongoDB/MongoDBErrType": [
+		"MongoDBErrType"
+	],
+	"./lib/MongoDB/throwIfMongoErr": [
+		"throwIfMongoErr"
+	],
+	"./lib/MongoDB/throwMongoErrors": [
+		"throwMongoDBErrors"
+	],
+	"./lib/NumLib": [
+		"NumLib"
+	],
+	"./lib/PostgreSQL/IPostgresError": [],
+	"./lib/PostgreSQL/IPostgresErrorCodes": [
+		"IPostgresErrorCodes"
+	],
+	"./lib/PostgreSQL/makePostgreSqlLogError": [
+		"makePostgreSqlLogError"
+	],
+	"./lib/Redis/RedisBoolean": [
+		"RedisBoolean"
+	],
+	"./lib/Redis/buildPrefixedRedisKey": [
+		"buildPrefixedRedisKey"
+	],
+	"./lib/Redis/fromRedisBooleanValue": [
+		"fromRedisBooleanValue"
+	],
+	"./lib/Redis/toRedisBooleanValue": [
+		"toRedisBooleanValue"
+	],
+	"./lib/StringLib": [
+		"StringLib"
+	],
+	"./lib/access/accessPaths": [
+		"DEFAULT_RESET_PWD_PATHS",
+		"DEFAULT_VERIFY_EMAIL_PATHS",
+		"resolveResetPwdPaths",
+		"resolveVerifyEmailPaths"
+	],
+	"./lib/access/createMailThrottle": [
+		"ALWAYS_MAIL",
+		"createMailThrottle"
+	],
+	"./lib/access/createResetPwdFlow": [
+		"createResetPwdFlow"
+	],
+	"./lib/access/createVerifyEmailFlow": [
+		"createVerifyEmailFlow"
+	],
+	"./lib/access/resetPwdMailer": [
+		"createResetPwdMailer",
+		"socketLabsResetPwdMailer"
+	],
+	"./lib/access/verifyEmailMailer": [
+		"defaultVerifyEmailMailer",
+		"socketLabsVerifyEmailMailer",
+		"throttleMailer"
+	],
+	"./lib/checkEmailLen": [
+		"checkEmailLen"
+	],
+	"./lib/checkPwdLen": [
+		"checkPwdLen"
+	],
+	"./lib/db/log/hitStat": [
+		"hitStat"
+	],
+	"./lib/db/log/logGlobalError": [
+		"logGlobalError"
+	],
+	"./lib/db/log/logGraphql": [
+		"logGraphql"
+	],
+	"./lib/db/log/logThrow": [
+		"logThrow"
+	],
+	"./lib/db/login/ILoginSet": [],
+	"./lib/db/login/ILoginUnset": [],
+	"./lib/db/registerNewUser": [
+		"registerNewUser"
+	],
+	"./lib/db/userExist": [
+		"userExist"
+	],
+	"./lib/emailHash": [
+		"emailHash"
+	],
+	"./lib/encryptPassword": [
+		"encryptPassword"
+	],
+	"./lib/hash": [
+		"compareHashAsync"
+	],
+	"./lib/isIntrospectionBypassAllowed": [
+		"isIntrospectionBypassAllowed"
+	],
+	"./lib/isSafeRedirectTarget": [
+		"isSafeRedirectTarget"
+	],
+	"./lib/isSessionBlocked": [
+		"isSessionBlocked"
+	],
+	"./lib/isValidUuidV4": [
+		"isValidUuidV4"
+	],
+	"./lib/makeOnboardingData": [
+		"makeOnboardingData"
+	],
+	"./lib/setLoginCookies": [
+		"setLoginCookies"
+	],
+	"./lib/sleepMs": [
+		"sleepMs"
+	],
+	"./lib/throwIfNotValidEnumValue": [
+		"throwIfNotValidEnumValue"
+	],
+	"./lib/tokenOptions": [
+		"accessTokenOptions",
+		"refreshTokenOptions"
+	],
+	"./lib/tokens": [
+		"REFRESH_TOKEN_EXPIRY",
+		"accessTokenExpiry",
+		"generateAccessToken",
+		"generateRefreshToken"
+	],
+	"./lib/tryCatchRethrow": [
+		"tryCatchRethrow"
+	]
+}

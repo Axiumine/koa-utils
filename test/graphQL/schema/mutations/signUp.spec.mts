@@ -47,7 +47,6 @@ describe('signUp — resolve (deep stubs)', () => {
 	let createStub: sinon.SinonStub
 	let emailAlreadyValidStub: sinon.SinonStub
 	let sendEmailVerifyStub: sinon.SinonStub
-	let bcryptHashStub: sinon.SinonStub
 
 	beforeEach(async () => {
 		// default import → configurable → sinon can stub it
@@ -59,7 +58,7 @@ describe('signUp — resolve (deep stubs)', () => {
 
 		// bcrypt.hash used inside encryptPassword (CJS default import — stubbable)
 		const bcrypt = (await import('@node-rs/bcrypt')).default
-		bcryptHashStub = sinon.stub(bcrypt, 'hash').resolves('$hashed$')
+		sinon.stub(bcrypt, 'hash').resolves('$hashed$')
 	})
 
 	afterEach(() => {

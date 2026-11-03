@@ -43,6 +43,9 @@ export const socketLabsResetPwdMailer: IResetPwdMailer = {
  * arrives as `undefined` and the default takes over — `APP_DOMAIN` for the base, `/x/reset` for the path.
  * Normalising that to `''` at the call site instead would produce a link with no host at all.
  *
+ * `linkBase` must be an absolute `http:` / `https:` URL. Anything else (`javascript:`, `//host`, a host with no
+ * scheme, `''`) makes `sendEmailReset` reject with a 500 and send nothing.
+ *
  * ⚠️ `linkPath` names a **front-end route**, not a backend mount. It has to match the route that renders
  * the new-password form in the app `linkBase` serves; there is nothing on the server side that would fail
  * loudly if it does not, because the link is only ever followed by a person.

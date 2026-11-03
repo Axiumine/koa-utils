@@ -41,7 +41,11 @@ export async function storeUploadAsTemp(upload: Promise<IFileUpload>, maxFileSiz
 
 		// Best-effort cleanup, then reject. Cleanup is fire-and-forget by design: the
 		// upload has already failed, and an unlink error must not mask the real cause.
-		const removeThenReject = (reason: Error) => unlink(storedFileUrl, () => reject(reason))
+		const removeThenReject = (reason: Error) => {
+			unlink(storedFileUrl, () => {
+				reject(reason)
+			})
+		}
 
 		// 'close' is the single settle point. Every failure path below only RECORDS what
 		// went wrong and stops the stream; nothing settles the Promise itself. Rejecting

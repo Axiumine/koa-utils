@@ -199,12 +199,40 @@ describe('updatePassword — resolve', () => {
 	})
 
 	it('resetDateReq is null (no resetDateReq in result) → throws 403 Forbidden', async () => {
-		// getResetPwd return resetDateReq = undefined when account.resetDateReq is undefined, and set
-		// resetHash non-null only when resetDateReq is defined. The `resetDateReq === null` branch in
-		// updatePassword.mts line 50 need resetHash !== null AND resetDateReq === null at once → no DB
-		// doc produce that, the branch is unreachable via normal flow.
-		// No dedicated test: the 403 branch for resetHash=null above cover the observable behaviour.
-		expect(true).to.equal(true) // placeholder — branch is unreachable via getResetPwd
+		// getResetPwd keep resetHash only when resetDateReq !== undefined. Stored explicit `null` pass that
+		// test → resetHash set + resetDateReq null → guard in assertResetAllowed fire. Reachable from real doc.
+		const docWithNullDate = {
+			_id: new Types.ObjectId(),
+			personalData: { name: 'Test User' },
+			account: { resetDateReq: null, resetHash: 'correctHash' }
+		}
+		findOneStub.returns(makeSelectSessionLeanQuery(docWithNullDate))
+		updateOneStub = sinon.stub(UserBase, 'updateOne')
+
+		await expectGraphQLErrorAsync(
+			() => updatePassword.resolve(null, { email: 'u@test.com', hash: 'correctHash', password: 'newpassword1' }),
+			403,
+			'Forbidden'
+		)
+
+		expect(updateOneStub.called, 'no write may reach the DB on this path').to.equal(false)
+	})
+
+	it('SECURITY: near-miss hashes (prefix, longer, empty) are all 403, only the exact hash passes', async () => {
+		// Compare is constant time via digests: length must not matter, equality must stay exact.
+		updateOneStub = sinon.stub(UserBase, 'updateOne')
+		for (const sent of ['correctHas', 'correctHash!', '', 'CORRECTHASH']) {
+			findOneStub.returns(makeSelectSessionLeanQuery(rawDbDoc()))
+
+			await expectGraphQLErrorAsync(
+				() => updatePassword.resolve(null, { email: 'u@test.com', hash: sent, password: 'newpassword1' }),
+				403,
+				'Forbidden'
+			)
+		}
+
+		expect(updateOneStub.called, 'no write may reach the DB on this path').to.equal(false)
+		expect(sendResetConfirmationStub.called, 'no confirmation email may be sent').to.equal(false)
 	})
 
 	it('SECURITY: an email-verification hash cannot reset a password even with a reset pending', async () => {

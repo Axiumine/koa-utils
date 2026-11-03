@@ -43,7 +43,7 @@ env:
 jobs:
   verify:
     name: Verify and pack
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -181,7 +181,7 @@ jobs:
     name: Publish to npm
     needs: verify
     if: github.event_name == 'release'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     # Required reviewer lives on this environment. The npm trusted publisher is bound to its name.
     environment: npm-publish
@@ -234,7 +234,7 @@ jobs:
     name: Attach signed release assets
     needs: [verify, publish]
     if: github.event_name == 'release'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write # gh release upload

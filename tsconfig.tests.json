@@ -1,0 +1,17 @@
+{
+	// Type-check gate for the spec suite (yarn typecheck:tests): never emits. Same strict flags as `yarn typecheck`
+	// (tsconfig.check.json), so a spec is held to the standard of the code it covers. tsconfig.test.json is the editor
+	// config and tsconfig.build-tests.json the mocha build (noCheck on purpose); neither one type-checks.
+	"extends": "./tsconfig.check.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		// Specs import the built output by relative path (`../dist/x.mjs`) and the rest through the `@lib/*` aliases, which
+		// tsconfig.json maps to src/. rootDirs lets the relative form fall back to src/ as well, so the gate needs no
+		// `yarn build` first (CI runs it before the build). A fresh dist/ is used when it exists; the types match either way.
+		"rootDirs": ["./dist", "./src"],
+		"types": ["mocha", "node", "chai", "sinon"]
+	},
+	// The ambient module declarations under src/types are not imported by anything, so they are listed here.
+	"include": ["test/**/*.mts", "test/**/*.ts", "src/types/**/*.d.ts"],
+	"exclude": ["node_modules", "dist", "dist-test"]
+}

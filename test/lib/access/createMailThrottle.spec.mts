@@ -114,6 +114,52 @@ describe('createMailThrottle', () => {
 		expect(maySend('c')).to.equal(true)
 		expect(maySend('b')).to.equal(false)
 	})
+
+	it('re-sending a key whose window lapsed moves it behind the keys sent after it', () => {
+		const maySend = createMailThrottle({ windowMs: 1000, maxKeys: 3 })
+
+		expect(maySend('a')).to.equal(true)
+		clock.tick(500)
+		expect(maySend('b')).to.equal(true)
+		clock.tick(501) // a expired (1001ms), b fresh (501ms)
+		// a re-sent while map not full (no sweep) → newest entry, b now oldest. No delete before set → Map keep a first.
+		expect(maySend('a')).to.equal(true)
+		expect(maySend('c')).to.equal(true)
+
+		// full + all fresh → oldest goes. Must be b, not the re-inserted a.
+		expect(maySend('d')).to.equal(true)
+		expect(maySend('a')).to.equal(false)
+		expect(maySend('b')).to.equal(true)
+	})
+
+	it('the sweep drops an expired entry sitting behind a live one, so the live window is not evicted', () => {
+		const maySend = createMailThrottle({ windowMs: 100, maxKeys: 2 })
+
+		clock.setSystemTime(1000)
+		expect(maySend('live')).to.equal(true)
+		// clock step back → map order (live, stale) ≠ timestamp order
+		clock.setSystemTime(0)
+		expect(maySend('stale')).to.equal(true)
+		// now=100 → stale age === windowMs (expired), live age < 0 (inside window)
+		clock.setSystemTime(100)
+		expect(maySend('c')).to.equal(true)
+
+		// sweep removed stale → size 1 < maxKeys → live kept. No sweep → oldest (live) evicted → true
+		expect(maySend('live')).to.equal(false)
+	})
+
+	it('no sweep while the map is below maxKeys, so an aged entry survives a clock step back', () => {
+		const maySend = createMailThrottle({ windowMs: 100, maxKeys: 3 })
+
+		clock.setSystemTime(0)
+		expect(maySend('a')).to.equal(true)
+		// size 1 < maxKeys → no sweep. Sweep always → a (age === windowMs) dropped here
+		clock.setSystemTime(100)
+		expect(maySend('b')).to.equal(true)
+		// clock step back → a age 50 < windowMs → still throttled. Dropped by early sweep → true
+		clock.setSystemTime(50)
+		expect(maySend('a')).to.equal(false)
+	})
 })
 
 describe('ALWAYS_MAIL', () => {

@@ -5,11 +5,11 @@ import { Sequelize } from 'sequelize-typescript'
 dotenv.config()
 
 export const sequelize = new Sequelize(
-	`${process.env.MARIADB_DBNAME}`,
-	`${process.env.MARIADB_USER}`,
-	`${process.env.MARIADB_PWD}`,
+	`${process.env['MARIADB_DBNAME']}`,
+	`${process.env['MARIADB_USER']}`,
+	`${process.env['MARIADB_PWD']}`,
 	{
-		host: `${process.env.MARIADB_IP}`,
+		host: `${process.env['MARIADB_IP']}`,
 		dialect: 'mariadb',
 		query: { raw: true },
 		pool: {
@@ -30,17 +30,19 @@ export const sequelize = new Sequelize(
 			backoffExponent: 1.1,
 			timeout: 3000,
 			backoffJitter: 0.1, // Add this required property
-			max: parseInt(`${process.env.MARIADB_RETRY}`) || 5
+			max: parseInt(`${process.env['MARIADB_RETRY']}`) || 5
 		},
 		dialectOptions: {
 			useUTC: true,
 			skipSetTimezone: true,
 			compress: true,
-			requestTimeout: parseInt(`${process.env.MARIADB_TIMEOUT}`) || 5000
+			requestTimeout: parseInt(`${process.env['MARIADB_TIMEOUT']}`) || 5000
 		},
-		port: parseInt(`${process.env.MARIADB_PORT}`, 10),
+		port: parseInt(`${process.env['MARIADB_PORT']}`, 10),
+		// Explicit `undefined` is load-bearing: Sequelize reads the key with hasOwnProperty, so omitting it would switch
+		// query logging on. The cast only satisfies exactOptionalPropertyTypes (tsconfig.check.json); runtime is unchanged.
 		/* c8 ignore next -- env-dependent boot config; covered only when MARIADB_LOGGING='false' */
-		logging: process.env.MARIADB_LOGGING === 'false' ? false : undefined // disable print queries in console
+		logging: (process.env['MARIADB_LOGGING'] === 'false' ? false : undefined) as false // disable print queries in console
 	}
 )
 

@@ -10,6 +10,7 @@
  * its 2 members.
  */
 import { createResetPwdFlow } from '../../../dist/lib/access/createResetPwdFlow.mjs'
+import type { TAccessModel } from '@lib/access/accessPaths.mjs'
 import { SocketLabsLib } from '@email/SocketLabsLib.mjs'
 import { expect } from 'chai'
 import mongoose, { Types } from 'mongoose'
@@ -40,6 +41,13 @@ function makeSession() {
 	}
 }
 
+// fake model: real Model type + stub members spec reads back
+type TFakeModel = TAccessModel & {
+	query: { selected: string }
+	findOne: sinon.SinonStub
+	updateOne: sinon.SinonStub
+}
+
 function makeModel(doc: unknown) {
 	const query = {
 		selected: '',
@@ -59,7 +67,7 @@ function makeModel(doc: unknown) {
 		query,
 		findOne: sinon.stub().returns(query),
 		updateOne: sinon.stub().returns(updateQuery)
-	} as never
+	} as unknown as TFakeModel // deliberate: plain object stands in for Model
 }
 
 /** Stored doc, custom layout. */

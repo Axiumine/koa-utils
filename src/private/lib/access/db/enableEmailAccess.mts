@@ -2,6 +2,7 @@ import { DEFAULT_VERIFY_EMAIL_PATHS, IVerifyEmailPaths, TAccessModel } from '@li
 import { defaultVerifyEmailMailer, IVerifyEmailMailer } from '@lib/access/verifyEmailMailer.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { buildUnset } from '@private/lib/access/pathTools.mjs'
+import * as Sentry from '@sentry/node'
 import mongoose from 'mongoose'
 
 /**
@@ -26,7 +27,11 @@ export const createEnableEmailAccess = (model: TAccessModel, paths: IVerifyEmail
 			}
 		)
 
-		await mailer.sendWelcome(email)
+		try {
+			await mailer.sendWelcome(email)
+		} catch (e: unknown) {
+			Sentry.captureException(e)
+		}
 	}
 
 /** Signature of the bound writer, for the modules that take it as a dependency. */

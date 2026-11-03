@@ -79,6 +79,47 @@ With `REDIS_TLS=true` the URL must carry the `rediss:` scheme. Anything else thr
 | `new URL(url)` throws | `[Redis] REDIS_TLS is enabled but REDIS_URL is not a valid URL — a rediss:// URL is required.` |
 | protocol is not `rediss:` | `` [Redis] REDIS_TLS is enabled but REDIS_URL uses scheme "<protocol>" — rediss:// required. `` |
 
+## `email/` — message builders and HTML escaping
+
+`SocketLabsLib` (public, [email.md](./email.md)) is a thin dispatcher: the subject, text part and HTML part of each mail are built by pure functions in `src/private/email/`, which return an `IEmailContent` (`{ subject, textBody, htmlBody }`). Every value a builder places in `htmlBody` is escaped for its context with `escapeHtml`; `textBody` and `subject` carry the raw value. The fixed copy of each mail is unchanged from before the split.
+
+**Import:** _internal — not exported_
+
+### `escapeHtml`
+
+```ts
+export function escapeHtml(value: string | number): string
+```
+
+The only escaping helper of the mail templates. Converts the value with `String()` (a number is accepted, and a non-string a JS caller passes is stringified like the old concatenation did), then replaces `&` first, then `<`, `>`, `"` and `'` with `&amp;`, `&lt;`, `&gt;`, `&quot;` and `&#39;`. The result is safe in element content and in a single- or double-quoted attribute value. Other characters, non-ASCII included, are untouched. It is not a URL encoder.
+
+### `messageParts`
+
+- `fixName(name: string): string` — `` ` ${name}` `` or `''` for the empty name (raw; callers escape it for the HTML part).
+- `htmlLink(link: string, linkText = ''): string` — `StringLib.makeLink(escapeHtml(link), escapeHtml(linkText))`: the URL is escaped as an attribute value and as visible text, so a quote, `<` or `&` in the address, hash or base cannot leave the `href`.
+- `httpLinkBase(linkBase: string): string` — returns `linkBase` exactly as given when it is an absolute `http:` / `https:` URL, otherwise throws `throwInternalError()` (500 `Internal Server Error`, `Error reported to Dev Team.`). Judged on the URL the WHATWG parser returns (`URL.parse`), not on a prefix: the scheme must be `http:` or `https:`, the user name and password must be empty, and the string must hold no control character, whitespace or backslash (the parser would strip or rewrite them, and the base is emitted as written). Every builder that takes a `linkBase` calls it first, and `SocketLabsLib.sendEmailChangeVerify` calls it on `APP_DOMAIN`; see [Link base validation](./email.md#link-base-validation).
+- `confirmationLink(linkBase, linkPath, emailTo, hash): string` — `<base><path>/<encodeURI(emailTo)>/<hash>`; every trailing slash of the base and every leading slash of the path are dropped, one leading slash is added to the path. `linkBase` goes through `httpLinkBase` first. The trailing-slash strip is a loop on `endsWith`, because `/\/+$/` backtracks quadratically on long slash runs.
+
+### `htmlFrame`
+
+`FALLBACK_HEADER_1`, `FALLBACK_HEADER_2` and `FALLBACK_FOOTER` are the default wrapper around every HTML part (doctype, head up to `<title>`, the rest through the opening paragraph, the closing tags). `orFallback(custom, fallback)` returns `custom` unless it is `''`. `standaloneHeader(title)` is the full-document opening used by `getHtmlHeader` and by the two legacy mails that build their own document; it escapes `title`.
+
+### `accountMessages`, `resetMessages`, `noticeMessages`
+
+Builders, one per mail: `verifyMessage`, `changeVerifyMessage`, `welcomeMessage`, `subscriptionMessage`, `otpMessage` (account); `resetMessage`, `resetConfirmationMessage`, `resetConfirmationHashMessage` (reset); `ACCOUNT_DISABLED`, `ACCOUNT_BANNED`, `EMAIL_ALREADY_VALID`, `HASH_REQ_TOO_OLD`, `TOO_MUCH_VERIFY_REQUESTS` (constants), `wrongHashMessage`, `alertDevMessage`, `postReportedMessage` (notice). Builders that take a link receive the finished URL and show it raw in `textBody` and escaped in `htmlBody`. The builders that take a `linkBase` (`welcomeMessage`, `subscriptionMessage`, `resetConfirmationMessage`, `resetConfirmationHashMessage`) run it through `httpLinkBase` before using it, and throw `throwInternalError()` for a base that is not an absolute `http(s)` URL. `wrongHashMessage(times)` throws `throwInternalError()` when `times > 5`, as `SocketLabsLib.wrongHash` always did. A new interpolated value in any builder must go through `escapeHtml` (or `htmlLink` for a URL) in the HTML part.
+
+### `orFalse`
+
+```ts
+export async function orFalse(send: () => Promise<boolean>): Promise<boolean>
+```
+
+Runs the send; a rejection or a synchronous throw is reported with `Sentry.captureException(e)` and the result is `false`. Used by `sendOTP` and `sendResetPwdConfirmationHash`.
+
+### `IEmailContent`
+
+Type-only interface `{ subject: string; textBody: string; htmlBody: string }`, excluded from coverage and mutation like the other `I*.mts` files.
+
 ## `files/` — image re-encode & MIME sniffing
 
 ### `reEncode`
@@ -196,7 +237,7 @@ The narrow projection shape returned by `infoUserAdminForLogin` — just enough 
 
 **Signature:**
 ```ts
-export interface IUserAdminKoaUtilsSchema {
+interface IUserAdminKoaUtilsSchema {
 	_id: Types.ObjectId
 	login: { _id?: boolean; email: string; password: string; firstLogin?: Date; lastLogin?: Date }
 	account: {
@@ -535,7 +576,7 @@ Reads walk the configured dotted paths out of the `.lean()` documents with `read
 | `createAbandonUser` (`abandonUser.mts`) | `({ model, paths, mode, deletedValue }: ICreateAbandonUserArgs) => TDeleteUserByEmail` | Factory only — no bound default, since the default policy *is* `deleteUserByEmail`. Picks the writer the two disposal guards run: `mode: 'delete'` returns `createDeleteUserByEmail(model, paths)`; `'soft-delete'` returns a writer doing `updateOne({ [paths.email]: email }, { $set: { [paths.deleted]: value } }, { runValidators: true })`, where `value` is `deletedValue` — called if it is a function, so a timestamp column gets the time of its own write — defaulting to `true`; `'keep'` returns a no-op resolving `undefined`. Nothing is `$unset` alongside the tombstone: derived unset lists break a required-members subdocument, which is `verifyClear`'s whole reason for being caller-supplied. Reached from [`createVerifyEmailFlow`](./lib-access.md)'s `onAbandon`. |
 | `confirmNewEmail` (default) | `(_id: ObjectId, email: string) => Promise<...>` | Finalizes an email-change: `$set`s `login.email` to the new address and `$unset`s every path in `emailChangeClear` — by default `account.email.hash`/`dateLastReq`/`requestTimes`/`newEmailTmp`. |
 | `deleteUserByEmail` (default) | `(email: string) => Promise<void>` | Deletes the user document matching `login.email`. Reports `deletedCount === 0` to Sentry (`captureMessage('[deleteUserByEmail] no document matched …', 'warning')`) and resolves anyway — a guard's redirect must not depend on the delete having matched. The `@todo` and the commented-out check it replaced are gone. |
-| `enableEmailAccess` | `(_id: ObjectId, email: string) => Promise<void>` | Sets `account.email.valid = true`, `$unset`s every path in `verifyClear` — by default `hash`/`dateLastReq`/`requestTimes` — with `runValidators: true`, then sends the welcome email through its mailer. `createEnableEmailAccess(model, paths, mailer)` takes the mailer as a third parameter (`IVerifyEmailMailer`, [`verifyEmailMailer`](./lib-access.md#verifyemailmailer)); the bound default passes `defaultVerifyEmailMailer`, i.e. SocketLabs. This is the `enableEmailAccess` step in the `routerVerifyEmail` auth-flow cheat sheet. |
+| `enableEmailAccess` | `(_id: ObjectId, email: string) => Promise<void>` | Sets `account.email.valid = true`, `$unset`s every path in `verifyClear` — by default `hash`/`dateLastReq`/`requestTimes` — with `runValidators: true`, then sends the welcome email through its mailer. The send happens after the update has committed, so a welcome that rejects or throws (for example `sendWelcome` rejecting with the 500 because `APP_DOMAIN` is not an absolute `http(s)` URL) is reported to Sentry (`captureException`) and swallowed: the function still resolves, `routerVerifyEmail` still redirects to `/x/registration-done`, and only the welcome mail is lost. An error from the `updateOne` itself still rejects. `createEnableEmailAccess(model, paths, mailer)` takes the mailer as a third parameter (`IVerifyEmailMailer`, [`verifyEmailMailer`](./lib-access.md#verifyemailmailer)); the bound default passes `defaultVerifyEmailMailer`, i.e. SocketLabs. This is the `enableEmailAccess` step in the `routerVerifyEmail` auth-flow cheat sheet. |
 | `getResetPwd` | `(session: ClientSession, email: string) => Promise<{ _id, resetDateReq, resetHash, name } \| null>` | Looks up password-reset state (`account.resetDateReq`, `account.resetHash`, `personalData.name`, plus the `account.deleted` / `account.disabled` flags) via a `.lean()` read. Returns `null` for a deleted or disabled account — the same answer an unknown address gets, so `resetPwd` sends nothing and still returns `true`, and `updatePassword` answers the same `403`. The flags are read raw, as in `assertVerifyEmailAllowed`: `.lean()` bypasses Mongoose casting, so an un-migrated `'false'` is a truthy string and blocks the reset (the fix is `scripts/migrate-account-disabled-to-boolean.mjs`, not a coercion here). `resetHash` is populated only when `resetDateReq` is defined **and** the stored hash is a string; any other case yields `null`, never a coerced value and never a fallback to `account.email.hash`. The "reset pending, hash gone" orphan state must fail closed. Returns `null` if no user matches. Note that `resetHash === null` is the ordinary state for any account that has simply never requested a reset, not an error condition — `updatePassword` therefore answers it with the same `403` it gives an unknown address (a `500` there was an enumeration oracle, fixed after 5.1.1) and reports the genuinely malformed records to Sentry instead. |
 | `incReqTimes` | `(_id: ObjectId) => Promise<UpdateWriteOpResult>` | `$inc`s `account.email.requestTimes` by 1 (`runValidators: true`). |
 | `removeResetReq` (default) | `(session: ClientSession, email: string) => Promise<UpdateWriteOpResult>` | `$unset`s every path in the flow's `resetClear` list, by `email` — by default `account.resetDateReq`/`account.resetHash`, and nothing under `account.email.`. The list is **caller-supplied, not derived** from the pair `saveResetReq` writes: a layout holding the request in one required-members subdocument can only be cleared by unsetting the container, since unsetting a member leaves a document that fails validation and the write is rejected. Passes **no** options object: an email matching no document is a no-op. It used to pass `{ upsert: true }`, which inserted a row keyed by `login.email` instead, and since `updateOne` runs no validators that row satisfied none of the schema's required fields. |
@@ -605,7 +646,7 @@ Since 5.3.0 the document is read through `paths` with `readPath` rather than by 
 | `handleIfAccountDeleted` | `(email: string, deleted: boolean = false) => Promise<void>` | If `deleted`, sends `mailer.accountDisabled(email)`, then throws `Error(EMAIL_CHECK_LINK)`. `accountDisabled`, not a deleted-specific template — `SocketLabsLib` has none, and this is what it has always sent. |
 | `handleIfAccountDisabled` | `(email: string, disabled: boolean = false) => Promise<void>` | Same pattern as `handleIfAccountDeleted`, gated on `disabled`. |
 | `handleIfEmailAlreadyValid` | `(uEmail: string, valid: boolean) => Promise<void>` | If `valid`, sends `mailer.emailAlreadyValid(uEmail)`, then throws `Error(EMAIL_CHECK_LINK)`. Ties into the `signUp` "already valid" email + 409 dual-path behavior documented in `CLAUDE.md`. |
-| `handleIfHashBad` | `({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) => Promise<void>` | Single destructured object argument (`IHandleIfHashBadArgs = { uId: mongoose.Types.ObjectId; uEmail: string; hash: string; requestTimes?: number; dbHash?: string }`). If `hash !== dbHash`: increments the stored request counter via `incReqTimes(uId)`, sends `mailer.wrongHash(uEmail, requestTimes + 1)`, then throws `Error(EMAIL_CHECK_LINK)`. |
+| `handleIfHashBad` | `({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) => Promise<void>` | Single destructured object argument (`IHandleIfHashBadArgs = { uId: mongoose.Types.ObjectId; uEmail: string; hash: string; requestTimes?: number | undefined; dbHash?: string | undefined }`). If `hash` does not equal `dbHash` (compared in constant time through [`safeEqualSecret`](#libaccess--constant-time-compare-and-reset-core); an `undefined` `dbHash` never matches): increments the stored request counter via `incReqTimes(uId)`, sends `mailer.wrongHash(uEmail, requestTimes + 1)`, then throws `Error(EMAIL_CHECK_LINK)`. |
 | `handleIfMoreThan3DaysPassed` | `(uEmail: string, dateLastReq: Date = new Date()) => Promise<void>` | Computes "3 days ago" and compares timestamps via `StringLib.isoToTimestamp`; if `dateLastReq` is older than 3 days, sends `mailer.hashReqTooOld(uEmail)`, **disposes of the account** through the writer it was built with, then throws `Error(EMAIL_CHECK_LINK)`. |
 | `handleIfTooMuchRequestsTimes` | `(uEmail: string, requestTimes: number = 99) => Promise<void>` | If `requestTimes >= 5`, sends `mailer.tooMuchVerifyRequests(uEmail)`, **disposes of the account** through the writer it was built with, then throws `Error(EMAIL_CHECK_LINK)`. |
 
@@ -627,6 +668,74 @@ Since 5.3.0 the document is read through `paths` with `readPath` rather than by 
 `handleIfMoreThan3DaysPassed` and `handleIfTooMuchRequestsTimes` dispose of the account as a side effect of the guard failing, and with the default `onAbandon: 'delete'` there is no recovery path once either fires. Since that writer is whatever [`createVerifyEmailFlow`](./lib-access.md#abandonment-policy--onabandon-deletedvalue-deleteuserbyemail) was given, the guards cannot tell a delete from a tombstone from a no-op — and must not: both still throw regardless, so disposal never decides whether the link is honoured. Do not add a branch here that inspects the policy.
 
 `mailer` is a **required** parameter on all six factories, not optional with a default. These modules are internal, every call site is in this repository, and an optional mailer would let a new caller silently fall back to the process-wide throttle it did not ask for.
+
+### `emailChangeHandlers`
+
+**Import:** _internal — not exported_
+
+**Signature:**
+```ts
+export interface IVerifyContext {
+	deps: IEmailChangeHashVerifyDeps
+	user: unknown
+	uId: Types.ObjectId
+	uEmail: string
+	mailer: IVerifyEmailMailer
+}
+
+export async function loadVerifyContext(
+	deps: IEmailChangeHashVerifyDeps,
+	mailer: IVerifyEmailMailer,
+	uEmail: string
+): Promise<IVerifyContext | null>
+export async function handleHashMismatch(ctx: IVerifyContext): Promise<boolean>
+export async function handleValidHash(ctx: IVerifyContext): Promise<boolean>
+```
+
+The lookup and the two branch handlers of [`emailChangeHashVerify`](./graphql-mutations.md#emailchangehashverify), kept in their own module so that file stays under the FTA score target. Behaviour is exactly what the resolver did inline. `loadVerifyContext` is the `.lean()` read of the row whose `paths.newEmailTmp` equals the (already lowercased) email, with the projection built from the same path map the handlers read (`paths.hash`, `dateLastReq`, `requestTimes`, `deleted`, `disabled`); it resolves `null` when no row matches, otherwise the bundle of `deps`, the lean document, its `_id`, the email and the mailer. `handleHashMismatch` throws `throwInternalError()` when `requestTimes` is absent, otherwise calls `incReqTimes(uId)`, fires `mailer.wrongHash` without awaiting it and returns `false`. `handleValidHash` throws `throwInternalError()` when `dateLastReq` is absent, then applies the 3-day, deleted, disabled and email-taken checks in that order before calling `confirmNewEmail`. `deps` is imported from the mutation as a type only, so there is no runtime cycle.
+
+## `lib/access/` — constant-time compare and reset core
+
+Three internal helpers behind the hash checks. None is exported; `package.json` `exports` has no entry for them.
+
+### `safeEqualSecret`
+
+**Import:** _internal — not exported_ (`src/private/lib/access/safeEqualSecret.mts`)
+
+**Signature:**
+```ts
+export const safeEqualSecret = (a: unknown, b: unknown): boolean => { ... }
+```
+
+Constant-time equality of two secret strings. `===` stops at the first differing character, so response time tells an attacker how long a guessed prefix is. Here both sides are hashed with SHA-256 first, which gives two 32-byte buffers whatever the input lengths (`timingSafeEqual` throws on unequal lengths, and a length check would leak the secret's length), and `node:crypto`'s `timingSafeEqual` compares the digests. The digest is taken over the UTF-16 code units (`utf16le`), not UTF-8: UTF-8 turns every lone surrogate into U+FFFD, so two different strings could otherwise share a digest and compare equal.
+
+For two strings the result is exactly `a === b`. It fails closed: if either side is not a string (an unset stored hash, a field read off a `.lean()` document, `null`) the result is `false`, `undefined` against `undefined` included. Used by `handleIfHashBad` (activation link), `updatePassword` (through `assertResetAllowed`), `emailChangeHashVerify` and `verifyIntrospectionCode` (the `x-introspectioncode` header). Wrong guesses stay as they were: `handleIfHashBad` and `emailChangeHashVerify` bump the strike counter, `updatePassword` answers 403 without one — the reset hash carries 250 bits from `crypto.randomBytes`, so guessing it is not feasible.
+
+### `assertResetAllowed`
+
+**Import:** _internal — not exported_ (`src/private/lib/access/assertResetAllowed.mts`)
+
+**Signature:**
+```ts
+export function assertResetAllowed(resetPwd: IResetPwdRecord | null, uEmail: string, hash: string): asserts resetPwd is IResetPwdRecord
+```
+
+The checks `updatePassword` ran inline, extracted unchanged and in the same order: no record → 403; `resetHash === null` → `Sentry.captureMessage('[updatePassword] no usable resetHash for <email>')` and 403; `resetDateReq === null` (an explicit `null` stored in the document, which `getResetPwd` passes through) → `Sentry.captureMessage('[updatePassword] resetHash set but resetDateReq missing for <email>')` and 403; hash not equal per `safeEqualSecret` → 403; link older than 60 minutes (`DateLib.minElapsed`) → 403. Every rejection is the same `throwForbiddenError()`, so the caller cannot tell the cases apart.
+
+### `applyPasswordReset`
+
+**Import:** _internal — not exported_ (`src/private/lib/access/applyPasswordReset.mts`)
+
+**Signature:**
+```ts
+export async function applyPasswordReset(
+	deps: IApplyPasswordResetDeps,
+	session: ClientSession,
+	input: IApplyPasswordResetInput
+): Promise<string>
+```
+
+The transaction body of `updatePassword`, moved out of the resolver file only to keep it inside the complexity budget. Reads the record through `deps.getResetPwd(session, uEmail)`, runs `assertResetAllowed`, writes the new password through `deps.updatePasswordDb` (a falsy result throws `throwInternalError()`, 500, and skips the cleanup), clears the request through `deps.removeResetReq`, and returns the account holder's name for the post-commit confirmation mail. `IApplyPasswordResetDeps` has the same three members as the public `IUpdatePasswordDeps`.
 
 ## `lib/makeBodyJson`
 
@@ -661,7 +770,7 @@ Environment-gated, then a constant-time check of the `x-introspectioncode` heade
 
 The **first** statement calls [`isIntrospectionBypassAllowed()`](./lib-core.md#isintrospectionbypassallowed) and returns `false` when it refuses — before `INTROSPECTION_CODE` is read at all. Outside `NODE_ENV` `'development'` and `'test'` the header therefore does nothing, even with the secret correctly configured and the header byte-for-byte correct. The gate lives here rather than in the three calling middlewares deliberately: gating at the call sites would leave the primitive itself ungated for any future direct caller. It is an allowlist and must not be rewritten as `NODE_ENV !== 'production'` — see `isIntrospectionBypassAllowed` for why the negated form fails open.
 
-Past the gate, the comparison runs via `Buffer.from` + `node:crypto`'s `timingSafeEqual`. Fails closed: if `INTROSPECTION_CODE` is unset or empty, or `headerValue` is not a string, or the two buffers differ in byte length, it returns `false` without calling `timingSafeEqual` (which throws on unequal-length buffers). Only when both are non-empty strings of equal byte length does it fall through to the constant-time comparison. Guards against the previous call-site pattern of comparing against the *interpolated* `` `${process.env.INTROSPECTION_CODE}` ``, which coerced an unset variable to the literal string `'undefined'` and let a client satisfy the check by sending that exact header value with no real secret configured. Used by three middlewares to allow an introspection bypass: `authenticatedResourceHandler`, `authenticatedAuthorizationHandler`, and `authenticatedLogoutHandler`.
+Past the gate, the comparison runs through [`safeEqualSecret`](#libaccess--constant-time-compare-and-reset-core): both sides are hashed with SHA-256 and the 32-byte digests are compared with `node:crypto`'s `timingSafeEqual`. There is no length check before the compare, so the time taken does not depend on whether, or by how much, the header's length differs from the secret's (an early return on a length mismatch would tell a caller how long `INTROSPECTION_CODE` is). Fails closed: if `INTROSPECTION_CODE` is unset or empty it returns `false` before the compare, and `safeEqualSecret` answers `false` for a `headerValue` that is not a string. A header of any other length, multi-byte characters included, is simply a non-match and never throws. The result for every input is the one `headerValue === INTROSPECTION_CODE` would give. Guards against the previous call-site pattern of comparing against the *interpolated* `` `${process.env.INTROSPECTION_CODE}` ``, which coerced an unset variable to the literal string `'undefined'` and let a client satisfy the check by sending that exact header value with no real secret configured. Used by three middlewares to allow an introspection bypass: `authenticatedResourceHandler`, `authenticatedAuthorizationHandler`, and `authenticatedLogoutHandler`.
 
 **Parameters:**
 
@@ -669,4 +778,4 @@ Past the gate, the comparison runs via `Buffer.from` + `node:crypto`'s `timingSa
 |---|---|---|
 | headerValue | string \| undefined | The `x-introspectioncode` header value from the incoming request |
 
-**Returns:** `boolean` — `true` only if `NODE_ENV` is `'development'` or `'test'`, `INTROSPECTION_CODE` is set, and `headerValue` matches it byte-for-byte; `false` otherwise.
+**Returns:** `boolean` — `true` only if `NODE_ENV` is `'development'` or `'test'`, `INTROSPECTION_CODE` is set and non-empty, and `headerValue` equals it exactly; `false` otherwise.

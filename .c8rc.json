@@ -1,7 +1,9 @@
 {
 	"all": true,
 	"include": [
-		"dist/**/*.mjs"
+		"dist/**/*.mjs",
+		"scripts/check-code-caps.mts",
+		"scripts/code-caps/**/*.mts"
 	],
 	"exclude": [
 		"dist/**/I*.mjs",
@@ -16,7 +18,8 @@
 		"**/*.spec.mts"
 	],
 	"extension": [
-		".mjs"
+		".mjs",
+		".mts"
 	],
 	"reporter": [
 		"lcov",

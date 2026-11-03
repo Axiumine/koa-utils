@@ -27,7 +27,7 @@ import { GraphQLInputLogin } from '../../../../dist/graphQL/schema/GraphQLInput/
 function assertField(type: GraphQLObjectType, name: string, expected: unknown) {
 	const fields = type.getFields()
 	expect(fields[name], `field ${name} missing on ${type.name}`).to.exist
-	expect(fields[name].type.toString()).to.equal(String(expected))
+	expect(fields[name]!.type.toString()).to.equal(String(expected))
 }
 
 describe('graphQL/schema/types/*', () => {
@@ -50,9 +50,9 @@ describe('graphQL/schema/types/*', () => {
 
 	it('FindOneAndUpdateType nests lastErrorObject:FindOneAndUpdateDetailType!', () => {
 		expect(FindOneAndUpdateType.name).to.equal('FindOneAndUpdateType')
-		const f = FindOneAndUpdateType.getFields().lastErrorObject
+		const f = FindOneAndUpdateType.getFields()['lastErrorObject']
 		expect(f).to.exist
-		expect(f.type.toString()).to.equal('FindOneAndUpdateDetailType!')
+		expect(f!.type.toString()).to.equal('FindOneAndUpdateDetailType!')
 	})
 
 	it('LoginAppType: accessToken, onboardingStep, onboardingDone (all NonNull)', () => {
@@ -120,7 +120,7 @@ describe('graphQL/schema/types/*', () => {
 	it('GraphQLInputLogin: email:String!, password:String! (input type)', () => {
 		expect(GraphQLInputLogin.name).to.equal('GraphQLInputLogin')
 		const fields = GraphQLInputLogin.getFields()
-		expect(fields.email.type.toString()).to.equal('String!')
-		expect(fields.password.type.toString()).to.equal('String!')
+		expect(fields['email']!.type.toString()).to.equal('String!')
+		expect(fields['password']!.type.toString()).to.equal('String!')
 	})
 })

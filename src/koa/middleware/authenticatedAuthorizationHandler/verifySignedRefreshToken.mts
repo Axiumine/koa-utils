@@ -25,10 +25,12 @@ export function verifySignedRefreshToken(ctx: IContextRefresh, keys: Keygrip): s
 	/**
 	 * 'refresh_token=27119032-9043-4a9f-bd4c-9d06fd576290; refresh_token.sig=P1gZO6-49xVEMkiMqkOjJ2Cxaf3mQb18GaflDsjibuv4fFWYIOzcW26didnVJ1aridyY40CFzDtufzI6zI8jkQ'
 	 */
+	// Stryker disable next-line OptionalChaining: cookies is a local object literal assigned above and never null, so ?. never short-circuits
 	const refreshToken = cookies?.refresh_token
 	if (!refreshToken) {
 		throw throwRefreshTokenRequired()
 	}
+	// Stryker disable next-line OptionalChaining: cookies is a local object literal assigned above and never null, so ?. never short-circuits
 	const signature = cookies?.['refresh_token.sig']
 	if (!signature) {
 		throw throwRefreshTokenSignatureRequired()

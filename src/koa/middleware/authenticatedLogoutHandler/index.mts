@@ -47,7 +47,7 @@ export const authenticatedLogoutHandler = (keys: Keygrip) => async (ctx: IContex
 
 	if (!introspection) {
 		const refreshToken = verifySignedRefreshToken(ctx as unknown as IContextRefresh, keys)
-		const redRefreshSession = await redisClient.hGet(`${process.env.REDIS_KEY}${refreshToken}`, 'id')
+		const redRefreshSession = await redisClient.hGet(`${process.env['REDIS_KEY']}${refreshToken}`, 'id')
 		if (redRefreshSession != null) {
 			ctx.state = {
 				user: {
@@ -66,7 +66,7 @@ export const authenticatedLogoutHandler = (keys: Keygrip) => async (ctx: IContex
 		// rejected: the access token remains optional here.
 		const accessToken = extractBearerAccessToken(authorization)
 		if (accessToken !== '') {
-			const redAccessSession = await redisClient.hGet(`${process.env.REDIS_KEY}${accessToken}`, 'id') // 'access:' already present
+			const redAccessSession = await redisClient.hGet(`${process.env['REDIS_KEY']}${accessToken}`, 'id') // 'access:' already present
 			if (redAccessSession != null) {
 				ctx.state.user.accessToken = accessToken
 			} // else no problem, session could be expired

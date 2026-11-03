@@ -16,7 +16,7 @@ describe('authenticatedResourceHandler', () => {
 		savedEnv = saveNodeEnv()
 		// Bypass env-gated since 6.0.0. Mocha set no NODE_ENV → gate refuse → every
 		// introspection spec below assert nothing unless env pinned to an allowed value.
-		process.env.NODE_ENV = 'test'
+		process.env['NODE_ENV'] = 'test'
 	})
 
 	afterEach(() => {
@@ -144,7 +144,7 @@ describe('authenticatedResourceHandler', () => {
 	it('calls next when session empty but valid introspection code provided', async () => {
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
 		const savedCode = saveIntrospectionCode()
-		process.env.INTROSPECTION_CODE = 'secret123'
+		process.env['INTROSPECTION_CODE'] = 'secret123'
 		try {
 			const mw = authenticatedResourceHandler()
 			const ctx = {
@@ -164,8 +164,8 @@ describe('authenticatedResourceHandler', () => {
 		// refused purely because the process is not on the bypass allowlist.
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
 		const savedCode = saveIntrospectionCode()
-		process.env.NODE_ENV = 'production'
-		process.env.INTROSPECTION_CODE = 'secret123'
+		process.env['NODE_ENV'] = 'production'
+		process.env['INTROSPECTION_CODE'] = 'secret123'
 		try {
 			const mw = authenticatedResourceHandler()
 			const ctx = {
@@ -188,7 +188,7 @@ describe('authenticatedResourceHandler', () => {
 		// the expired/deleted-token rejection with no secret at all.
 		sinon.stub(RedisMod.redisClient, 'hGetAll').resolves({})
 		const savedCode = saveIntrospectionCode()
-		delete process.env.INTROSPECTION_CODE
+		delete process.env['INTROSPECTION_CODE']
 		try {
 			const mw = authenticatedResourceHandler()
 			const ctx = {

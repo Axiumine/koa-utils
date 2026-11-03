@@ -14,6 +14,8 @@ import { expect } from 'chai'
 import sinon from 'sinon'
 import { Types } from 'mongoose'
 
+import { probeSentry } from '../../../../helpers/sentryProbe.mjs'
+
 // ---------------------------------------------------------------------------
 
 /** Chain for UserBase.findOne(...).select(...).lean() */
@@ -78,5 +80,21 @@ describe('userData4VerifyEmail', () => {
 
 		expect(thrown).to.be.an('error')
 		expect(thrown?.message).to.equal(EMAIL_CHECK_LINK)
+	})
+
+	it('user not found → reports the missing address to Sentry', async () => {
+		findOneStub.returns(makeFindOneChain(null))
+
+		const events = await probeSentry(() => userData4VerifyEmail('missing@test.com').catch(() => undefined))
+
+		expect(events).to.deep.equal([{ message: 'User missing@test.com not exist', level: 'info', exceptionMessage: undefined }])
+	})
+
+	it('user found → reports nothing to Sentry', async () => {
+		findOneStub.returns(makeFindOneChain(fakeUser()))
+
+		const events = await probeSentry(() => userData4VerifyEmail('found@test.com'))
+
+		expect(events).to.deep.equal([])
 	})
 })

@@ -11,6 +11,7 @@ import { validatePdfExtension } from './validatePdfExtension.mjs'
  * @param pdf
  */
 export async function uploadTempPdf(pdf: Promise<IFileUpload>): Promise<IUploadTemp> {
+	// Stryker disable next-line StringLiteral: initial value is overwritten by the storedTempFile = filePath assignment in the try block before the only read (return); every other path throws.
 	let storedTempFile = ''
 
 	try {
@@ -19,7 +20,7 @@ export async function uploadTempPdf(pdf: Promise<IFileUpload>): Promise<IUploadT
 		await validatePdfExtension(fileName, filePath)
 		await validateMimeTypePdf(filePath)
 		// step 2
-		await scanVirus(`${filePath}`)
+		await scanVirus(filePath)
 		// step 3
 
 		// @todo reencode with dangerzone https://github.com/freedomofpress/dangerzone/tree/main

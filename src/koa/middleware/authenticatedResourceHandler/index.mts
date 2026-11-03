@@ -43,7 +43,7 @@ export const authenticatedResourceHandler = () => async (ctx: IContextAuthentica
 
 	// does the key access:xxx exist in Redis ? read Redis...
 	const redSession = await redisClient.hGetAll(
-		`${process.env.REDIS_KEY}${key}` // 'access:' present inside key
+		`${process.env['REDIS_KEY']}${key}` // 'access:' present inside key
 	)
 	if (Object.keys(redSession).length !== 0) {
 		const redData = { ...redSession } // For safety, Redis return an object without the default Object.prototype  in its prototype chain.
@@ -54,7 +54,7 @@ export const authenticatedResourceHandler = () => async (ctx: IContextAuthentica
 
 		ctx.state.user = {
 			...redData,
-			id: new Types.ObjectId(redData.id) // fix id as ObjectId
+			id: new Types.ObjectId(redData['id']) // fix id as ObjectId
 		}
 	} else if (!verifyIntrospectionCode(ctx.request.header?.['x-introspectioncode'])) {
 		throw throwAccessTokenExpiredOrDeleted()

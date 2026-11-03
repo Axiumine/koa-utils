@@ -104,8 +104,8 @@ describe('handleIfTooMuchRequestsTimes', () => {
 	})
 
 	it('the bound default deletes through UserBase and reaches SocketLabs tooMuchVerifyRequests', async () => {
-		const deleteOneStub = sinon.stub(UserBase, 'deleteOne').resolves({ deletedCount: 1 } as never)
-		const tooMuchStub = sinon.stub(SocketLabsLib.prototype, 'tooMuchVerifyRequests').resolves(null)
+		const deleteOneStub: sinon.SinonStub = sinon.stub(UserBase, 'deleteOne').resolves({ deletedCount: 1 } as never)
+		const tooMuchStub = sinon.stub(SocketLabsLib.prototype, 'tooMuchVerifyRequests').resolves(undefined)
 		// Address used by this test only — default binding debounce per address + template.
 		const email = 'bound-too-much@test.com'
 

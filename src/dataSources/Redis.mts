@@ -8,17 +8,18 @@ import { createClient, createCluster } from 'redis'
 dotenv.config()
 
 export const redisClient =
-	process.env.REDIS_IS_CLUSTER === '1'
+	process.env['REDIS_IS_CLUSTER'] === '1'
 		? /* c8 ignore start -- cluster branch: requires REDIS_IS_CLUSTER=1 + 3 redis nodes, not in unit env */
 			createCluster({
 				rootNodes: [
-					{ url: redisNodeUrl(process.env.REDIS_DB1_HOST, process.env.REDIS_DB1_PORT) },
-					{ url: redisNodeUrl(process.env.REDIS_DB2_HOST, process.env.REDIS_DB2_PORT) },
-					{ url: redisNodeUrl(process.env.REDIS_DB3_HOST, process.env.REDIS_DB3_PORT) }
+					{ url: redisNodeUrl(process.env['REDIS_DB1_HOST'], process.env['REDIS_DB1_PORT']) },
+					{ url: redisNodeUrl(process.env['REDIS_DB2_HOST'], process.env['REDIS_DB2_PORT']) },
+					{ url: redisNodeUrl(process.env['REDIS_DB3_HOST'], process.env['REDIS_DB3_PORT']) }
 				],
 				defaults: {
-					username: process.env.REDIS_USERNAME,
-					password: process.env.REDIS_PASSWORD,
+					// casts only satisfy exactOptionalPropertyTypes (tsconfig.check.json); an unset var still reaches node-redis as undefined
+					username: process.env['REDIS_USERNAME'] as string,
+					password: process.env['REDIS_PASSWORD'] as string,
 					// rootNodes only carry the topology-discovery connections; node-redis does not inherit their
 					// TLS setting for the connections it then opens to the discovered nodes. Without this the
 					// rediss:// scheme above would be a no-op and every real cluster connection would stay
@@ -27,7 +28,7 @@ export const redisClient =
 				}
 			})
 		: /* c8 ignore stop */
-			createClient({ url: resolveRedisUrl(process.env.REDIS_URL) })
+			createClient({ url: resolveRedisUrl(process.env['REDIS_URL']) as string }) // cast: see the cluster branch above
 
 export const RedisConnect = async () => {
 	console.info('[Redis] Try connect to database... ')

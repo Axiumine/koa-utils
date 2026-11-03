@@ -7,6 +7,7 @@
 import { refresh } from '../../../../dist/graphQL/schema/mutations/refresh.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
 import { REFRESH_TOKEN_EXPIRY } from '@lib/tokens.mjs'
+import type { IContextRefresh } from '@context/IContextRefresh.mjs'
 import { expect } from 'chai'
 import sinon from 'sinon'
 import { Types } from 'mongoose'
@@ -14,6 +15,9 @@ import { Types } from 'mongoose'
 import { expectGraphQLErrorAsync } from '../../../helpers/assertGraphQLError.mjs'
 
 // ---------------------------------------------------------------------------
+
+// deliberate: partial fake stands in for the Koa ctx, cookies.set kept as stub → spec reads calls back
+type TCtx = IContextRefresh & { cookies: { set: sinon.SinonStub } }
 
 function makeCtx(overrides: Record<string, unknown> = {}) {
 	return {
@@ -26,7 +30,7 @@ function makeCtx(overrides: Record<string, unknown> = {}) {
 			}
 		},
 		cookies: { set: sinon.stub() }
-	} as never
+	} as unknown as TCtx
 }
 
 // ---------------------------------------------------------------------------
@@ -38,7 +42,7 @@ describe('refresh — resolve', () => {
 
 	beforeEach(() => {
 		hSetStub = sinon.stub(redisClient, 'hSet').resolves(0)
-		expireStub = sinon.stub(redisClient, 'expire').resolves(true)
+		expireStub = sinon.stub(redisClient, 'expire').resolves(1)
 		delStub = sinon.stub(redisClient, 'del').resolves(1)
 	})
 

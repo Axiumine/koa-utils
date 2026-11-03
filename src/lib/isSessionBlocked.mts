@@ -5,5 +5,5 @@
  * Use this instead of deleting the token to block user access; set the flag from the control panel.
  */
 export function isSessionBlocked(redData: Record<string, string>): boolean {
-	return !!(redData?.disabled || redData?.deleted)
+	return !!(redData?.['disabled'] || redData?.['deleted'])
 }

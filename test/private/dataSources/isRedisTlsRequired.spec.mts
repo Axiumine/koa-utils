@@ -32,7 +32,7 @@ describe('isRedisTlsRequired', () => {
 	})
 
 	it('returns true when REDIS_TLS is exactly "true"', () => {
-		process.env.REDIS_TLS = 'true'
+		process.env['REDIS_TLS'] = 'true'
 
 		expect(isRedisTlsRequired()).to.equal(true)
 	})
@@ -40,20 +40,20 @@ describe('isRedisTlsRequired', () => {
 	it('returns false when REDIS_TLS is unset', () => {
 		// Every deployment predating flag. `!== 'false'` form return true here → scheme flip nobody
 		// asked for.
-		delete process.env.REDIS_TLS
+		delete process.env['REDIS_TLS']
 
 		expect(isRedisTlsRequired()).to.equal(false)
 	})
 
 	it('returns false when REDIS_TLS is an empty string', () => {
-		process.env.REDIS_TLS = ''
+		process.env['REDIS_TLS'] = ''
 
 		expect(isRedisTlsRequired()).to.equal(false)
 	})
 
 	it('returns false when REDIS_TLS is "false"', () => {
 		// `Boolean()` form return true here — non-empty string. Explicit opt-out must stay opt-out.
-		process.env.REDIS_TLS = 'false'
+		process.env['REDIS_TLS'] = 'false'
 
 		expect(isRedisTlsRequired()).to.equal(false)
 	})
@@ -61,7 +61,7 @@ describe('isRedisTlsRequired', () => {
 	it('returns false for truthy-looking values that are not "true"', () => {
 		// Doc name 1 spelling. Anything else = plaintext, documented trade-off of exact match.
 		for (const value of ['1', 'yes', 'on', 'enabled']) {
-			process.env.REDIS_TLS = value
+			process.env['REDIS_TLS'] = value
 
 			expect(isRedisTlsRequired(), value).to.equal(false)
 		}
@@ -70,7 +70,7 @@ describe('isRedisTlsRequired', () => {
 	it('returns false for case variants of "true"', () => {
 		// Compare exact, no case fold.
 		for (const value of ['TRUE', 'True', 'tRue']) {
-			process.env.REDIS_TLS = value
+			process.env['REDIS_TLS'] = value
 
 			expect(isRedisTlsRequired(), value).to.equal(false)
 		}
@@ -79,10 +79,10 @@ describe('isRedisTlsRequired', () => {
 	it('reads REDIS_TLS at call time, not at module load', () => {
 		// Callers run at module load of dataSources/Redis.mts. Module-level const would freeze first
 		// import under ESM cache → every later read stale.
-		process.env.REDIS_TLS = 'true'
+		process.env['REDIS_TLS'] = 'true'
 		expect(isRedisTlsRequired()).to.equal(true)
 
-		process.env.REDIS_TLS = 'false'
+		process.env['REDIS_TLS'] = 'false'
 		expect(isRedisTlsRequired()).to.equal(false)
 	})
 })

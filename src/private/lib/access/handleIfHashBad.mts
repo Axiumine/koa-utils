@@ -3,17 +3,20 @@ import mongoose from 'mongoose'
 
 import { EMAIL_CHECK_LINK } from './Constants.mjs'
 import { incReqTimes, TIncReqTimes } from './db/incReqTimes.mjs'
+import { safeEqualSecret } from './safeEqualSecret.mjs'
 
 interface IHandleIfHashBadArgs {
 	uId: mongoose.Types.ObjectId
 	uEmail: string
 	hash: string
-	requestTimes?: number // but the check is already performed
-	dbHash?: string
+	requestTimes?: number | undefined // but the check is already performed
+	dbHash?: string | undefined
 }
 
 /**
  * The hash in the activation url is wrong.
+ *
+ * The hash is compared in constant time through `safeEqualSecret`; an unset `dbHash` never matches.
  *
  * The strike counter is bumped through an injected writer so the guard can serve a model other than
  * `UserBase`: the counter path itself lives in the verify-email `paths` map the writer was built with.
@@ -23,7 +26,7 @@ interface IHandleIfHashBadArgs {
  */
 export const createHandleIfHashBad = (incReqTimesFn: TIncReqTimes, mailer: IVerifyEmailMailer) =>
 	async function handleIfHashBad({ uId, uEmail, hash, requestTimes = 0, dbHash }: IHandleIfHashBadArgs) {
-		if (hash !== dbHash) {
+		if (!safeEqualSecret(hash, dbHash)) {
 			// hash failed
 			await incReqTimesFn(uId)
 

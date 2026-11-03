@@ -18,7 +18,7 @@ A TypeScript utility library for Koa + GraphQL backends: authentication flows an
 ### Security and supply chain
 
 - Earn and keep the OpenSSF Best Practices badge, passing level first and then silver, and keep a published OpenSSF Scorecard result; fix findings those tools report.
-- Publish releases from CI with an npm provenance attestation, in addition to signed git tags, so a consumer can verify where a tarball was built. The workflow is in `.github/workflows/release.yml`; it needs the npm trusted publisher to be configured first.
+- Publish releases from CI with an npm provenance attestation, in addition to signed git tags, so a consumer can verify where a tarball was built. Done for `7.1.1` through `.github/workflows/release.yml` (see [docs/verify-release.md](docs/verify-release.md)); this stays the release path.
 - Keep the documented threat model and assurance case ([docs/security.md](docs/security.md)) in step with every security-relevant change.
 - Keep dependencies monitored: Dependabot, a scheduled audit and the Semgrep and Qodana gates. Triage every finding in a release's `CHANGELOG.md` entry or in an issue.
 
@@ -27,13 +27,12 @@ A TypeScript utility library for Koa + GraphQL backends: authentication flows an
 - Keep 100% line, statement, function and branch coverage per file.
 - Keep the documentation under `docs/code/` and `README.md` changed in the same commit as the code.
 - Finish the English clean-up of comments, mutation descriptions and constant names that is still on the maintainer's to-do list.
-- Look for a co-maintainer, so that more than one person knows the code, and name a backup owner and a second npm publisher ([GOVERNANCE.md](GOVERNANCE.md#bus-factor)).
+- Look for a co-maintainer, so that more than one person knows the code, and add a second npm publisher ([GOVERNANCE.md](GOVERNANCE.md#bus-factor)). The backup owner is named since 2026-11-01.
 
 ## Under consideration, no commitment
 
 - Make the `Secure` flag of the login cookies configurable, instead of leaving it to the reverse proxy.
 - Turn `REDIS_TLS` on by default in a future major version. It is opt-in today so that existing deployments are unchanged.
-- Escape user-supplied values in the HTML email bodies of `SocketLabsLib`: the recipient `name` and the error text of `alertDevTeam` are interpolated as they are today.
 
 ## Will not do
 

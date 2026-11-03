@@ -28,6 +28,7 @@ import { Types } from 'mongoose'
 
 import { expectGraphQLErrorAsync } from '../../../helpers/assertGraphQLError.mjs'
 import { fakeVerifyEmailMailer } from '../../../helpers/fakeVerifyEmailMailer.mjs'
+import { expectOneDigestCompare, releaseTimingSafeEqual, stubTimingSafeEqual } from '../../../helpers/timingSafeEqualProbe.mjs'
 
 // ---------------------------------------------------------------------------
 
@@ -111,7 +112,7 @@ describe('emailChangeHashVerify — resolve', () => {
 	})
 
 	afterEach(() => {
-		sinon.restore()
+		releaseTimingSafeEqual()
 	})
 
 	// -------------------------------------------------------------------------
@@ -133,7 +134,7 @@ describe('emailChangeHashVerify — resolve', () => {
 	it('hash matches + dateLastReq undefined → throws 500 Internal Server Error', async () => {
 		const user = fakeUser({ hash: 'correctHash' })
 		// remove dateLastReq so it is undefined
-		delete (user.account.email as { dateLastReq?: string }).dateLastReq
+		delete (user.account.email as { dateLastReq?: Date }).dateLastReq
 		findOneStub.returns(makeFindOneChain(user))
 
 		await expectGraphQLErrorAsync(
@@ -217,6 +218,78 @@ describe('emailChangeHashVerify — resolve', () => {
 		expect(updateOneStub.calledOnce).to.equal(true) // incReqTimes
 		expect(wrongHashStub.calledOnce).to.equal(true)
 		expect(wrongHashStub.firstCall.args[1]).to.equal(2)
+	})
+
+	it('near-miss hash (prefix, longer, empty) → strike path like any wrong hash, never confirms', async () => {
+		// Compare via safeEqualSecret (constant time): exact equality only.
+		// Own address per iteration: default mailer debounce per address + template, process-wide.
+		for (const [i, sent] of ['differentHas', 'differentHash!', ''].entries()) {
+			wrongHashStub.resetHistory()
+			findOneStub.returns(makeFindOneChain(fakeUser({ hash: 'differentHash', requestTimes: 2 })))
+
+			const result = await emailChangeHashVerify.resolve(null, { email: `near-miss-${i}@test.com`, hash: sent })
+
+			expect(result, sent).to.equal(false)
+			expect(wrongHashStub.calledOnce, sent).to.equal(true)
+		}
+		expect(countDocumentsStub.called, 'confirm path never reached').to.equal(false)
+	})
+
+	it('stored hash absent → every sent hash is a mismatch, even the literal "undefined"', async () => {
+		const user = fakeUser({ requestTimes: 2 })
+		delete (user.account.email as { hash?: string }).hash
+		findOneStub.returns(makeFindOneChain(user))
+
+		const result = await emailChangeHashVerify.resolve(null, { email: 'no-stored-hash@test.com', hash: 'undefined' })
+
+		expect(result).to.equal(false)
+		expect(wrongHashStub.calledOnce).to.equal(true)
+	})
+
+	// -------------------------------------------------------------------------
+	// constant-time compare
+	// -------------------------------------------------------------------------
+
+	// Revert of the call site to `args.hash === <stored>` keep every spec above green: same verdict per input,
+	// and eslint security/detect-possible-timing-attacks miss a member expression. Forced verdict split them →
+	// compare MUST go through safeEqualSecret → timingSafeEqual.
+	it('constant-time compare: forced "equal" verdict confirms the change on a different hash, via 2 digests', async () => {
+		const probe = stubTimingSafeEqual(true)
+		findOneStub.returns(makeFindOneChain(fakeUser({ hash: 'correctHash' })))
+		countDocumentsStub.returns(makeCountQuery(0))
+
+		const result = await emailChangeHashVerify.resolve(null, { email: 'forced-equal@test.com', hash: 'wrongHash' })
+
+		expect(result).to.equal(true)
+		expectOneDigestCompare(probe)
+		expect(wrongHashStub.called).to.equal(false)
+	})
+
+	it('constant-time compare: forced "different" verdict strikes the identical hash', async () => {
+		const probe = stubTimingSafeEqual(false)
+		findOneStub.returns(makeFindOneChain(fakeUser({ hash: 'correctHash', requestTimes: 2 })))
+
+		const result = await emailChangeHashVerify.resolve(null, { email: 'forced-different@test.com', hash: 'correctHash' })
+
+		expect(result).to.equal(false)
+		expectOneDigestCompare(probe)
+		expect(wrongHashStub.calledOnce).to.equal(true)
+		expect(countDocumentsStub.called).to.equal(false)
+	})
+
+	// -------------------------------------------------------------------------
+	// email normalisation
+	// -------------------------------------------------------------------------
+
+	it('looks the pending change up by the lower-cased address', async () => {
+		// stored newEmailTmp is lower case → mixed-case input must hit it, else the link never confirms
+		findOneStub.returns(makeFindOneChain(null))
+
+		const result = await emailChangeHashVerify.resolve(null, { email: 'User@Example.COM', hash: 'h' })
+
+		expect(result).to.equal(false)
+		expect(findOneStub.calledOnce).to.equal(true)
+		expect(findOneStub.firstCall.args[0]).to.deep.equal({ [DEFAULT_VERIFY_EMAIL_PATHS.newEmailTmp]: 'user@example.com' })
 	})
 
 	// -------------------------------------------------------------------------

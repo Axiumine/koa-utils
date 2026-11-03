@@ -18,9 +18,21 @@
  */
 import { handleBadDB } from '@private/lib/access/handleBadDB.mjs'
 import { EMAIL_CHECK_LINK } from '@private/lib/access/Constants.mjs'
+import * as Sentry from '@sentry/node'
 import { expect } from 'chai'
+import sinon from 'sinon'
 
 // ---------------------------------------------------------------------------
+
+// Sentry export sealed → not stubbable. Observe via fake client on current scope: Sentry.captureX → scope → client.captureX.
+function spyOnSentry() {
+	const captureException = sinon.stub()
+	const captureMessage = sinon.stub()
+	const scope = Sentry.getCurrentScope()
+	const previous = scope.getClient()
+	scope.setClient({ captureException, captureMessage } as never)
+	return { captureException, captureMessage, restore: () => scope.setClient(previous as never) }
+}
 
 describe('handleBadDB', () => {
 	it('both requestTimes and dateLastReq undefined (no args) → throws EMAIL_CHECK_LINK', () => {
@@ -70,5 +82,28 @@ describe('handleBadDB', () => {
 		const result = handleBadDB(5, new Date())
 
 		expect(result).to.equal(undefined)
+	})
+
+	it('bad row → reports "[handleBadDB] DB ERROR" at level error to Sentry, once', () => {
+		const sentry = spyOnSentry()
+		try {
+			expect(() => handleBadDB()).to.throw(EMAIL_CHECK_LINK)
+			expect(sentry.captureMessage.calledOnce).to.equal(true)
+			expect(sentry.captureMessage.firstCall.args[0]).to.equal('[handleBadDB] DB ERROR')
+			expect(sentry.captureMessage.firstCall.args[1]).to.equal('error')
+			expect(sentry.captureException.called).to.equal(false)
+		} finally {
+			sentry.restore()
+		}
+	})
+
+	it('good row → nothing reported to Sentry', () => {
+		const sentry = spyOnSentry()
+		try {
+			handleBadDB(2, new Date())
+			expect(sentry.captureMessage.called).to.equal(false)
+		} finally {
+			sentry.restore()
+		}
 	})
 })

@@ -21,7 +21,7 @@ export const authenticatedAuthorizationHandler = (keys: Keygrip) => async (ctx: 
 
 	// does the key exist in redis? ok, read redis
 	const refreshTokenRedis = verifySignedRefreshToken(ctx, keys)
-	const redSession = await redisClient.hGetAll(`${process.env.REDIS_KEY}${refreshTokenRedis}`)
+	const redSession = await redisClient.hGetAll(`${process.env['REDIS_KEY']}${refreshTokenRedis}`)
 	if (Object.keys(redSession).length !== 0) {
 		const redData = { ...redSession } // For safety, Redis return an object without the default Object.prototype  in its prototype chain.
 
@@ -31,7 +31,7 @@ export const authenticatedAuthorizationHandler = (keys: Keygrip) => async (ctx: 
 		}
 		ctx.state.user = {
 			...redData,
-			id: new Types.ObjectId(redData.id),
+			id: new Types.ObjectId(redData['id']),
 			refreshToken: refreshTokenRedis
 		}
 	} else if (!verifyIntrospectionCode(ctx.request.header?.['x-introspectioncode'])) {

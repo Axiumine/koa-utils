@@ -16,7 +16,7 @@ import { assertNoTraversal } from '../../dist/private/files/assertNoTraversal.mj
 
 // Fail → fast-check print seed + path. Replay: `fc.assert(prop, { seed, path })`.
 // Deeper local fuzz: `FC_NUM_RUNS=100000 yarn test`.
-const RUNS = { numRuns: Number(process.env.FC_NUM_RUNS ?? 500) }
+const RUNS = { numRuns: Number(process.env['FC_NUM_RUNS'] ?? 500) }
 
 const ORIGIN = 'https://app.example'
 const REDIRECT_CHARS = [...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-%/']

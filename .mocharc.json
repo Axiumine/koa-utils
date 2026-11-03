@@ -1,6 +1,6 @@
 {
-	"extension": ["mjs"],
-	"spec": "dist-test/**/*.spec.mjs",
+	"extension": ["mjs", "mts"],
+	"spec": ["dist-test/**/*.spec.mjs", "scripts/**/*.spec.mts"],
 	"node-option": [
 		"enable-source-maps",
 		"no-warnings"

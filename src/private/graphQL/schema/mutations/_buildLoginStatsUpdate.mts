@@ -21,22 +21,22 @@ export function _buildLoginStatsUpdate(lastLogin: null | Date, rememberMe: boole
 	const dbSet: ISet = {}
 	const dbUnset: IUnset = {}
 
-	// @ts-expect-error avoid any
+	// @ts-expect-error avoid any: dynamic dotted Mongo path key
 	dbSet['login.lastLogin'] = now
 
 	// set firstLogin if this is the first login.
 	if (lastLogin === null) {
-		// @ts-expect-error avoid any
+		// @ts-expect-error avoid any: dynamic dotted Mongo path key
 		dbSet['login.firstLogin'] = now
 	} else {
 		// not the first login
 	}
 
 	if (rememberMe) {
-		// @ts-expect-error avoid any
+		// @ts-expect-error avoid any: dynamic dotted Mongo path key
 		dbSet['account.rememberMe'] = true
 	} else {
-		// @ts-expect-error avoid any
+		// @ts-expect-error avoid any: dynamic dotted Mongo path key
 		dbUnset['account.rememberMe'] = 1
 	}
 
