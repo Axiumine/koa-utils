@@ -42,7 +42,7 @@ The project must be able to continue, with minimal interruption, if the maintain
 Steps for a successor, in order:
 
 1. Sign in to GitHub as an owner of the `Axiumine` organization. Confirm the loss of the maintainer in an issue so the record is public.
-2. Read [REPO.md](REPO.md) section 7 (versioning and release) and [CLAUDE.md](CLAUDE.md) (the repository rules).
+2. Read [REPO.md](REPO.md) section 7 (versioning and release), [CLAUDE.md](CLAUDE.md) (the repository rules) and [.github/CLAUDE.md](.github/CLAUDE.md) (CI, release pipeline and deprecation rules).
 3. Triage open issues. Merge pending pull requests that meet [CONTRIBUTING.md](CONTRIBUTING.md).
 4. To release: bump `version` in `package.json`, update `CHANGELOG.md` and the "Current version" line in `docs/code/README.md`, tag with a signed tag, then publish a GitHub release for it and approve the `npm-publish` deployment (see the table above).
 5. To publish a fix for a vulnerability, follow the response process in [SECURITY.md](SECURITY.md#what-to-expect) and its [coordinated disclosure](SECURITY.md#coordinated-disclosure) rules.
