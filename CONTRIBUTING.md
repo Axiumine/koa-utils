@@ -45,7 +45,7 @@ A pull request is acceptable when all of these hold.
    - No `dependencies` in `package.json`. Libraries are `peerDependencies`; a peer range has an upper bound and no floor (`keygrip` keeps its own `^1.1.0`).
    - A new public symbol is one file with one named export plus a matching `exports` entry in `package.json`. There is no barrel `index.mts`.
    - Nothing from `src/private/**` is exported.
-   - An optional peer is imported only from the subpath that needs it, or lazily with `await import()`.
+   - An optional peer is imported only from the subpath that needs it, or lazily with `await import()`. Every peer is optional; `@sentry/node` and `dotenv`, which many subpaths use, are reached only through the private facades `src/private/lib/sentry.mts` and `src/private/lib/loadEnv.mts`, which skip them when they are not installed.
    - Passwords go through `encryptPassword` and `compareHashAsync`, never straight to `@node-rs/bcrypt`. A resolver that takes an email or password normalises the email and calls `checkEmailLen` and `checkPwdLen` first.
    - The security invariants in [docs/security.md](docs/security.md) hold. In particular, `account.email.hash` and `account.resetHash` are never interchangeable.
 6. **Its commits are well formed.** See [Commit messages](#commit-messages).

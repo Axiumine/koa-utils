@@ -703,16 +703,28 @@
 		"sharp": "<1"
 	},
 	"peerDependenciesMeta": {
+		"@node-rs/bcrypt": {
+			"optional": true
+		},
+		"@sentry/node": {
+			"optional": true
+		},
 		"@socketlabs/email": {
 			"optional": true
 		},
 		"clamscan": {
 			"optional": true
 		},
+		"dotenv": {
+			"optional": true
+		},
 		"file-type": {
 			"optional": true
 		},
 		"fs-extra": {
+			"optional": true
+		},
+		"graphql": {
 			"optional": true
 		},
 		"keygrip": {
@@ -724,7 +736,13 @@
 		"mariadb": {
 			"optional": true
 		},
+		"mongoose": {
+			"optional": true
+		},
 		"pg": {
+			"optional": true
+		},
+		"redis": {
 			"optional": true
 		},
 		"reflect-metadata": {

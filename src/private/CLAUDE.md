@@ -7,6 +7,7 @@ Repo-wide rules in root `CLAUDE.md`. Editing this file → Rule 0 there first (c
 - Internal modules. Never import from outside package. Never add `private/*` to `package.json` `exports`.
 - **Covered + measured like everything else.** `src/private/**` was excluded from `.c8rc.json` until the coverage gate landed → hid auth / email-verification chain → inverted `if` in `handleIfAccountDisabled` could land with suite still reporting 100%. Never re-exclude.
 - Every db helper + guard under `src/private/lib/access/**` = `createXxx(model, paths)` + `UserBase`-bound default of same name. The 3 mutations and `routerVerifyEmail` take collaborators as deps. Never re-hardcode `UserBase` or literal field path → bind through `src/lib/access/create*Flow.mts`.
+- `@sentry/node` + `dotenv` = optional peers, reached by many subpaths → only `lib/sentry.mts` + `lib/loadEnv.mts` import them (top-level `await importOptional(...)`, no-op when absent). Reporting → `import * as Sentry from '@private/lib/sentry.mjs'`. Env file → `loadEnv()` at module scope after the imports, where `dotenv.config()` ran. Never import `@sentry/node` / `dotenv` direct (`test/package/peerReach.spec.mts` `PEER_SCOPE` fails). Absent-peer behaviour tested on a real copy of `dist/` without the peer: `test/helpers/isolatedDist.mts`.
 - Guards mail via injected `IVerifyEmailMailer`, never `new SocketLabsLib()` inline. Disposal policy come from factory's single writer → never branch on `onAbandon` inside a guard. → `src/lib/access/CLAUDE.md`.
 
 ## Security — full prose, do not compress

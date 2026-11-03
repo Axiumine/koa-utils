@@ -119,6 +119,23 @@ describe('package/peerReach', () => {
 		)
 	})
 
+	// 8.0.0: 0 hard peers. Hard peer → npm 7+ / Yarn install it for every consumer → owner call, walk first (peer-reach.json)
+	it('every peer is optional in peerDependenciesMeta', () => {
+		assert.deepEqual(
+			peers.filter((peer) => pkg.peerDependenciesMeta[peer]?.optional !== true),
+			[],
+			'peer missing from peerDependenciesMeta, or not optional'
+		)
+	})
+
+	it('peerDependenciesMeta names no pkg that is not a peer', () => {
+		assert.deepEqual(
+			Object.keys(pkg.peerDependenciesMeta).filter((name) => !peers.includes(name)),
+			[],
+			'stale peerDependenciesMeta entry'
+		)
+	})
+
 	it('every bare import in dist is a declared peer', () => {
 		assert.deepEqual(undeclared, [], 'import of pkg missing from peerDependencies')
 	})

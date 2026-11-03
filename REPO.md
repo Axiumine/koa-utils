@@ -260,12 +260,13 @@ Sentry is reached through the internal `private/lib/sentry` facade (`captureExce
   (786 passing, 100% on all four metrics, `declaration: true` + `skipLibCheck: false`) before the range was written.
   `redis` stayed swapped in and is now the pinned devDependency; `graphql` was restored to `16.x`, which is what every
   consumer runs — `@apollo/server@5` peers `^16.11.0` and no Apollo release supports 17 yet.
-  Library declares zero `dependencies` — consumer must install peers. Seven are required
-  (`@node-rs/bcrypt`, `@sentry/node`, `dotenv`, `graphql`, `mongoose`, `redis`, `uuid`); the other twelve
-  (`@socketlabs/email`, `clamscan`, `file-type`, `fs-extra`, `keygrip`, `koa`, `mariadb`, `pg`, `reflect-metadata`,
-  `sequelize`, `sequelize-typescript`, `sharp`) are `optional` in `peerDependenciesMeta` because no barrel exists and
-  each is reachable only through subpaths the consumer opts into. That holds only while it stays true — a root `"."`
-  export, or an import of one of the twelve from a module every subpath reaches, makes it a hard requirement again.
+  Library declares zero `dependencies` — consumer must install peers. All 18 are `optional` in
+  `peerDependenciesMeta` (8.0.0; `uuid` left the list, tokens use `node:crypto`) because no barrel exists and each is
+  reachable only through subpaths the consumer opts into. That holds only while it stays true — a root `"."`
+  export, or an import of a peer from a module every subpath reaches, makes it a hard requirement again.
+  `@sentry/node` and `dotenv` are reached by many subpaths, so they load through the private facades
+  `private/lib/sentry.mts` and `private/lib/loadEnv.mts`, which skip them when absent. The exact reach per peer is
+  `test/__snapshots__/peer-reach.json`, pinned by `test/package/peerReach.spec.mts`.
 
 ---
 
