@@ -42,9 +42,6 @@ jobs:
     # Fail-open: when the scope job did not succeed, the scan runs instead of being skipped.
     if: ${{ !cancelled() && github.event.pull_request.user.login != 'dependabot[bot]' && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
     runs-on: [self-hosted, Linux, X64]
-    env:
-      # Keeps the maintainer's LAN proxy filter inert in the persistent checkout, see the header of ci.yml.
-      YARN_PROXY_REGISTRY: https://registry.npmjs.org/
     # Per qodana-action source (v2026.2.2): checks API for the check run and annotations,
     # issues API for the PR summary comment. `contents: write` is only used by push-fixes
     # (default `none`) and `security-events: write` is never used (this action does not

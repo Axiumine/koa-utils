@@ -31,13 +31,14 @@ RELEVANT_PATHS='^(src/|test/|scripts/|package\.json$|\.c8rc\.json$|\.mocharc\.js
 # untested code, so D stays in the filter.
 STAGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 
-# Backstop for the yarn.lock clean filter (scripts/lockfile-registry-filter.sh).
-# The filter normally strips the local proxy host on its way into the index; if
-# it was never configured, the committed lockfile carries a LAN-only registry
-# that breaks `yarn install` for every other clone.
+# Guard for the yarn.lock registry convention (scripts/registry-rewrite.mjs).
+# A developer behind a private mirror runs `yarn registry:mirror` before
+# installing and `yarn registry:canonical` before committing; if the second step
+# is forgotten, the committed lockfile carries a LAN-only registry that breaks
+# `yarn install` for every other clone.
 #
 # Inspect the index (`:yarn.lock`), not the working tree — the working tree
-# keeps proxy URLs by design. Checked unconditionally rather than only when
+# may keep mirror URLs by design. Checked unconditionally rather than only when
 # yarn.lock is staged: a proxy-tainted blob that happens to match HEAD produces
 # no staged diff, so a $STAGED-gated check would wave through exactly the state
 # it exists to catch. Absent from the index, `git show` fails and LOCK_INDEX is
@@ -67,11 +68,11 @@ pre-commit: BLOCKED — yarn.lock in the index resolves against a non-public reg
 $(printf '%s\n' "$FOREIGN_HOSTS" | sed 's/^/    /')
 
 Every \`resolved\` URL must use https://registry.npmjs.org/ in git, or clones
-without access to that host cannot install. The clean filter does this
-automatically — it is probably just not configured in this clone:
+without access to that host cannot install. Rewrite the working copy back to
+the public registry, then stage it again:
 
-    yarn hooks:install        # or: ./scripts/lockfile-registry-filter.sh install
-    touch yarn.lock && git add yarn.lock
+    REGISTRY_MIRROR=<mirror base URL> yarn registry:canonical
+    git add yarn.lock
 
 EOF
 	exit 1
