@@ -101,7 +101,8 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - No hand-edit of `AGENTS.md`, nor anything between `<!-- gitnexus:start -->` / `<!-- gitnexus:end -->` — `analyze` overwrite both.
 - No dropping `--no-stats` from `yarn reindex` or `"noStats": true` from `.gitnexusrc` to "show graph size".
 - No editing `dist/`, `node_modules/`, `yarn.lock`, `skills-lock.json`, `.npmrc`, `.yarnrc` unasked. `.npmrc` hold publish token.
-- No committing `yarn.lock` with `resolved` host ≠ `registry.npmjs.org`. No hand-fixing a proxy-flavoured copy — clean filter handle it. No removing `.gitattributes`, `scripts/lockfile-registry-filter.sh`, or the filter git config to silence the hook.
+- No committing `yarn.lock` with `resolved` host ≠ `registry.npmjs.org`. No hand-fixing a mirror-flavoured copy — `REGISTRY_MIRROR=<mirror> yarn registry:canonical` handle it. No deleting or weakening the `.githooks/pre-commit` lockfile host check to silence it.
+- No git clean/smudge filter on `yarn.lock`, no default mirror host in any script, no rewrite wired into `prepare` / `hooks:install`. The old `yarnlock-registry` filter hardcoded `yarnproxy.gio.lan` and `prepare` installed it on every clone → contributor `yarn.lock` smudged to a host they cannot reach. Mirror = opt-in via `REGISTRY_MIRROR` only.
 - Never add a `preinstall`, `install` or `postinstall` script to `package.json`. This package is published to npm and the `scripts` block travels in the tarball, so an install-lifecycle script would execute on every consumer's machine, where dev dependencies such as `patch-package` do not exist; at best it fails the consumer's install, at worst it runs code the consumer did not expect. Dev-only setup goes in an explicit script (`yarn mutation` applies the Stryker patch itself) or in a CI step.
 - No lowering `stryker.config.json` `thresholds.break`. Ratchet only up. No new Stryker `mutate` exclude to green a score. `// Stryker disable` only per *Mutation gate* in `.githooks/CLAUDE.md`.
 - No `.ts` files — ext is `.mts`. Exceptions: `scripts/semgrep-canaries/**` (Semgrep fixtures), `test/property/*.spec.ts` (fast-check; Scorecard Fuzzing scan `*.ts` / `*.tsx` only, never `.mts`; knob `FC_NUM_RUNS`; comments stay caveman ultra; see `test/CLAUDE.md`). No `import x from './y'` — write `'./y.mjs'`.
@@ -148,17 +149,18 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - `yarn clean` — wipe `dist/`.
 - `yarn test` — `build` + `build:tests` + mocha. No coverage check.
 - `yarn test:coverage` — same via c8, **fail below 100%** on any file. This command decide change finished. Feed Qodana coverage gate too.
-- `yarn hooks:install` — set `core.hooksPath .githooks` **and** install lockfile registry filter. Idempotent, no-op outside git repo, run from `prepare`.
+- `yarn hooks:install` — set `core.hooksPath .githooks`. Idempotent, no-op outside git repo, run from `prepare`. Touch no `yarn.lock`.
+- `yarn registry:mirror` / `registry:canonical` / `registry:check` — `node scripts/registry-rewrite.mjs mirror|canonical|check`. Need `REGISTRY_MIRROR=http://host:4873` except `check`. See *npm mirror* in `.githooks/CLAUDE.md`.
 - `yarn reindex` — `node .gitnexus/run.cjs analyze --no-stats`.
 - `yarn qodana` / `yarn qodana:cli` — `test:coverage` → Qodana scan → open report.
-- `yarn upload` — `npm publish --registry=https://registry.npmjs.org/`. Flag load-bearing, see *npm proxy* in `.githooks/CLAUDE.md`. Owner ask only. Manual fallback path: no provenance, no release assets. Per version ONE path: `yarn upload` XOR `release.yml`. 2nd fail, version already on npm.
+- `yarn upload` — `npm publish --registry=https://registry.npmjs.org/`. Flag load-bearing, see *npm mirror* in `.githooks/CLAUDE.md`. Owner ask only. Manual fallback path: no provenance, no release assets. Per version ONE path: `yarn upload` XOR `release.yml`. 2nd fail, version already on npm.
 
 ## Nested rules — moved out, read when touching the dir
 
 Kept out of this file to keep it small. Read the file before acting in that area.
 
 - `.github/CLAUDE.md` — CI workflows (pins, permissions, runner pool policy, Node pins), release pipeline `release.yml`, deprecating superseded versions.
-- `.githooks/CLAUDE.md` — Qodana gate in `pre-commit`, *Mutation gate* (StrykerJS: survivors, `// Stryker disable`, `thresholds.break`), npm proxy + `yarn.lock` registry host rules.
+- `.githooks/CLAUDE.md` — Qodana gate in `pre-commit`, *Mutation gate* (StrykerJS: survivors, `// Stryker disable`, `thresholds.break`), npm mirror + `yarn.lock` registry host rules.
 - Hard stops stay here in *Never*: no `yarn upload` / `npm publish` / `npm deprecate` / `gh release` unasked, no `--no-verify` / `SKIP_QODANA`, no lowered threshold, never commit on `main`.
 
 ## PR flow — branch → PR → merge commit

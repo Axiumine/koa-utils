@@ -318,7 +318,17 @@ There is no barrel and no `main` / `module` field.
 
 `yarn.lock` always resolves against `https://registry.npmjs.org/`, so a plain clone installs with no extra setup.
 
-Maintainers who install through a private npm mirror should not commit its host: a git clean/smudge filter rewrites the `resolved` URLs in both directions, keeping the mirror in the working copy and the public registry in history. `yarn install` configures it (via `prepare` → `hooks:install`); point it at your own mirror with `YARN_PROXY_REGISTRY`. A pre-commit check rejects any lockfile that still names a non-public host.
+If you install through a private npm mirror, do not commit its host. Yarn 1 downloads tarballs from the absolute `resolved` URL in the lockfile and ignores the configured registry for them, so a lockfile written through a mirror breaks every clone that cannot reach it. Nothing is rewritten unless you ask for it:
+
+```sh
+export REGISTRY_MIRROR=http://host:4873
+yarn registry:mirror      # public registry -> mirror, before install
+yarn install
+yarn registry:canonical   # mirror -> public registry, before commit
+yarn registry:check       # exit 1 if yarn.lock names any other host
+```
+
+`registry:check` needs no `REGISTRY_MIRROR`. A pre-commit check also rejects any staged lockfile that names a non-public host.
 
 ## Feedback, contributing and security
 

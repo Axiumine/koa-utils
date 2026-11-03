@@ -19,14 +19,14 @@ Scope: Qodana gate in `pre-commit`, mutation gate (StrykerJS, `pre-push`), npm p
 - CI: `gh run list --workflow=qodana.yml` → `gh run view <id> --log-failed`. Red ≠ finding. Look for `can't pull image` / `couldn't create the container` first → `gh run rerun <id> --failed`.
 - `release.yml` `verify` require green `qodana.yml` run on tagged SHA → release-workflow path CI-gated. `yarn upload` path still gated by pre-commit hook only.
 
-## npm proxy — `yarn.lock` stay public
+## npm mirror — `yarn.lock` stay public
 
 Maintainer install via LAN Verdaccio (`http://yarnproxy.gio.lan:4873/`, gitignored `.yarnrc`). Yarn 1 write absolute tarball URLs → host leak into git → `yarn install` break for every off-LAN clone. Published tarball safe: `files: ["dist"]` keep lockfile out. Only clones break.
 
-- Filter `yarnlock-registry` handle both directions: `clean` (worktree → git: `add`, `diff`, `status`) proxy → `registry.npmjs.org`; `smudge` (git → worktree: `checkout`, `clone`, `pull`) reverse. `.gitattributes` bind `yarn.lock`. Definition live in `.git/config` → other clones fall through, get public URLs.
-- `scripts/lockfile-registry-filter.sh clean|smudge|install|uninstall`. `install` wire git config **and** reconcile current checkout — git never re-smudge a file it think up to date. Run from `hooks:install`. Per-machine override: `YARN_PROXY_REGISTRY=http://other:4873/`.
-- `clean` run for `git diff` / `git status` too → host diff never show as modification. Lockfile look clean while worktree hold proxy URLs. `integrity` untouched — Verdaccio serve byte-identical tarballs, only URL differ.
-- `.githooks/pre-commit` backstop: read `:yarn.lock` from index, block any `resolved` host ≠ `registry.npmjs.org`. Catch clones where filter never configured. Keep pipe-free — `git show | grep -q` exit early → `git show` take SIGPIPE → `pipefail` turn pipeline falsy → check silently never fire.
+- Convention: committed `yarn.lock` = `https://registry.npmjs.org` always. Plain clone → plain `yarn install`, nothing to configure. Mirror = opt-in, only via env `REGISTRY_MIRROR`. Same scheme as expo-any-icon.
+- `scripts/registry-rewrite.mjs mirror|canonical|check [lockfile]`, aliased `yarn registry:*`. `mirror`: canonical → `$REGISTRY_MIRROR`, before install. `canonical`: `$REGISTRY_MIRROR` → canonical, before commit. `check`: exit 1 if any registry tarball host ≠ canonical, no env needed. Only `resolved` registry tarball URLs rewritten; `integrity` untouched — Verdaccio serve byte-identical tarballs, only URL differ.
+- Maintainer flow: `export REGISTRY_MIRROR=<mirror base URL>` → `yarn registry:mirror` → `yarn install` → `yarn registry:canonical` → `git add`. Mirror host live in maintainer env or local wrapper script, never in repo docs or scripts. Wrapper do `trap 'node scripts/registry-rewrite.mjs canonical' EXIT` → canonical restored even if install fail. Between mirror and canonical `git diff` show `yarn.lock` modified, by design.
+- `.githooks/pre-commit` backstop: read `:yarn.lock` from index, block any `resolved` host ≠ `registry.npmjs.org`. Catch forgotten `registry:canonical`. Read index, not worktree → mirror-state worktree stay legal until staged. Keep pipe-free — `git show | grep -q` exit early → `git show` take SIGPIPE → `pipefail` turn pipeline falsy → check silently never fire.
 - **`yarn upload` keep `--registry=https://registry.npmjs.org/`.** Yarn 1 export `.yarnrc` registry to child proc as `npm_config_registry` → bare `npm publish` run *through* yarn hit proxy. Shipped broken 5.0.0 → 5.0.2: `ENEEDAUTH` vs mirror, or worse, silent LAN publish npmjs never saw. npm precedence: CLI flag > env var. Work typed straight in shell only because that skip yarn. Verify `yarn upload --dry-run` → output must name `registry.npmjs.org`. Any `yarnproxy` host → flag lost.
 - Yarn Berry 4.x fix natively (hostless `resolution: "pkg@npm:1.0.0"`, registry from `.yarnrc.yml`). Migration = real fix if repo ever leave Yarn 1.
 
