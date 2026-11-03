@@ -33,12 +33,36 @@ permissions:
   contents: read
 
 jobs:
+  # Decides whether the slow gates run. A pull request whose every changed file is documentation skips
+  # `Test coverage`, `Test coverage (Node 26.13.0)` and Qodana; pushes, schedules and manual runs always run
+  # everything. Skipping is done with a job-level `if`, never with `paths-ignore`: a job skipped by `if` reports
+  # as passing for a required check, while a workflow skipped by a path filter never reports and leaves the
+  # pull request waiting forever. The definition lives in .github/actions/scope.
+  scope:
+    name: Scope
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Docs-only change?
+        id: scope
+        uses: ./.github/actions/scope
+
   test:
     # This job name is the status-check context the main-protection ruleset requires
     # (integration_id 15368 = GitHub Actions). Renaming it without editing the ruleset
     # leaves every PR "Expected: waiting for status".
     name: Test coverage
-    if: github.event_name != 'schedule'
+    needs: scope
+    # Fail-open: when the scope job did not succeed, the slow gates run instead of being skipped.
+    if: ${{ !cancelled() && github.event_name != 'schedule' && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
     env:
@@ -114,7 +138,8 @@ jobs:
   # Not a required check until the ruleset names it; `Test coverage` above stays the required context.
   test-node-26:
     name: Test coverage (Node 26.13.0)
-    if: github.event_name != 'schedule'
+    needs: scope
+    if: ${{ !cancelled() && github.event_name != 'schedule' && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
     env:

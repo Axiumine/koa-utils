@@ -1,0 +1,39 @@
+name: Scope
+description: Says whether a pull request changes anything besides documentation, so CI can skip the slow gates for a docs-only change.
+
+outputs:
+  code:
+    description: "'true' unless this is a pull request whose every changed file is documentation"
+    value: ${{ steps.scope.outputs.code }}
+
+runs:
+  using: composite
+  steps:
+    # Needs the repository checked out with fetch-depth 2: on a pull_request event HEAD is the merge commit,
+    # so HEAD^1 is the base tip and the diff below is exactly the files the pull request changes.
+    - id: scope
+      shell: bash
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        # Allowlist, not a denylist: a new config or tooling file runs the full CI by default. Only these
+        # count as documentation. Anything under .github/ other than the two template folders is code.
+        DOCS_ONLY: '^(.*\.md|docs/.*|LICENSE|CODEOWNERS|\.github/(ISSUE_TEMPLATE|PULL_REQUEST_TEMPLATE)/.*)$'
+      run: |
+        set -euo pipefail
+        code=true
+        reason="not a pull request: full CI"
+        if [ "$EVENT_NAME" = "pull_request" ]; then
+          # --no-renames lists both sides of a rename, so moving src/x.mts to docs/x.md still counts as code.
+          changed="$(git diff --no-renames --name-only HEAD^1 HEAD)"
+          if [ -z "$changed" ]; then
+            reason="empty diff: full CI"
+          # No pipe into grep -q: an early exit would SIGPIPE the writer and pipefail would flip the result.
+          elif grep -Evq "$DOCS_ONLY" <<< "$changed"; then
+            reason="code or config changed: full CI"
+          else
+            code=false
+            reason="documentation only: slow gates skipped"
+          fi
+        fi
+        echo "code=$code" >> "$GITHUB_OUTPUT"
+        echo "Scope: $reason" >> "$GITHUB_STEP_SUMMARY"
