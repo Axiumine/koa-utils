@@ -15,6 +15,20 @@ on:
 # Least privilege: every job only reads the repo. No secret is used, so the same
 # jobs run green on Dependabot and fork PRs (qodana.yml needs QODANA_TOKEN, which
 # those PRs never receive).
+#
+# Runners: this file, qodana.yml, semgrep.yml and mutation.yml run on the self-hosted pool
+# (labels self-hosted, Linux, X64). release.yml and scorecard.yml stay on GitHub-hosted runners:
+# npm trusted publishing and the Sigstore provenance need a GitHub-hosted VM. The pool is
+# persistent and shared across repositories, so a fork PR reaches it only after the maintainer
+# approves the run (repository setting "Require approval for all external contributors"). Keep
+# that setting, add no pull_request_target or workflow_run trigger, publish no container port,
+# and bind any listener to 127.0.0.1 on an OS-assigned port. The one listener in CI is the
+# in-memory mongod of the test suite: it binds 127.0.0.1 on a port the OS picks (stock Linux
+# range 32768-60999); only the free-port probe of mongodb-memory-server is a brief wildcard bind
+# before mongod starts. Jobs that install dependencies keep their Yarn cache inside RUNNER_TEMP
+# and set YARN_PROXY_REGISTRY to the public registry: the install runs `prepare`, which would
+# otherwise leave the maintainer's LAN proxy filter (scripts/lockfile-registry-filter.sh) in the
+# persistent checkout and rewrite yarn.lock to that host on every later checkout.
 permissions:
   contents: read
 
@@ -25,19 +39,32 @@ jobs:
     # leaves every PR "Expected: waiting for status".
     name: Test coverage
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
+    env:
+      YARN_PROXY_REGISTRY: https://registry.npmjs.org/
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      # Exact floor of package.json engines (^24.14.0), not the floating 24.x line: the oldest Node a
+      # consumer may run is the one the gates must pass on. Node 26 runs in the job below.
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: 24.14.0
           package-manager-cache: false
+
+      # A bare runner has Node from the step above but no Yarn: Corepack ships with Node 24.
+      - name: Enable Yarn
+        run: corepack enable
+
+      # The pool is persistent and shared: a Yarn cache under the runner user's home would carry
+      # one job's downloads into the next, including a job of another repository.
+      - name: Isolate the Yarn cache to this job
+        run: echo "YARN_CACHE_FOLDER=$RUNNER_TEMP/yarn-cache" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
@@ -79,11 +106,65 @@ jobs:
           maps=$(tar tzf "$RUNNER_TEMP"/axiumine-koa-utils-*.tgz | grep -c '\.map$' || true)
           echo "source maps in tarball: $maps"
           test "$maps" -eq 0
-          echo "tarball sha1: $(shasum "$RUNNER_TEMP"/axiumine-koa-utils-*.tgz | cut -d' ' -f1)" >> "$GITHUB_STEP_SUMMARY"
+          echo "tarball sha1: $(sha1sum "$RUNNER_TEMP"/axiumine-koa-utils-*.tgz | cut -d' ' -f1)" >> "$GITHUB_STEP_SUMMARY"
+
+  # Second engines range of package.json (^26.13.0, the Node 26 LTS line), exact floor again. Install
+  # runs here too: Yarn 1 checks engines, and the install builds through `prepare`. Static gates, the
+  # ratchets and the pack checks are not repeated; they do not depend on the Node version.
+  # Not a required check until the ruleset names it; `Test coverage` above stays the required context.
+  test-node-26:
+    name: Test coverage (Node 26.13.0)
+    if: github.event_name != 'schedule'
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 30
+    env:
+      YARN_PROXY_REGISTRY: https://registry.npmjs.org/
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Node 26 does not ship Corepack (Node 25 dropped it), so a bare runner would have no Yarn after
+      # Setup Node 26. Node 24 still ships it: enable the shims from a Node 24 first. The shims stay on
+      # PATH and run under whichever `node` comes first, which is Node 26 after the next step.
+      - name: Setup Node (Corepack source)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.14.0
+          package-manager-cache: false
+
+      - name: Enable Yarn
+        run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26.13.0
+          package-manager-cache: false
+
+      # Fail here, not later, if the Yarn shim ever runs on the wrong Node. `-s` silences Yarn's own
+      # banner ("yarn node v1.x", "Done in ...") so only the Node version is compared.
+      - name: Check the toolchain
+        run: |
+          test "$(node -v)" = "v26.13.0"
+          test "$(yarn -s node -v)" = "v26.13.0"
+
+      # The pool is persistent and shared: a Yarn cache under the runner user's home would carry
+      # one job's downloads into the next, including a job of another repository.
+      - name: Isolate the Yarn cache to this job
+        run: echo "YARN_CACHE_FOLDER=$RUNNER_TEMP/yarn-cache" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # Same gate as the job above: fails below 100% on lines, statements, functions or branches.
+      - name: Tests and coverage gate
+        run: yarn test:coverage
 
   audit:
     name: Dependency audit
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -96,6 +177,9 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+
+      - name: Enable Yarn
+        run: corepack enable
 
       # Gate: what the package ships to consumers. It declares no runtime dependencies, so this must stay clean.
       - name: Audit shipped dependencies
@@ -115,7 +199,7 @@ jobs:
   # is a rerun first and a finding second. yarn audit (job above) stays the dependency gate.
   trivy:
     name: Trivy
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -136,8 +220,10 @@ jobs:
   leak:
     name: Leak check
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
+    env:
+      YARN_PROXY_REGISTRY: https://registry.npmjs.org/
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -149,6 +235,12 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+
+      - name: Enable Yarn
+        run: corepack enable
+
+      - name: Isolate the Yarn cache to this job
+        run: echo "YARN_CACHE_FOLDER=$RUNNER_TEMP/yarn-cache" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
