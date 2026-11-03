@@ -10,7 +10,7 @@ Thanks for helping. This page tells you how to report a problem, set up a workin
 
 ## Set up a working copy
 
-You need Node.js `^24.14.0` and Yarn 1.
+You need Node.js `^24.14.0 || ^26.13.0` and Yarn 1.
 
 ```bash
 git clone https://github.com/Axiumine/koa-utils.git

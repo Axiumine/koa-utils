@@ -10,7 +10,7 @@ A TypeScript utility library for Koa + GraphQL backends: authentication flows an
 
 ### Runtime and peer support
 
-- **Node.js 26.** Node 26 became LTS on 2026-10-28. Run the full suite on it, then widen `engines` to `^24.14.0 || ^26`. Target: first quarter of 2027.
+- **Node.js 26.** Node 26 became LTS on 2026-10-28. The full suite passes on 26.13.0 and `engines` is `^24.14.0 || ^26.13.0`; CI runs the coverage gate on both floors. It reaches consumers with the next release.
 - **Stay on Node 24 until its end of life** (2028-04-30). Dropping it, and any older Node, is a major version.
 - **Keep peer ranges current.** Each peer carries an upper bound and no floor (`keygrip` keeps its own `^1.1.0`). Review the bounds against the latest npm release of every peer at least once a quarter. Widen a bound only after the new major has been swapped into `node_modules` and `yarn test:coverage` passes.
 - **TypeScript.** Follow the current stable major, keeping `strict` on.

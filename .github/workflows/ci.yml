@@ -33,10 +33,12 @@ jobs:
         with:
           persist-credentials: false
 
+      # Exact floor of package.json engines (^24.14.0), not the floating 24.x line: the oldest Node a
+      # consumer may run is the one the gates must pass on. Node 26 runs in the job below.
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: 24.14.0
           package-manager-cache: false
 
       - name: Install dependencies
@@ -80,6 +82,34 @@ jobs:
           echo "source maps in tarball: $maps"
           test "$maps" -eq 0
           echo "tarball sha1: $(shasum "$RUNNER_TEMP"/axiumine-koa-utils-*.tgz | cut -d' ' -f1)" >> "$GITHUB_STEP_SUMMARY"
+
+  # Second engines range of package.json (^26.13.0, the Node 26 LTS line), exact floor again. Install
+  # runs here too: Yarn 1 checks engines, and the install builds through `prepare`. Static gates, the
+  # ratchets and the pack checks are not repeated; they do not depend on the Node version.
+  # Not a required check until the ruleset names it; `Test coverage` above stays the required context.
+  test-node-26:
+    name: Test coverage (Node 26.13.0)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26.13.0
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      # Same gate as the job above: fails below 100% on lines, statements, functions or branches.
+      - name: Tests and coverage gate
+        run: yarn test:coverage
 
   audit:
     name: Dependency audit

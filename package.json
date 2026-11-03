@@ -58,7 +58,7 @@
 		"scc": "scc . --exclude-dir=node_modules,dist,.git -w --sort --directory-walker-job-workers=8 --count-as=mts:TypeScript"
 	},
 	"engines": {
-		"node": "^24.14.0"
+		"node": "^24.14.0 || ^26.13.0"
 	},
 	"_moduleAliases": {
 		"@lib": "dist/lib",

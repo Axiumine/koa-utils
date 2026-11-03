@@ -6,7 +6,7 @@
 TypeScript utility library for Koa + GraphQL backends. Ships authentication middleware, GraphQL error helpers, data-source connectors (MongoDB, MariaDB, PostgreSQL, Redis), file upload pipeline (ClamAV + sharp re-encode), and transactional email via SocketLabs.
 
 - **Module format:** ESM only (`.mjs` + `.d.mts`)
-- **Node:** `^24.14.0`
+- **Node:** `^24.14.0 || ^26.13.0` (24 and 26 are the LTS lines; the suite runs on both)
 - **TypeScript:** `6.0`
 - **License:** GPL-3.0-or-later
 - **Maintainer:** [Giovanni Manzoni](https://www.giovannimanzoni.com)
@@ -78,7 +78,7 @@ app.use(async (ctx) => {
 app.listen(3000)
 ```
 
-Run it with `node server.mts` (an ES module project, `"type": "module"`, Node `^24.14.0`, which strips the types itself). `curl -i localhost:3000` answers `412 Precondition Failed` ("No authorization header."): a request needs `Authorization: Bearer access:<uuid>` with a token that exists in Redis. To obtain one, add the `signUp` and `loginRememberme` mutations from [Usage](#usage) to your GraphQL schema and follow the [Auth flow](#auth-flow).
+Run it with `node server.mts` (an ES module project, `"type": "module"`, Node 24 or 26, which strips the types itself). `curl -i localhost:3000` answers `412 Precondition Failed` ("No authorization header."): a request needs `Authorization: Bearer access:<uuid>` with a token that exists in Redis. To obtain one, add the `signUp` and `loginRememberme` mutations from [Usage](#usage) to your GraphQL schema and follow the [Auth flow](#auth-flow).
 
 ## Usage
 

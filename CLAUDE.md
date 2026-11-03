@@ -25,7 +25,7 @@ Before you create or edit **any** `CLAUDE.md` in this repo, root or nested:
 
 ## What this is
 
-`@axiumine/koa-utils` — npm TS util lib for Koa + GraphQL backends. ESM-only (`.mjs` / `.d.mts`). Node ^24.14.0. Mocha + c8 + sinon + chai (`test/`). **Hard 100% coverage**, 3 gates: `.c8rc.json`, `.githooks/pre-commit`, Qodana CI. Every change → consumers via `yarn upload`. Backwards compat matter.
+`@axiumine/koa-utils` — npm TS util lib for Koa + GraphQL backends. ESM-only (`.mjs` / `.d.mts`). Node ^24.14.0 || ^26.13.0 (`engines`; CI test both floors). Mocha + c8 + sinon + chai (`test/`). **Hard 100% coverage**, 3 gates: `.c8rc.json`, `.githooks/pre-commit`, Qodana CI. Every change → consumers via `yarn upload`. Backwards compat matter.
 
 ## Always
 
@@ -210,6 +210,7 @@ The next four rules are supply-chain security invariants, so they are written in
 - Never put an expression such as `${{ github.event.* }}` inside a `run:` script, because event payload text is attacker-controlled. Pass it through `env:` and read the shell variable.
 
 - Job `Test coverage` (required check, name fixed) hold step `Static gates` = `yarn check:static`, before `yarn test:coverage`. Old `Coding standard` step folded in. Static gate → inside this job, never a new required context.
+- Node pin in `ci.yml`: `Test coverage` = `24.14.0`, `Test coverage (Node 26.13.0)` = `26.13.0` → exact `engines` floors, never floating `24` / `26`. Widen/raise `engines` → both jobs + README + CONTRIBUTING + REPO + `docs/code/README.md` same change. Node 26 job not required until owner add it to ruleset. No `engines` widen before `yarn test:coverage` green on that Node.
 - Advisory jobs, not required checks: `Trivy` (digest-pinned image, `--exit-code 1`; ghcr rate limit → red = rerun first), `Leak check` (schedule/dispatch only), `mutation.yml` (weekly Sun 03:43 UTC + dispatch, 120 min). Never hook, never required without ruleset edit. Semgrep registry packs (`--registry`) = CI `semgrep.yml` only, never hook, never `release.yml`.
 - YAML in `.github/` = 2 spaces, overrides `.editorconfig` tabs (tab invalid in YAML).
 - `qodana-action` bump (hand or Dependabot) travels with `qodana.yaml` `linter:` and `--linter` arg in `qodana.yml` → all same version, else CI + hook scan different images. Dependabot cannot bump the two → check by hand.
