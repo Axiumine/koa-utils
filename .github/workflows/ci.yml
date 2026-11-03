@@ -26,9 +26,8 @@ on:
 # in-memory mongod of the test suite: it binds 127.0.0.1 on a port the OS picks (stock Linux
 # range 32768-60999); only the free-port probe of mongodb-memory-server is a brief wildcard bind
 # before mongod starts. Jobs that install dependencies keep their Yarn cache inside RUNNER_TEMP
-# and set YARN_PROXY_REGISTRY to the public registry: the install runs `prepare`, which would
-# otherwise leave the maintainer's LAN proxy filter (scripts/lockfile-registry-filter.sh) in the
-# persistent checkout and rewrite yarn.lock to that host on every later checkout.
+# and run the public-lockfile action first: a yarn.lock left in the persistent checkout by an
+# earlier run is replaced by the committed one, which may name only registry.npmjs.org.
 permissions:
   contents: read
 
@@ -65,8 +64,6 @@ jobs:
     if: ${{ !cancelled() && github.event_name != 'schedule' && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
-    env:
-      YARN_PROXY_REGISTRY: https://registry.npmjs.org/
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -147,8 +144,6 @@ jobs:
     if: ${{ !cancelled() && github.event_name != 'schedule' && (needs.scope.result != 'success' || needs.scope.outputs.code == 'true') }}
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 30
-    env:
-      YARN_PROXY_REGISTRY: https://registry.npmjs.org/
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -257,8 +252,6 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
-    env:
-      YARN_PROXY_REGISTRY: https://registry.npmjs.org/
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

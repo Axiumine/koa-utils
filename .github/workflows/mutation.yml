@@ -24,9 +24,6 @@ jobs:
     name: Mutation testing
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 120
-    env:
-      # Keeps the maintainer's LAN proxy filter inert in the persistent checkout, see the header of ci.yml.
-      YARN_PROXY_REGISTRY: https://registry.npmjs.org/
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
