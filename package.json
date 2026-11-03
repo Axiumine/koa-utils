@@ -238,9 +238,29 @@
 			"import": "./dist/dataSources/Redis.mjs",
 			"types": "./dist/dataSources/Redis.d.mts"
 		},
+		"./email/ISocketLabsClient": {
+			"import": "./dist/email/ISocketLabsClient.mjs",
+			"types": "./dist/email/ISocketLabsClient.d.mts"
+		},
+		"./email/ISocketLabsMessage": {
+			"import": "./dist/email/ISocketLabsMessage.mjs",
+			"types": "./dist/email/ISocketLabsMessage.d.mts"
+		},
+		"./email/ISocketLabsSendResult": {
+			"import": "./dist/email/ISocketLabsSendResult.mjs",
+			"types": "./dist/email/ISocketLabsSendResult.d.mts"
+		},
+		"./email/ISocketLabsSenderOptions": {
+			"import": "./dist/email/ISocketLabsSenderOptions.mjs",
+			"types": "./dist/email/ISocketLabsSenderOptions.d.mts"
+		},
 		"./email/SocketLabsLib": {
 			"import": "./dist/email/SocketLabsLib.mjs",
 			"types": "./dist/email/SocketLabsLib.d.mts"
+		},
+		"./email/createSocketLabsSender": {
+			"import": "./dist/email/createSocketLabsSender.mjs",
+			"types": "./dist/email/createSocketLabsSender.d.mts"
 		},
 		"./graphQL/models/MongoDB/log/DevStatsGraphQLCalls": {
 			"import": "./dist/graphQL/models/MongoDB/log/DevStatsGraphQLCalls.mjs",

@@ -20,8 +20,15 @@
 		"RedisDisconnect",
 		"redisClient"
 	],
+	"./email/ISocketLabsClient": [],
+	"./email/ISocketLabsMessage": [],
+	"./email/ISocketLabsSendResult": [],
+	"./email/ISocketLabsSenderOptions": [],
 	"./email/SocketLabsLib": [
 		"SocketLabsLib"
+	],
+	"./email/createSocketLabsSender": [
+		"createSocketLabsSender"
 	],
 	"./files/IUploadTemp": [],
 	"./files/fileConst": [

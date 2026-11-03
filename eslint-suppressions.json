@@ -15,15 +15,6 @@
       "count": 2
     },
     "@typescript-eslint/no-unsafe-call": {
-      "count": 9
-    },
-    "@typescript-eslint/no-unsafe-member-access": {
-      "count": 7
-    },
-    "@typescript-eslint/no-unsafe-return": {
-      "count": 1
-    },
-    "@typescript-eslint/require-await": {
       "count": 1
     },
     "sonarjs/fixme-tag": {
