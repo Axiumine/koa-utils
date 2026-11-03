@@ -1,17 +1,17 @@
 import { IContextRefresh } from '@context/IContextRefresh.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
 import { isSessionBlocked } from '@lib/isSessionBlocked.mjs'
+import { loadEnv } from '@private/lib/loadEnv.mjs'
 import { verifyIntrospectionCode } from '@private/lib/verifyIntrospectionCode.mjs'
 import { throwForbiddenError } from '@throw/throwForbiddenError.mjs'
 import { throwRefreshTokenExpiredOrDeleted } from '@throw/throwRefreshTokenExpiredOrDeleted.mjs'
-import * as dotenv from 'dotenv'
 import Keygrip from 'keygrip'
 import { Next } from 'koa'
 import { Types } from 'mongoose'
 
 import { verifySignedRefreshToken } from './verifySignedRefreshToken.mjs'
 
-dotenv.config()
+loadEnv()
 
 export const authenticatedAuthorizationHandler = (keys: Keygrip) => async (ctx: IContextRefresh, next: Next) => {
 	/***************************

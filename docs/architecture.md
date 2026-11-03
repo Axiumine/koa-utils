@@ -63,7 +63,7 @@ flowchart LR
 
 ## Configuration and state
 
-The library keeps no persistent state of its own. In memory it holds module-level connection objects, the ClamAV scanner created by `initClamScan()` and, per verify-email flow, a small map used to debounce notification mails. Configuration is environment variables (see the table in [README.md](../README.md#environment-variables)), read from `process.env`, which each module fills with `dotenv`, plus the arguments the consumer passes in (the Keygrip instance, the `paths` of the access factories, custom mailers). Persistent state is in the consumer's MongoDB (users, logs) and Redis (sessions).
+The library keeps no persistent state of its own. In memory it holds module-level connection objects, the ClamAV scanner created by `initClamScan()` and, per verify-email flow, a small map used to debounce notification mails. Configuration is environment variables (see the table in [README.md](../README.md#environment-variables)), read from `process.env`, which each module fills through the internal `loadEnv` (`dotenv` when it is installed, nothing when it is not), plus the arguments the consumer passes in (the Keygrip instance, the `paths` of the access factories, custom mailers). Persistent state is in the consumer's MongoDB (users, logs) and Redis (sessions).
 
 ## Build and release
 

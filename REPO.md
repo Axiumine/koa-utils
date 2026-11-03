@@ -75,6 +75,7 @@ src/
     ├── graphQL/Consts.mts, schema/{context,mutations}/
     └── lib/access/{db/* (incl. abandonUser.mts), handleIf*, assertVerifyEmailAllowed.mts, emailChangeHandlers.mts, pathTools.mts,
                    safeEqualSecret.mts, assertResetAllowed.mts, applyPasswordReset.mts}
+        lib/importOptional.mts, loadEnv.mts  # optional-peer loader + dotenv facade
 ```
 
 `src/types/` holds one ambient declaration, `socketlabs-email.d.ts` (`declare module '@socketlabs/email'`, which ships no types); it emits no `.mjs`.
@@ -178,7 +179,7 @@ Every exported subpath maps to `{ import: dist/.../X.mjs, types: dist/.../X.d.mt
 
 ### Data sources
 
-Each connector reads `.env` via `dotenv.config()` at import time. Functions are `*Connect()` / `*Disconnect()` async; connection objects (`sequelize`, `pgClient`, `pgPool`, `redisClient`) are exported as module-level singletons. `MongoDB` uses `mongoose.connect(process.env.MONGODB_URI)` with `sanitizeFilter: true`, `strictQuery: false`, `family: 4` (IPv4), `serverSelectionTimeoutMS: 5000`, `autoIndex: true`.
+Each connector reads `.env` via the internal `loadEnv()` (`dotenv.config()` when `dotenv` is installed) at import time. Functions are `*Connect()` / `*Disconnect()` async; connection objects (`sequelize`, `pgClient`, `pgPool`, `redisClient`) are exported as module-level singletons. `MongoDB` uses `mongoose.connect(process.env.MONGODB_URI)` with `sanitizeFilter: true`, `strictQuery: false`, `family: 4` (IPv4), `serverSelectionTimeoutMS: 5000`, `autoIndex: true`.
 
 `redisClient` supports cluster mode when `REDIS_IS_CLUSTER === '1'` (3 nodes from `REDIS_DB{1,2,3}_HOST/PORT`); otherwise single via `REDIS_URL`.
 
@@ -200,7 +201,7 @@ Single class wrapping `@socketlabs/email`. Env-driven: `SOCKETLABS_SERVER_ID`, `
 
 ## 5. Environment variables
 
-Loaded ad-hoc per module via `dotenv.config()`. No single `.env.example` in tree — gather from grep:
+Loaded ad-hoc per module via the internal `loadEnv()` (`dotenv.config()` when `dotenv` is installed). No single `.env.example` in tree — gather from grep:
 
 | Var | Used by |
 |---|---|
@@ -228,7 +229,7 @@ Sentry is referenced by `@sentry/node`; project relies on the consumer to call `
 - **Module shape:** one named export per file, file name matches export. `mutations/X.mts` exports a plain object with `description`, `type`, `args`, `resolve` ready to drop into a `GraphQLObjectType` `fields`.
 - **Mongo transactions:** `mongoose.startSession()` + `session.withTransaction(...)` + `endSession()` in `finally`. Always pass the `session` to all model calls.
 - **Errors:** never `throw new Error('...')` inside business logic — always go through a `throw*Error()` helper. Internal-only fatal paths use `throwInternalError()`.
-- **Tests:** `test/` mirrors `src/` layout (155 `*.spec.mts` files, 167 `.mts` files total), plus one property-based spec, `test/property/inputHandling.spec.ts` (`.ts` on purpose: the OpenSSF Scorecard Fuzzing check scans only `*.ts`/`*.tsx`; it uses `fast-check`). Run via Mocha (`.mocharc.json`, two spec globs: `dist-test/**/*.spec.mjs`, the `build:tests` output of `test/`, and `scripts/**/*.spec.mts`, the 4 colocated specs of the caps tooling loaded straight from source), with sinon + chai + `mongodb-memory-server`. Coverage via c8 (`.c8rc.json`): `check-coverage`, `per-file`, and all four metrics (`lines`/`statements`/`functions`/`branches`) at 100. `.githooks/pre-commit` runs, in this order, the `yarn.lock` registry check (always), `yarn -s check:static`, `yarn test:coverage` and Qodana, on every commit touching `src/`, `test/`, `scripts/`, `package.json`, `.c8rc.json`, `.mocharc.json`, a `tsconfig*.json`, `eslint.config.js`, `eslint-suppressions.json`, `knip.config.js`, `fta.json` or `.code-caps-baseline.json`; docs-only commits skip every heavy step. `.githooks/pre-push` re-runs `check:static` and the Semgrep scan and canaries then `yarn ratchet:against` on the merge base with `origin/main`, on a push that touches the same paths plus `.semgrep/` and `.github/workflows/semgrep.yml`. Three zero-dependency snapshot specs pin the public surface: `test/package/publicApi.spec.mts` (the `exports` map against `dist/` plus runtime symbol names, snapshot `test/__snapshots__/public-api.json`) and `test/graphQL/throw/errorCatalog.spec.mts` (every `throwXxx` status, title and description, snapshot `test/__snapshots__/graphql-errors.json`, cross-checked against `docs/code/graphql-errors.md`) and `test/package/peerReach.spec.mts` (a static walk of built `dist/` from every `exports` key: which subpaths load which peer at import, lazily, or in types only; snapshot `test/__snapshots__/peer-reach.json`). Regenerate on an intentional change only: `UPDATE_SNAPSHOT=1 yarn test`, then read the diff.
+- **Tests:** `test/` mirrors `src/` layout (157 `*.spec.mts` files, 169 `.mts` files total), plus one property-based spec, `test/property/inputHandling.spec.ts` (`.ts` on purpose: the OpenSSF Scorecard Fuzzing check scans only `*.ts`/`*.tsx`; it uses `fast-check`). Run via Mocha (`.mocharc.json`, two spec globs: `dist-test/**/*.spec.mjs`, the `build:tests` output of `test/`, and `scripts/**/*.spec.mts`, the 4 colocated specs of the caps tooling loaded straight from source), with sinon + chai + `mongodb-memory-server`. Coverage via c8 (`.c8rc.json`): `check-coverage`, `per-file`, and all four metrics (`lines`/`statements`/`functions`/`branches`) at 100. `.githooks/pre-commit` runs, in this order, the `yarn.lock` registry check (always), `yarn -s check:static`, `yarn test:coverage` and Qodana, on every commit touching `src/`, `test/`, `scripts/`, `package.json`, `.c8rc.json`, `.mocharc.json`, a `tsconfig*.json`, `eslint.config.js`, `eslint-suppressions.json`, `knip.config.js`, `fta.json` or `.code-caps-baseline.json`; docs-only commits skip every heavy step. `.githooks/pre-push` re-runs `check:static` and the Semgrep scan and canaries then `yarn ratchet:against` on the merge base with `origin/main`, on a push that touches the same paths plus `.semgrep/` and `.github/workflows/semgrep.yml`. Three zero-dependency snapshot specs pin the public surface: `test/package/publicApi.spec.mts` (the `exports` map against `dist/` plus runtime symbol names, snapshot `test/__snapshots__/public-api.json`) and `test/graphQL/throw/errorCatalog.spec.mts` (every `throwXxx` status, title and description, snapshot `test/__snapshots__/graphql-errors.json`, cross-checked against `docs/code/graphql-errors.md`) and `test/package/peerReach.spec.mts` (a static walk of built `dist/` from every `exports` key: which subpaths load which peer at import, lazily, or in types only; snapshot `test/__snapshots__/peer-reach.json`). Regenerate on an intentional change only: `UPDATE_SNAPSHOT=1 yarn test`, then read the diff.
 
 ---
 

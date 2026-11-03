@@ -504,7 +504,7 @@ Writes both halves of a login session into Redis. Builds `keyAccess = ${process.
 
 **Throws:** `throwInternalError()` — if either `hSet`/`expire` call fails; both Redis keys are deleted first.
 
-**Notes:** Confirms the `${REDIS_KEY}access:<uuid>` / `${REDIS_KEY}refresh:<uuid>` key convention from `CLAUDE.md`; calls `dotenv.config()` at module load to ensure `process.env.REDIS_KEY` is populated.
+**Notes:** Confirms the `${REDIS_KEY}access:<uuid>` / `${REDIS_KEY}refresh:<uuid>` key convention from `CLAUDE.md`; calls `loadEnv()` at module load (`dotenv.config()` when `dotenv` is installed) to ensure `process.env.REDIS_KEY` is populated.
 
 ### `updateAdminLoginStats`
 
@@ -736,6 +736,28 @@ export async function applyPasswordReset(
 ```
 
 The transaction body of `updatePassword`, moved out of the resolver file only to keep it inside the complexity budget. Reads the record through `deps.getResetPwd(session, uEmail)`, runs `assertResetAllowed`, writes the new password through `deps.updatePasswordDb` (a falsy result throws `throwInternalError()`, 500, and skips the cleanup), clears the request through `deps.removeResetReq`, and returns the account holder's name for the post-commit confirmation mail. `IApplyPasswordResetDeps` has the same three members as the public `IUpdatePasswordDeps`.
+
+## `lib/importOptional`
+
+**Import:** _internal — not exported_ (`src/private/lib/importOptional.mts`)
+
+**Signature:**
+```ts
+export async function importOptional<T>(specifier: string, load: () => Promise<T>): Promise<T | null>
+```
+
+Loads an optional peer dependency. `load` is the caller's own `() => import('pkg')`, so the specifier stays a literal at the call site; `specifier` repeats the name for the error match. Resolves `null` only when Node reports that `specifier` itself is not installed (`code` is `ERR_MODULE_NOT_FOUND` or `MODULE_NOT_FOUND` **and** the message names `'<specifier>'`). Every other failure is rethrown unchanged, including the same code raised for a *different* package: an installed peer that cannot load one of its own dependencies is a broken install, not an absent peer, and must not be hidden. Used by the `loadEnv` facade.
+
+## `lib/loadEnv`
+
+**Import:** _internal — not exported_ (`src/private/lib/loadEnv.mts`)
+
+**Signature:**
+```ts
+export function loadEnv(loader: { config(): unknown } | null = dotenv): void
+```
+
+The one place the package touches `dotenv`, which is an optional peer. The module awaits `importOptional('dotenv', () => import('dotenv'))` at top level, once, and `loadEnv()` calls `config()` on the result (the argument-less `dotenv.config()` the package always ran), or does nothing when `dotenv` is not installed. The 13 modules that used to call `dotenv.config()` now call `loadEnv()` at module scope, after their imports, so the environment file is still read when the module is evaluated and still after its siblings have loaded. Without `dotenv` nothing is read and nothing fails: `process.env` must already hold the values. Top-level `await` is safe because every `exports` entry has only the `import` and `types` conditions, so a CommonJS `require()` cannot load the package (`ERR_PACKAGE_PATH_NOT_EXPORTED`). The `loader` parameter exists for tests (`null` stands for "not installed").
 
 ## `lib/makeBodyJson`
 

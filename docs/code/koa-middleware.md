@@ -22,7 +22,7 @@ General-purpose resource guard. Reads `ctx.request.header.authorization`, expect
 - `403 Forbidden` (`throwForbiddenError`) — Redis session found but `disabled`/`deleted` is set.
 - `498 Invalid Token` (`throwAccessTokenExpiredOrDeleted`) — no Redis session for the key and no valid `x-introspectioncode` (a matching header does not count outside `NODE_ENV` `'development'` / `'test'`).
 
-**Notes:** reads env `REDIS_KEY`, `INTROSPECTION_CODE`, `NODE_ENV` (the last two via `verifyIntrospectionCode` — `NODE_ENV` gates whether `INTROSPECTION_CODE` is consulted at all, 6.0.0+). Populates `ctx.state.user.id` as a Mongoose `ObjectId`, not a string. Loads `dotenv` at module scope.
+**Notes:** reads env `REDIS_KEY`, `INTROSPECTION_CODE`, `NODE_ENV` (the last two via `verifyIntrospectionCode` — `NODE_ENV` gates whether `INTROSPECTION_CODE` is consulted at all, 6.0.0+). Populates `ctx.state.user.id` as a Mongoose `ObjectId`, not a string. Calls `loadEnv()` at module scope (the internal `dotenv` facade: loads the environment file when `dotenv` is installed, does nothing otherwise).
 
 ## `authenticatedAuthorizationHandler`
 

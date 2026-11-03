@@ -68,7 +68,7 @@ export const accessTokenOptions: {
 }
 ```
 
-Cookie-options preset for an access-token cookie, built by spreading a private `baseOptions` object (`{ httpOnly: true, sameSite: 'Strict', secure: false, expirationDate: 0 }`) with no additional overrides. Not currently consumed elsewhere in this package (the access token is returned in the response body, not set as a cookie, in the shipped mutations) but is exported for consumers that do want to cookie-store the access token. Importing this module has the side effect of calling `dotenv.config()`.
+Cookie-options preset for an access-token cookie, built by spreading a private `baseOptions` object (`{ httpOnly: true, sameSite: 'Strict', secure: false, expirationDate: 0 }`) with no additional overrides. Not currently consumed elsewhere in this package (the access token is returned in the response body, not set as a cookie, in the shipped mutations) but is exported for consumers that do want to cookie-store the access token. Importing this module has the side effect of calling the internal `loadEnv()` (`dotenv.config()` when `dotenv` is installed).
 
 **Notes:** `secure: false` is intentional — TLS is terminated at Nginx, which is expected to rewrite/enforce `secure` at the reverse-proxy layer. Do not change this in source.
 
@@ -86,7 +86,7 @@ export const refreshTokenOptions: {
 }
 ```
 
-Cookie-options preset for the `refresh_token` cookie, spread from the same private `baseOptions` as `accessTokenOptions` (`{ httpOnly: true, sameSite: 'Strict', secure: false, expirationDate: 0 }`). Used by `setLoginCookies` (merged with `maxAge`) and directly by the `logout` mutation to clear the cookie (`ctx.cookies.set('refresh_token', '', refreshTokenOptions)`). Importing this module has the side effect of calling `dotenv.config()`.
+Cookie-options preset for the `refresh_token` cookie, spread from the same private `baseOptions` as `accessTokenOptions` (`{ httpOnly: true, sameSite: 'Strict', secure: false, expirationDate: 0 }`). Used by `setLoginCookies` (merged with `maxAge`) and directly by the `logout` mutation to clear the cookie (`ctx.cookies.set('refresh_token', '', refreshTokenOptions)`). Importing this module has the side effect of calling the internal `loadEnv()` (`dotenv.config()` when `dotenv` is installed).
 
 **Notes:** `secure: false` is intentional — TLS is terminated at Nginx, not in this cookie config. Do not change this in source.
 

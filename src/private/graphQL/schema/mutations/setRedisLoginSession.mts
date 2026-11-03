@@ -1,11 +1,11 @@
 import { redisClient } from '@dataSources/Redis.mjs'
 import { REFRESH_TOKEN_EXPIRY } from '@lib/tokens.mjs'
+import { loadEnv } from '@private/lib/loadEnv.mjs'
 import * as Sentry from '@sentry/node'
 import { throwInternalError } from '@throw/throwInternalError.mjs'
-import * as dotenv from 'dotenv'
 import { Types } from 'mongoose'
 
-dotenv.config()
+loadEnv()
 
 export async function setRedisLoginSession(id: Types.ObjectId, accessToken: string, accTokenExp: number, refreshToken: string) {
 	const keyDataAccess = { id: id.toString() }

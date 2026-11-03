@@ -12,11 +12,11 @@ import { confirmationLink, httpLinkBase } from '@private/email/messageParts.mjs'
 import * as notice from '@private/email/noticeMessages.mjs'
 import { orFalse } from '@private/email/orFalse.mjs'
 import * as reset from '@private/email/resetMessages.mjs'
+import { loadEnv } from '@private/lib/loadEnv.mjs'
 import * as Sentry from '@sentry/node'
 import { BasicMessage, SocketLabsClient } from '@socketlabs/email'
-import * as dotenv from 'dotenv'
 
-dotenv.config()
+loadEnv()
 
 interface IUserInfo {
 	_id: string

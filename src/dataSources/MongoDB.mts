@@ -1,7 +1,7 @@
-import * as dotenv from 'dotenv'
+import { loadEnv } from '@private/lib/loadEnv.mjs'
 import * as mongoose from 'mongoose'
 
-dotenv.config()
+loadEnv()
 
 // DeprecationWarning: collection.ensureIndex is deprecated.Use createIndexes instead.
 // mongoose.set('useCreateIndex', true);

@@ -2,11 +2,11 @@ import { IContextLogout } from '@context/IContextLogout.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
 import { buildPrefixedRedisKey } from '@lib/Redis/buildPrefixedRedisKey.mjs'
 import { refreshTokenOptions } from '@lib/tokenOptions.mjs'
+import { loadEnv } from '@private/lib/loadEnv.mjs'
 import * as Sentry from '@sentry/node'
-import * as dotenv from 'dotenv'
 import { GraphQLBoolean, GraphQLNonNull } from 'graphql'
 
-dotenv.config()
+loadEnv()
 
 export const logout = {
 	description: 'logout',

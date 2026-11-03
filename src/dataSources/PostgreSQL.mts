@@ -1,10 +1,10 @@
+import { loadEnv } from '@private/lib/loadEnv.mjs'
 import * as Sentry from '@sentry/node'
-import * as dotenv from 'dotenv'
 import pg from 'pg'
 
 const { Client, Pool } = pg
 
-dotenv.config()
+loadEnv()
 
 export const pgClient = new Client({
 	user: `${process.env['POSTGRESQL_USER']}`,

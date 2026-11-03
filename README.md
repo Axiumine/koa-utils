@@ -247,7 +247,7 @@ import { StringLib } from '@axiumine/koa-utils/lib/StringLib'
 | `STATIC_FOLDER` | Destination for `moveFileStaticDomain` |
 | `NODE_ENV` | `development` enables extra Sentry capture in the error handler. Also gates the introspection bypass: `development` and `test` are the only values that let `x-introspectioncode` skip authentication |
 
-Each module calls `dotenv.config()` at import time.
+Each module that reads these variables calls the internal `loadEnv()` at import time: it runs `dotenv.config()` when `dotenv` is installed and does nothing when it is not (then `process.env` must already hold the values).
 
 ### Introspection bypass and `NODE_ENV` (6.0.0)
 

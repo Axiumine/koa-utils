@@ -3,12 +3,12 @@ import { redisClient } from '@dataSources/Redis.mjs'
 import { setLoginCookies } from '@lib/setLoginCookies.mjs'
 import { accessTokenExpiry, generateAccessToken, generateRefreshToken, REFRESH_TOKEN_EXPIRY } from '@lib/tokens.mjs'
 import { tryCatchRethrow } from '@lib/tryCatchRethrow.mjs'
+import { loadEnv } from '@private/lib/loadEnv.mjs'
 import * as Sentry from '@sentry/node'
 import { RefreshType } from '@stypes/RefreshType.mjs'
-import * as dotenv from 'dotenv'
 import { GraphQLError, GraphQLNonNull } from 'graphql'
 
-dotenv.config()
+loadEnv()
 
 export const refresh = {
 	description: 'refresh token',

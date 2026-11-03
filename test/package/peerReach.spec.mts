@@ -21,6 +21,12 @@ const pkg = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as I
 const peers = Object.keys(pkg.peerDependencies).sort()
 const keys = Object.keys(pkg.exports).sort()
 
+// peer → regex of subpaths allowed to load it AT IMPORT. Snapshot regen cannot widen reach past this.
+// Peer absent here = unscoped (purpose too broad for 1 regex). /^$/ = no subpath: only lazy, via private facade
+const PEER_SCOPE: Record<string, RegExp> = {
+	dotenv: /^$/
+}
+
 // 1st alt: import|export … from 'x' (multi-line ok). 2nd alt: side-effect import 'x'.
 // Same specifier set as ts.preProcessFile on every dist file (cross-checked by hand, 0 diff)
 const FROM = /^\s*(?:import|export)\b[^'"`;]*?\bfrom\s*['"]([^'"]+)['"]|^\s*import\s*['"]([^'"]+)['"]/gm
@@ -101,6 +107,14 @@ describe('package/peerReach', () => {
 
 	it('every bare import in dist is a declared peer', () => {
 		assert.deepEqual(undeclared, [], 'import of pkg missing from peerDependencies')
+	})
+
+	it('scoped peers are loaded at import only inside their scope', () => {
+		for (const [peer, scope] of Object.entries(PEER_SCOPE)) {
+			assert.ok(peers.includes(peer), `scope names a pkg that is no peer: ${peer}`)
+			const outside = (byPeer[peer]?.runtime ?? []).filter((key) => !scope.test(key))
+			assert.deepEqual(outside, [], `${peer} loaded at import outside ${String(scope)}`)
+		}
 	})
 
 	it('peer reach per subpath matches the committed snapshot', () => {

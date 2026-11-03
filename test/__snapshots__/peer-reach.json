@@ -79,7 +79,8 @@
 		"typesOnly": []
 	},
 	"dotenv": {
-		"runtime": [
+		"runtime": [],
+		"lazy": [
 			"./dataSources/MariaDB",
 			"./dataSources/MongoDB",
 			"./dataSources/PostgreSQL",
@@ -106,7 +107,6 @@
 			"./lib/setLoginCookies",
 			"./lib/tokenOptions"
 		],
-		"lazy": [],
 		"typesOnly": []
 	},
 	"file-type": {
