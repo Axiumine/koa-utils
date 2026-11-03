@@ -82,7 +82,7 @@ flowchart LR
 | TB3 Library to data stores | Queries, session hashes | `sanitizeFilter` through `MongoDBConnect`, parameterised SQL, UUID-validated Redis keys (R8); TLS opt-in for Redis, none set for the other stores (R10, L7) |
 | TB4 Library to SocketLabs | Recipient, subject, body and the API key | HTTPS through the `@socketlabs/email` client; the key comes from the environment (R11) |
 | TB5 Library to local disk and ClamAV | Temp files from untrusted uploads | Generated file names, traversal check, size cap, scan before use (R9) |
-| TB6 Registry and CI to consumer | The published tarball | Signed tags, reproducible build, zero runtime dependencies (R12, R13); releases published through the release workflow add a build attestation |
+| TB6 Registry and CI to consumer | The published tarball | Signed tags, reproducible build, zero runtime dependencies (R12, R13); releases published through the release workflow add a build attestation. The release and Scorecard workflows run on GitHub-hosted runners. The test, Qodana, Semgrep and mutation workflows run on shared, persistent self-hosted runners: a pull request from a fork runs there only after the maintainer approves it (repository setting "Require approval for all external contributors"), and that approval is the only barrier between a fork's code and those machines. Dependabot pull requests run there without approval |
 
 ## 6. Secure design principles
 
