@@ -22,8 +22,11 @@ permissions:
 jobs:
   mutation:
     name: Mutation testing
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 120
+    env:
+      # Keeps the maintainer's LAN proxy filter inert in the persistent checkout, see the header of ci.yml.
+      YARN_PROXY_REGISTRY: https://registry.npmjs.org/
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -35,6 +38,13 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+
+      - name: Enable Yarn
+        run: corepack enable
+
+      # Persistent shared runner pool: per-job Yarn cache, see the header of ci.yml.
+      - name: Isolate the Yarn cache to this job
+        run: echo "YARN_CACHE_FOLDER=$RUNNER_TEMP/yarn-cache" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
