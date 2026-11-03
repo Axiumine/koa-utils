@@ -1,0 +1,349 @@
+{
+	"@node-rs/bcrypt": {
+		"runtime": [
+			"./graphQL/schema/mutations/login4Ever",
+			"./graphQL/schema/mutations/loginAdmin",
+			"./graphQL/schema/mutations/loginRememberme",
+			"./graphQL/schema/mutations/signUp",
+			"./graphQL/schema/mutations/updatePassword",
+			"./lib/access/createResetPwdFlow",
+			"./lib/db/registerNewUser",
+			"./lib/encryptPassword",
+			"./lib/hash"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"@sentry/node": {
+		"runtime": [
+			"./dataSources/MariaDB",
+			"./dataSources/PostgreSQL",
+			"./dataSources/Redis",
+			"./email/SocketLabsLib",
+			"./files/reEncodeToJpeg",
+			"./files/reEncodeToPng",
+			"./files/reEncodeToWebp",
+			"./files/scanVirus",
+			"./files/uploadTempImage",
+			"./files/uploadTempPdf",
+			"./graphQL/schema/mutations/emailChangeHashVerify",
+			"./graphQL/schema/mutations/login4Ever",
+			"./graphQL/schema/mutations/loginAdmin",
+			"./graphQL/schema/mutations/loginRememberme",
+			"./graphQL/schema/mutations/logout",
+			"./graphQL/schema/mutations/refresh",
+			"./graphQL/schema/mutations/resetPwd",
+			"./graphQL/schema/mutations/signUp",
+			"./graphQL/schema/mutations/updatePassword",
+			"./koa/middleware/authenticatedAuthorizationHandler",
+			"./koa/middleware/authenticatedLogoutHandler",
+			"./koa/middleware/authenticatedResourceHandler",
+			"./koa/router/verifyEmail",
+			"./koa/tdwKoaErrorHandler",
+			"./lib/MongoDB/throwMongoErrors",
+			"./lib/access/createResetPwdFlow",
+			"./lib/access/createVerifyEmailFlow",
+			"./lib/access/resetPwdMailer",
+			"./lib/access/verifyEmailMailer",
+			"./lib/tryCatchRethrow"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"@socketlabs/email": {
+		"runtime": [
+			"./email/SocketLabsLib",
+			"./graphQL/schema/mutations/emailChangeHashVerify",
+			"./graphQL/schema/mutations/login4Ever",
+			"./graphQL/schema/mutations/loginAdmin",
+			"./graphQL/schema/mutations/loginRememberme",
+			"./graphQL/schema/mutations/resetPwd",
+			"./graphQL/schema/mutations/signUp",
+			"./graphQL/schema/mutations/updatePassword",
+			"./koa/router/verifyEmail",
+			"./lib/access/createResetPwdFlow",
+			"./lib/access/createVerifyEmailFlow",
+			"./lib/access/resetPwdMailer",
+			"./lib/access/verifyEmailMailer"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"clamscan": {
+		"runtime": [
+			"./files/scanVirus",
+			"./files/uploadTempImage",
+			"./files/uploadTempPdf"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"dotenv": {
+		"runtime": [
+			"./dataSources/MariaDB",
+			"./dataSources/MongoDB",
+			"./dataSources/PostgreSQL",
+			"./dataSources/Redis",
+			"./email/SocketLabsLib",
+			"./graphQL/schema/mutations/emailChangeHashVerify",
+			"./graphQL/schema/mutations/login4Ever",
+			"./graphQL/schema/mutations/loginAdmin",
+			"./graphQL/schema/mutations/loginRememberme",
+			"./graphQL/schema/mutations/logout",
+			"./graphQL/schema/mutations/refresh",
+			"./graphQL/schema/mutations/resetPwd",
+			"./graphQL/schema/mutations/signUp",
+			"./graphQL/schema/mutations/updatePassword",
+			"./koa/middleware/authenticatedAuthorizationHandler",
+			"./koa/middleware/authenticatedLogoutHandler",
+			"./koa/middleware/authenticatedResourceHandler",
+			"./koa/router/verifyEmail",
+			"./koa/tdwKoaErrorHandler",
+			"./lib/access/createResetPwdFlow",
+			"./lib/access/createVerifyEmailFlow",
+			"./lib/access/resetPwdMailer",
+			"./lib/access/verifyEmailMailer",
+			"./lib/setLoginCookies",
+			"./lib/tokenOptions"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"file-type": {
+		"runtime": [],
+		"lazy": [
+			"./files/uploadTempImage",
+			"./files/uploadTempPdf",
+			"./files/validateJpgPngMimeType",
+			"./files/validateMimeType",
+			"./files/validateMimeTypeImages"
+		],
+		"typesOnly": []
+	},
+	"fs-extra": {
+		"runtime": [
+			"./files/moveFileStaticDomain",
+			"./files/moveImageFile",
+			"./files/moveTempFile",
+			"./files/uploadTempImage",
+			"./files/uploadTempPdf",
+			"./files/validateJpgPngExtension",
+			"./files/validateJpgPngMimeType",
+			"./files/validateMimeType",
+			"./files/validateMimeTypeImages",
+			"./files/validatePdfExtension"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"graphql": {
+		"runtime": [
+			"./email/SocketLabsLib",
+			"./files/reEncodeToJpeg",
+			"./files/reEncodeToPng",
+			"./files/reEncodeToWebp",
+			"./files/uploadTempImage",
+			"./graphQL/schema/GraphQLInput/GraphQLInputLogin",
+			"./graphQL/schema/mutations/emailChangeHashVerify",
+			"./graphQL/schema/mutations/login4Ever",
+			"./graphQL/schema/mutations/loginAdmin",
+			"./graphQL/schema/mutations/loginRememberme",
+			"./graphQL/schema/mutations/logout",
+			"./graphQL/schema/mutations/refresh",
+			"./graphQL/schema/mutations/resetPwd",
+			"./graphQL/schema/mutations/signUp",
+			"./graphQL/schema/mutations/updatePassword",
+			"./graphQL/schema/types/DeleteType",
+			"./graphQL/schema/types/DoneType",
+			"./graphQL/schema/types/FindOneAndUpdateType",
+			"./graphQL/schema/types/LoginAppType",
+			"./graphQL/schema/types/LoginType",
+			"./graphQL/schema/types/MidNameType",
+			"./graphQL/schema/types/OnlyIdType",
+			"./graphQL/schema/types/RefreshType",
+			"./graphQL/schema/types/RetStatusMexType",
+			"./graphQL/schema/types/RetStatusType",
+			"./graphQL/schema/types/SaveType",
+			"./graphQL/schema/types/SidNameType",
+			"./graphQL/schema/types/SidNomeType",
+			"./graphQL/schema/types/UpdateResultType",
+			"./graphQL/throw/throwAccessTokenExpiredOrDeleted",
+			"./graphQL/throw/throwAccessTokenRequired",
+			"./graphQL/throw/throwAlreadyDone",
+			"./graphQL/throw/throwAlreadyTakenError",
+			"./graphQL/throw/throwConflictError",
+			"./graphQL/throw/throwErrorWrongUserInput",
+			"./graphQL/throw/throwForbiddenError",
+			"./graphQL/throw/throwGoneError",
+			"./graphQL/throw/throwGraphQLError",
+			"./graphQL/throw/throwInternalError",
+			"./graphQL/throw/throwMethodNotAllowedError",
+			"./graphQL/throw/throwMissingMalformedInvalidToken",
+			"./graphQL/throw/throwNotAcceptableError",
+			"./graphQL/throw/throwNotFoundError",
+			"./graphQL/throw/throwNotImplementedError",
+			"./graphQL/throw/throwPaymentRequiredError",
+			"./graphQL/throw/throwPreconditionFailedNoAuthCookie",
+			"./graphQL/throw/throwPreconditionFailedNoAuthHeader",
+			"./graphQL/throw/throwRefreshTokenExpiredOrDeleted",
+			"./graphQL/throw/throwRefreshTokenRequired",
+			"./graphQL/throw/throwRefreshTokenSignatureRequired",
+			"./graphQL/throw/throwTooManyRequestsError",
+			"./graphQL/throw/throwUnauthorizedError",
+			"./graphQL/throw/throwUnprocessableContentError",
+			"./graphQL/throw/throwUnsupportedMediaTypeError",
+			"./koa/customFormatErrorFn",
+			"./koa/middleware/authenticatedAuthorizationHandler",
+			"./koa/middleware/authenticatedAuthorizationHandler/verifySignedRefreshToken",
+			"./koa/middleware/authenticatedLogoutHandler",
+			"./koa/middleware/authenticatedResourceHandler",
+			"./koa/router/verifyEmail",
+			"./koa/tdwKoaErrorHandler",
+			"./lib/MariaDB/throwSqlErrors",
+			"./lib/MongoDB/throwIfMongoErr",
+			"./lib/MongoDB/throwMongoErrors",
+			"./lib/access/createResetPwdFlow",
+			"./lib/access/createVerifyEmailFlow",
+			"./lib/access/resetPwdMailer",
+			"./lib/access/verifyEmailMailer",
+			"./lib/checkEmailLen",
+			"./lib/checkPwdLen",
+			"./lib/throwIfNotValidEnumValue",
+			"./lib/tryCatchRethrow"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"keygrip": {
+		"runtime": [],
+		"lazy": [],
+		"typesOnly": [
+			"./koa/middleware/authenticatedAuthorizationHandler",
+			"./koa/middleware/authenticatedAuthorizationHandler/verifySignedRefreshToken",
+			"./koa/middleware/authenticatedLogoutHandler"
+		]
+	},
+	"koa": {
+		"runtime": [],
+		"lazy": [],
+		"typesOnly": [
+			"./koa/logRequestToDb",
+			"./koa/middleware/authenticatedAuthorizationHandler",
+			"./koa/middleware/authenticatedLogoutHandler",
+			"./koa/middleware/authenticatedResourceHandler",
+			"./koa/middleware/debug",
+			"./koa/tdwKoaErrorHandler"
+		]
+	},
+	"mariadb": {
+		"runtime": [],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"mongoose": {
+		"runtime": [
+			"./dataSources/MongoDB",
+			"./graphQL/models/MongoDB/UserBase",
+			"./graphQL/models/MongoDB/log/DevStatsGraphQLCalls",
+			"./graphQL/models/MongoDB/log/LogGlobalError",
+			"./graphQL/models/MongoDB/log/LogStatsGraphql",
+			"./graphQL/models/MongoDB/log/LogThrow",
+			"./graphQL/schema/mutations/emailChangeHashVerify",
+			"./graphQL/schema/mutations/login4Ever",
+			"./graphQL/schema/mutations/loginAdmin",
+			"./graphQL/schema/mutations/loginRememberme",
+			"./graphQL/schema/mutations/resetPwd",
+			"./graphQL/schema/mutations/signUp",
+			"./graphQL/schema/mutations/updatePassword",
+			"./koa/middleware/authenticatedAuthorizationHandler",
+			"./koa/middleware/authenticatedResourceHandler",
+			"./koa/router/verifyEmail",
+			"./lib/Constants",
+			"./lib/access/createResetPwdFlow",
+			"./lib/access/createVerifyEmailFlow",
+			"./lib/checkEmailLen",
+			"./lib/checkPwdLen",
+			"./lib/db/log/hitStat",
+			"./lib/db/log/logGlobalError",
+			"./lib/db/log/logGraphql",
+			"./lib/db/log/logThrow",
+			"./lib/db/registerNewUser",
+			"./lib/db/userExist",
+			"./lib/emailHash"
+		],
+		"lazy": [],
+		"typesOnly": [
+			"./graphQL/schema/context/IContextAuthenticatedResource",
+			"./graphQL/schema/context/IContextRefresh",
+			"./graphQL/schema/interfaces/IFindAndUpdate",
+			"./graphQL/schema/mutations/refresh",
+			"./koa/middleware/authenticatedAuthorizationHandler/verifySignedRefreshToken",
+			"./koa/middleware/debug",
+			"./lib/access/accessPaths"
+		]
+	},
+	"pg": {
+		"runtime": [
+			"./dataSources/PostgreSQL"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"redis": {
+		"runtime": [
+			"./dataSources/Redis",
+			"./graphQL/schema/mutations/login4Ever",
+			"./graphQL/schema/mutations/loginAdmin",
+			"./graphQL/schema/mutations/loginRememberme",
+			"./graphQL/schema/mutations/logout",
+			"./graphQL/schema/mutations/refresh",
+			"./koa/middleware/authenticatedAuthorizationHandler",
+			"./koa/middleware/authenticatedLogoutHandler",
+			"./koa/middleware/authenticatedResourceHandler"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"reflect-metadata": {
+		"runtime": [],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"sequelize": {
+		"runtime": [],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"sequelize-typescript": {
+		"runtime": [
+			"./dataSources/MariaDB"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"sharp": {
+		"runtime": [
+			"./files/reEncodeToJpeg",
+			"./files/reEncodeToPng",
+			"./files/reEncodeToWebp",
+			"./files/uploadTempImage"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"uuid": {
+		"runtime": [
+			"./files/storeUploadAsTemp",
+			"./files/uploadTempImage",
+			"./files/uploadTempPdf",
+			"./graphQL/schema/mutations/login4Ever",
+			"./graphQL/schema/mutations/loginAdmin",
+			"./graphQL/schema/mutations/loginRememberme",
+			"./graphQL/schema/mutations/refresh",
+			"./lib/setLoginCookies",
+			"./lib/tokens"
+		],
+		"lazy": [],
+		"typesOnly": []
+	}
+}

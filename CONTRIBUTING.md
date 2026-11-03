@@ -75,7 +75,7 @@ Two files record debt that existed before a gate was added. Both are ratchets: t
 
 #### Snapshots
 
-`test/__snapshots__/public-api.json` pins the public surface (the `exports` map against `dist/`, and the runtime symbol names of every export) and `test/__snapshots__/graphql-errors.json` pins every GraphQL error (status, title, description). A failing snapshot spec means the public API or an observable error changed. Read the diff first. If the change is intended, regenerate with `UPDATE_SNAPSHOT=1 yarn test`, commit the snapshot with the code, and say in the pull request that the API changed: a removed key or symbol is breaking, an added one is additive, and a changed error title, status or description must be reflected in `docs/code/graphql-errors.md` in the same pull request. Never regenerate just to go green.
+`test/__snapshots__/public-api.json` pins the public surface (the `exports` map against `dist/`, and the runtime symbol names of every export) `test/__snapshots__/graphql-errors.json` pins every GraphQL error (status, title, description), and `test/__snapshots__/peer-reach.json` pins which subpaths load which peer dependency (at import, lazily, or in types only). A failing snapshot spec means the public API or an observable error changed. Read the diff first. If the change is intended, regenerate with `UPDATE_SNAPSHOT=1 yarn test`, commit the snapshot with the code, and say in the pull request that the API changed: a removed key or symbol is breaking, an added one is additive, a peer that a subpath newly loads at import is breaking for consumers who do not install it, and a changed error title, status or description must be reflected in `docs/code/graphql-errors.md` in the same pull request. Never regenerate just to go green.
 
 ### Tests
 

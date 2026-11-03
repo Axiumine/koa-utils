@@ -43,9 +43,10 @@ Every comment in `test/**/*.mts` written caveman ultra. Same spec as `CLAUDE.md`
 
 ## Snapshots — `test/__snapshots__/*.json`
 
-- 2 committed JSON, zero-dep (`node:assert` + `test/helpers/snapshot.mts`, no snapshot lib):
+- 3 committed JSON, zero-dep (`node:assert` + `test/helpers/snapshot.mts`, no snapshot lib):
   - `public-api.json` ← `test/package/publicApi.spec.mts`. `exports` key → sorted runtime symbol names, dist modules dynamic-imported.
   - `graphql-errors.json` ← `test/graphQL/throw/errorCatalog.spec.mts`. Each `throwXxx` → `{ message, extensions }`. Same spec check `docs/code/graphql-errors.md` quote status, title, description (substring, no table parse).
+  - `peer-reach.json` ← `test/package/peerReach.spec.mts`. Static walk over built `dist/` from every `exports` key. Per peer: `runtime` = subpaths loading it at import, `lazy` = subpaths reaching an `import('peer')` call, `typesOnly` = only in `.d.mts`. Diff = reach change → every `runtime` entry of an optional peer must be a subpath whose purpose is that peer. Same spec assert no `"."` / wildcard `exports` key + every bare import is a declared peer.
 - Read from repo root via `process.cwd()` → run via `yarn test` / `yarn test:coverage`, not from other cwd.
 - Regen: `UPDATE_SNAPSHOT=1 yarn test`. Only on intentional change.
 - Snapshot diff in PR = API change. Review like code: removed key/symbol = breaking (major), added = additive (minor), changed error title/status/description = observable behaviour → update `docs/code/graphql-errors.md` same commit.
