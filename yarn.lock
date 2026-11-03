@@ -1270,30 +1270,30 @@
   resolved "https://registry.npmjs.org/@oxc-resolver/binding-win32-x64-msvc/-/binding-win32-x64-msvc-11.24.2.tgz#d0649344fcd504dfaf7f3561a53617c38d98d789"
   integrity sha512-UqGPmo56KDfLlfXFAFIrNflHT8tFxWGEivWg3Zeyp4Uy2NlKN1FGPr6/BxcLGG3+kZ6Wp14g5Uj+n71boqZfiw==
 
-"@redis/bloom@6.3.0":
-  version "6.3.0"
-  resolved "https://registry.npmjs.org/@redis/bloom/-/bloom-6.3.0.tgz#5d6fe38f4f937c5a629c6bc5b6dafdbe9a07b433"
-  integrity sha512-NQ5poYpZr0jv6zazN1cy6JY5kIipKFZ3R9GTL4kOUTX3a9YAfY29U8bsE4lWhVQEM+G4V0BXVC57mubIdDijeA==
+"@redis/bloom@6.3.1":
+  version "6.3.1"
+  resolved "https://registry.yarnpkg.com/@redis/bloom/-/bloom-6.3.1.tgz#5dbbab09a81329bf567a76cfc5a3a9b298ed84bb"
+  integrity sha512-dpF9j2yJDoPzSCaZn0MSB3xzmnXQVJeTSAWJcQVcgbmluwhpFeemmII0cF1t+WYfoVS+shEFq79+MmUItgzJLg==
 
-"@redis/client@6.3.0":
-  version "6.3.0"
-  resolved "https://registry.npmjs.org/@redis/client/-/client-6.3.0.tgz#b8501b8d39eb1d4d9d2d1c6bd75cf441bea259b2"
-  integrity sha512-fHrjwGCBvAANGi+TuRuwKi83sIOzgHr8eh+Uf48w3fSX7Hhrz174NrWqfJhAC2vnN0d/tfaZpdr6+o6JC3QHwg==
+"@redis/client@6.3.1":
+  version "6.3.1"
+  resolved "https://registry.yarnpkg.com/@redis/client/-/client-6.3.1.tgz#2c77b3835ddfecb7024b0518d363f0fba07fadb7"
+  integrity sha512-masbfVKULdoAofwddepZxRhWa4w6zvBHn6TRn90TRPrRkVIlGCur3pFqwWaCbMxtYI9twepkz63e/T/tEH8GjA==
 
-"@redis/json@6.3.0":
-  version "6.3.0"
-  resolved "https://registry.npmjs.org/@redis/json/-/json-6.3.0.tgz#e2d928f6785eb57bb721a9764057dcef69aeb1af"
-  integrity sha512-yt6vRfPBXtW/3qm53cF81TSQpLMjWdW4/2E9WQ2GgbvsKkuCKCFQIcMiKlil1ZMnezK+IQuS795xKU5psbaegw==
+"@redis/json@6.3.1":
+  version "6.3.1"
+  resolved "https://registry.yarnpkg.com/@redis/json/-/json-6.3.1.tgz#b2ad71b13cbea2d2551537aee2d5c9ff06a6478c"
+  integrity sha512-fMz4kUwJzEftcU9EMaqsjZcUwzpTQLOYRqhQsAD6uKvZWeamblK13ZhgO5SzVSZVk31jmwLeTRpU5GAl5egfUw==
 
-"@redis/search@6.3.0":
-  version "6.3.0"
-  resolved "https://registry.npmjs.org/@redis/search/-/search-6.3.0.tgz#c153c125d0f791af78c145299f8ba4f7fc0eb0f8"
-  integrity sha512-RPXAZmKjZZG7Tm7m1w9keFdXzbL91PiSHQBfQRe9xwW40jNsTRbG0FwhIz4QlHPU4gKDAsCy8IQHj4yZl4H9rw==
+"@redis/search@6.3.1":
+  version "6.3.1"
+  resolved "https://registry.yarnpkg.com/@redis/search/-/search-6.3.1.tgz#db2fd8592c69d142f62626757ddbbc22d310bc52"
+  integrity sha512-T67pvPUpW82VrZLvihO8O2DFMC7eY2oMAzMzapCbiPZn7mdWqHMEIlohYim12gIawT5kn6qT/Cvmm4WulKB+kQ==
 
-"@redis/time-series@6.3.0":
-  version "6.3.0"
-  resolved "https://registry.npmjs.org/@redis/time-series/-/time-series-6.3.0.tgz#d21c1113ec607e0de5329f5bb799688e4e8cb940"
-  integrity sha512-+fJOB8mN1z5WRakCJNh5lVdz1KqvHGSOistsKeitD24QsCtPwyRQXWC0iq6T/i/ubLE/YcguZqPm8F598MKk4A==
+"@redis/time-series@6.3.1":
+  version "6.3.1"
+  resolved "https://registry.yarnpkg.com/@redis/time-series/-/time-series-6.3.1.tgz#a5afcae70455603e5f8f9a9ce1f8836f7859d1e1"
+  integrity sha512-MNDgrm+i63M/1a+XA+HcDsScwt4uBh/fGGJ84swTQZTFK5K5wMmxdlTRa4ZgmNJzjxMaszW/ipPScMUGV3aAMg==
 
 "@sec-ant/readable-stream@^0.4.1":
   version "0.4.1"
@@ -1710,17 +1710,10 @@
   resolved "https://registry.npmjs.org/@types/ms/-/ms-2.1.0.tgz#052aa67a48eccc4309d7f0191b7e41434b90bb78"
   integrity sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==
 
-"@types/node@*", "@types/node@>=20":
+"@types/node@*", "@types/node@>=20", "@types/node@^26.6.6":
   version "26.6.6"
   resolved "https://registry.npmjs.org/@types/node/-/node-26.6.6.tgz#9ed7b5817e728ed9216ef7c5b7d373fe3b777104"
   integrity sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==
-  dependencies:
-    undici-types "~8.9.0"
-
-"@types/node@^26.6.5":
-  version "26.6.5"
-  resolved "https://registry.npmjs.org/@types/node/-/node-26.6.5.tgz#cb35209e7767c503551b5fa42a48231c7441d979"
-  integrity sha512-uMzsv9stDdofIZBx4UGh4Z9ZgXnGC9seRDscilBcTHAeOFk67MZg/k9bWVfO+bk4qZmG+l52hRnLwUiH2LnJTg==
   dependencies:
     undici-types "~8.9.0"
 
@@ -4378,16 +4371,16 @@ readdirp@^5.0.0:
   resolved "https://registry.npmjs.org/readdirp/-/readdirp-5.1.1.tgz#520bca06f9d1ae1b96cc0800dbe84b983d19422c"
   integrity sha512-Kko+Y5XQ6fM+Ce3dq3m9YGxnacYZYl9cA1wZjaF3Vbry2L3i1qVg8+CAgNPsXRArPMUMCaOR7oa9Nqntc43JKA==
 
-redis@^6.3.0:
-  version "6.3.0"
-  resolved "https://registry.npmjs.org/redis/-/redis-6.3.0.tgz#1509c3e7bbb41baa0f69247c0ff7a0fea2b0f91b"
-  integrity sha512-XFQbPie1lGpKeUZ8ySYY43yLnQy/iIQtHNvIr/1XdaABpb96rUSdm3Mfl+98FEVbv9ZJIzINMno5s0Nh8E5LEw==
+redis@^6.3.1:
+  version "6.3.1"
+  resolved "https://registry.yarnpkg.com/redis/-/redis-6.3.1.tgz#2a8565c7254790b1346b241968b88304e949e6ef"
+  integrity sha512-mV96ZKxQ4CGn3SyEGaY0Lb9YA443mdVey3c+mdr0NAUaBxiOZGoYCWX8PoM55kictSOmxlJRtZJxIsmZm3jL+w==
   dependencies:
-    "@redis/bloom" "6.3.0"
-    "@redis/client" "6.3.0"
-    "@redis/json" "6.3.0"
-    "@redis/search" "6.3.0"
-    "@redis/time-series" "6.3.0"
+    "@redis/bloom" "6.3.1"
+    "@redis/client" "6.3.1"
+    "@redis/json" "6.3.1"
+    "@redis/search" "6.3.1"
+    "@redis/time-series" "6.3.1"
 
 refa@^0.12.0, refa@^0.12.1:
   version "0.12.1"
