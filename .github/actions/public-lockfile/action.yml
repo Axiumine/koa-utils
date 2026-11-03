@@ -12,11 +12,13 @@ runs:
     - shell: bash
       run: |
         set -euo pipefail
-        # Drop the persisted filter, then write the committed blob again with both filter commands forced to `cat`
-        # (the -c values win even if a runner-wide git config defines the filter). `git checkout <tree-ish> -- path`
-        # overwrites the file unconditionally, so a stale or smudged copy cannot survive.
+        # Drop the persisted filter, then replace the file with the committed blob itself. Not `git checkout`: it
+        # skips a file whose stat data matches the index entry, and a smudged copy written by an earlier checkout
+        # matches, so it would stay smudged. `cat-file blob` reads the raw blob, with no filter or attribute involved.
         git config --local --remove-section filter.yarnlock-registry 2>/dev/null || true
-        git -c filter.yarnlock-registry.smudge=cat -c filter.yarnlock-registry.clean=cat checkout HEAD -- yarn.lock
+        tmp="$(mktemp yarn.lock.XXXXXX)"
+        git cat-file blob HEAD:yarn.lock > "$tmp"
+        mv -f -- "$tmp" yarn.lock
         # Same invariant as the lockfile check in .githooks/pre-commit, now also enforced where Dependabot PRs run.
         # No pipe into grep -q (SIGPIPE under pipefail): collect the hosts first, compare after.
         hosts="$(sed -n -E 's#^[[:space:]]+resolved "https?://([^/]+)/.*#\1#p' yarn.lock | sort -u)"
