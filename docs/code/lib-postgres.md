@@ -1,13 +1,13 @@
 # Lib — PostgreSQL Kit
 
-A kit of small, driver-agnostic building blocks for services that talk to PostgreSQL through [node-postgres](https://node-postgres.com) (`pg`): a pool factory that checks the session before it hands a connection out, string parsers for the date and integer types that would otherwise become a JavaScript `Date` or lose digits, closed-reason errors that never carry a password or a row, and a strict check for a database URL. It is separate from `dataSources/PostgreSQL` (the environment-driven singletons, see [data-sources.md](./data-sources.md)) and from `lib/PostgreSQL/IPostgresError` and `makePostgreSqlLogError` (documented in [lib-datasource-errors.md](./lib-datasource-errors.md)): nothing in this kit reads an environment variable or opens a connection on import.
+A kit of small, driver-agnostic building blocks for services that talk to PostgreSQL through [node-postgres](https://node-postgres.com) (`pg`): a pool factory that checks the session before it hands a connection out, a transaction wrapper with a bounded retry, string parsers for the date and integer types that would otherwise become a JavaScript `Date` or lose digits, closed-reason errors that never carry a password or a row, and a strict check for a database URL. It is separate from `dataSources/PostgreSQL` (the environment-driven singletons, see [data-sources.md](./data-sources.md)) and from `lib/PostgreSQL/IPostgresError` and `makePostgreSqlLogError` (documented in [lib-datasource-errors.md](./lib-datasource-errors.md)): nothing in this kit reads an environment variable or opens a connection on import.
 
-This page covers the first part of the kit: the leaf pieces. Later parts are added beside it under the same folder.
+This page covers the leaf pieces (errors, parsers, type registry, pool, database URL check) and the transaction wrapper `withTx`. Later parts are added beside it under the same folder.
 
 ## Principles
 
 - **The driver is a parameter.** No file in the kit imports `pg`, and no `.d.mts` names it. `createPool` takes the module you imported (`import pg from 'pg'`) as `driver` and uses three members of it through structural types (`IDbDriver`). Importing any subpath of the kit therefore loads no peer dependency and needs none installed, `pg` included.
-- **Structural seams.** A logger is any object with `warn` and `error` (`IPoolLogger`). A counter is any function of the counter name (`IDbCounter`). Nothing is a class you must extend.
+- **Structural seams.** A logger is any object with `warn` and `error` (`IPoolLogger`). A counter is any function of the counter name (`IDbCounter`). An error factory is any object that builds your own error class for a closed reason (`IDbErrorFactory`), so the kit imports no error class of your application. Nothing is a class you must extend.
 - **Closed reasons, fixed messages.** Every error and every check answers with a word from a closed list. A message is built from the reason and the name of a type, never from a stored value, a URL or the text of the driver, so a password or a row cannot reach a log line through them. No error here has a `cause`.
 - **One export per file.** Each value has its own subpath, and its types live in `I*` files. There is no barrel.
 
@@ -17,11 +17,12 @@ All subpaths are `@axiumine/koa-utils/lib/PostgreSQL/<folder>/<File>`. The file 
 
 | Folder | Holds |
 |---|---|
-| `error/` | `DbParseError`, `DbConnectError`, their reason lists and types, the SQLSTATE readers (`sqlstateOf`, `sqlstateField`, `constraintNameOf`, `errorNameOf`) |
+| `error/` | `DbParseError`, `DbConnectError`, `DbTxError`, their reason lists and types, `IDbErrorFactory`, the SQLSTATE readers (`sqlstateOf`, `sqlstateField`, `constraintNameOf`, `errorNameOf`) |
 | `parse/` | the string parsers, `arrayOf`, and the type registry (`TYPE_PARSERS`, `createTypeRegistry`) |
 | `pool/` | `createPool`, its options and constants |
 | `counter/` | `IDbCounter`, the counter callback type |
 | `url/` | `databaseUrlReason` and the host and path checks it uses |
+| `tx/` | `withTx`, `jitteredDelay`, `defaultRetryDelay`, the transaction constants, and the types of the handle, the pool, the client and the options |
 
 Types are named `I<Name>`. When you move code that used the unprefixed names of a private copy, the mapping is:
 
@@ -33,8 +34,11 @@ Types are named `I<Name>`. When you move code that used the unprefixed names of 
 | `StringParser`, `ArrayParser` | `IStringParser`, `IArrayParser` |
 | `DriverTypes` | `IDriverTypes` |
 | `TypeParserEntry` | `ITypeParserEntry` |
-| `DbParseReason`, `DbConnectReason` | `IDbParseReason`, `IDbConnectReason` |
+| `DbParseReason`, `DbConnectReason`, `DbTxReason` | `IDbParseReason`, `IDbConnectReason`, `IDbTxReason` |
 | `DatabaseUrlContext`, `DatabaseUrlReason` | `IDatabaseUrlOptions`, `IDatabaseUrlReason` |
+| `Tx`, `TxResult`, `TxClient`, `TxPool`, `TxOptions` | `ITx`, `ITxResult`, `ITxClient`, `ITxPool`, `ITxOptions` |
+| `TxIsolation`, `TxFailureReason`, `RetryDelay` | `ITxIsolation`, `ITxFailureReason`, `IRetryDelay` |
+| `DbErrorFactory` | `IDbErrorFactory` |
 
 The module `src/lib/PostgreSQL` also holds three older files (`IPostgresError`, `IPostgresErrorCodes`, `makePostgreSqlLogError`). They are unrelated to the kit and unchanged. `makePostgreSqlLogError` logs the `detail` of an error; the kit's readers below never read it. They are two policies, not one to merge.
 
@@ -99,6 +103,47 @@ The error `createPool` throws or rejects with. `name` is `'DbConnectError'` and 
 | `CONNECT_TIMEOUT` | the connection, the login and the session check did not finish in `connectTimeoutMs` |
 | `CONNECT_FAILED` | the driver or the server refused (refused connection, name not found, login refused, server shutting down) |
 | `TIMEZONE_NOT_UTC` | the session time zone is not `UTC` |
+
+### `DbTxError`, `DB_TX_REASONS`, `IDbTxReason`
+
+**Import:**
+```ts
+import { DbTxError } from '@axiumine/koa-utils/lib/PostgreSQL/error/DbTxError'
+import { DB_TX_REASONS } from '@axiumine/koa-utils/lib/PostgreSQL/error/DB_TX_REASONS'
+import type { IDbTxReason } from '@axiumine/koa-utils/lib/PostgreSQL/error/IDbTxReason'
+```
+
+**Signature:**
+```ts
+export const DB_TX_REASONS = ['HANDLE_CLOSED', 'COMMIT_ROLLED_BACK'] as const
+export type IDbTxReason = (typeof DB_TX_REASONS)[number]
+export class DbTxError extends Error {
+	readonly reason: IDbTxReason
+	constructor(reason: IDbTxReason)
+}
+```
+
+The error of a misused transaction, both reasons a defect of the calling code. `name` is `'DbTxError'` and `message` is `` `database transaction misused: ${reason}` ``. No `cause`.
+
+| Reason | Meaning |
+|---|---|
+| `HANDLE_CLOSED` | a statement was sent through the handle of a transaction that has already committed, rolled back or started to commit |
+| `COMMIT_ROLLED_BACK` | the server answered `COMMIT` with the command tag `ROLLBACK` (what it does for a transaction that a failed statement aborted) and no failed statement of the handle is known to say why |
+
+### `IDbErrorFactory`
+
+**Import:** `import type { IDbErrorFactory } from '@axiumine/koa-utils/lib/PostgreSQL/error/IDbErrorFactory'`
+
+**Signature:**
+```ts
+export interface IDbErrorFactory<TError extends Error = Error> {
+	is(error: unknown): error is TError
+	make(code: string, details?: unknown): TError
+	internal(reason: string): TError
+}
+```
+
+The one error-factory port of the kit. A part of the kit that has to hand its caller an error of the application's own family (an HTTP error with a code and details, say) asks this object for it instead of importing a class, so the kit stays free of your error types. `withTx` reads `internal` only (`ITxOptions['errors']` is `Pick<IDbErrorFactory, 'internal'>`, so an object with just `internal` fits); later parts of the kit that map driver errors read all three members. `reason` is a closed word meant for a log, not for a response body.
 
 ### `sqlstateOf`, `sqlstateField`, `constraintNameOf`, `errorNameOf`
 
@@ -289,6 +334,138 @@ const pool = createPool({
 | `counter/IDbCounter` | `IDbCounter<TName extends string = string>` | `(name: TName) => void` |
 
 `IDbCounter` is generic over the name so each part of the kit narrows it to the names it emits. A counter typed over a wider closed list, such as `(name: 'a' | 'b') => void`, is assignable to `IDbCounter<'a'>`, so you can pass one counter function everywhere without an adapter. The kit keeps no registry and exposes no metrics endpoint: you decide where a count goes.
+
+## Transactions
+
+### `withTx`
+
+**Import:** `import { withTx } from '@axiumine/koa-utils/lib/PostgreSQL/tx/withTx'`
+
+**Signature:**
+```ts
+export function withTx<T>(pool: ITxPool, options: ITxOptions, fn: (tx: ITx) => Promise<T>): Promise<T>
+```
+
+The one transaction wrapper, so that no caller writes its own isolation, lock timeout or retry loop. `pool` is any object with `connect(): Promise<ITxClient>`: the `pg.Pool` that `createPool` returns has it, and so does any pool that hands out `pg.PoolClient`s. Nothing is imported from `pg`.
+
+What one attempt does, in order:
+
+1. Checks a connection out of the pool and listens to its `error` event for as long as it holds it. A connection that dies under a running transaction would otherwise emit an event nobody handles, and Node ends the process on that. The event counts `db_tx_client_errors_total`, logs `error` `database client error during transaction` with `reason: 'CLIENT_ERROR'` and the SQLSTATE when there is a safe one, and marks the connection to be destroyed.
+2. `BEGIN ISOLATION LEVEL <level> [READ ONLY]`, the text taken from a closed table (never built), then `SET LOCAL lock_timeout = <ms>`. `SET LOCAL` is the only form of `SET` in the module: the value ends with the transaction, so the role-level value is back for the next user of the connection, and a transaction pooler stays usable.
+3. Runs `fn` with a handle that has one member, `query`. The handle is frozen. The pool and the connection are not reachable from it, and it stops working when the transaction ends, so a statement cannot run outside the transaction, not even through a handle that `fn` kept (it is refused with `DbTxError` `HANDLE_CLOSED`).
+4. `COMMIT` when `fn` resolved, `ROLLBACK` when anything threw. A rollback that fails does not hide the error that caused it: the original error is thrown, the connection is destroyed instead of returned to the pool, `db_tx_rollback_failures_total` is counted and `database transaction rollback failed` is logged with `reason: 'ROLLBACK_FAILED'`.
+
+What the loop does with a failure of an attempt, by SQLSTATE:
+
+| SQLSTATE | Meaning | What the caller gets |
+|---|---|---|
+| `40001` | serialisation failure | `fn` runs again in a fresh transaction on a fresh checkout, after `retryDelay`, up to `retryMax` retries. After the last one fails too: `errors.internal('TX_RETRY_EXHAUSTED')` |
+| `40P01` | deadlock detected | the same as `40001` |
+| `55P03` | lock not available (the lock timeout) | no retry: `errors.internal('LOCK_TIMEOUT')` |
+| anything else, or no SQLSTATE | | the error unchanged (the same object), after the rollback |
+
+Each retry counts `db_tx_retries_total` and logs `warn` `database transaction retried` with `reason: 'TX_RETRY'`, `sqlstate` and `retry` (1 for the first). The failures that end the loop count `db_tx_retry_exhausted_total` or `db_tx_lock_timeouts_total` and log `error` `database transaction failed` with `reason`, `sqlstate` and `attempts`. The factory is asked for the reason and nothing else: no driver message, no constraint name, no `cause`, so nothing the driver wrote can reach the error the caller sees.
+
+**A swallowed failure is not a success.** If `fn` catches the error of a statement and resolves, the transaction is aborted and the server answers `COMMIT` with the tag `ROLLBACK`. The wrapper reads the tag and throws the first failed statement of the handle (which then goes through the table above, so a swallowed deadlock is still retried), or `DbTxError` `COMMIT_ROLLED_BACK` when none is known. Recover with a savepoint (`ROLLBACK TO SAVEPOINT`) if you mean to continue.
+
+`fn` may run more than once, so it must hold no state that a failed run leaves behind. `withTx` rejects with `TypeError` for an option out of range, before a connection is taken; the checks run in the order isolation, lock timeout, retry count.
+
+```ts
+import pg from 'pg'
+import type { IDbErrorFactory } from '@axiumine/koa-utils/lib/PostgreSQL/error/IDbErrorFactory'
+import { createPool } from '@axiumine/koa-utils/lib/PostgreSQL/pool/createPool'
+import { withTx } from '@axiumine/koa-utils/lib/PostgreSQL/tx/withTx'
+
+class AppError extends Error {
+	constructor(
+		readonly code: string,
+		readonly details?: unknown
+	) {
+		super(code)
+	}
+}
+
+const errors: IDbErrorFactory<AppError> = {
+	is: (error): error is AppError => error instanceof AppError,
+	make: (code, details) => new AppError(code, details),
+	internal: (reason) => new AppError('INTERNAL', { reason })
+}
+
+const logger = {
+	warn: (message: string, fields?: Readonly<Record<string, unknown>>) => console.warn(message, fields),
+	error: (message: string, fields?: Readonly<Record<string, unknown>>) => console.error(message, fields)
+}
+
+const pool = createPool({ driver: pg, url: process.env['DATABASE_URL'] ?? '', max: 10, applicationName: 'orders-api', logger })
+
+const total = await withTx(pool, { logger, errors, isolation: 'REPEATABLE READ', readOnly: true }, async (tx) => {
+	const { rows } = await tx.query<{ n: string }>('SELECT count(*)::text AS n FROM orders WHERE customer_id = $1', [42])
+	return rows[0]?.n ?? '0'
+})
+```
+
+**Options (`ITxOptions`):**
+
+| Name | Type | Description |
+|---|---|---|
+| logger | `IPoolLogger` | `{ warn, error }`, the same shape `createPool` takes. The retries and the failures are written to it. |
+| errors | `Pick<IDbErrorFactory, 'internal'>` | Builds the error the caller gets when the loop gives up. Required: the kit cannot make an error of your family without it. |
+| counter | `ITxCounter` | Optional. Called once per event with one of `db_tx_retries_total`, `db_tx_retry_exhausted_total`, `db_tx_lock_timeouts_total`, `db_tx_rollback_failures_total`, `db_tx_client_errors_total`. Default: nowhere. |
+| isolation | `ITxIsolation` | Optional. `'READ COMMITTED'` (default), `'REPEATABLE READ'` or `'SERIALIZABLE'`. `READ UNCOMMITTED` is the server's alias of `READ COMMITTED` and is not offered. |
+| readOnly | `boolean` | Optional. Adds `READ ONLY` at the requested isolation; a write then fails with SQLSTATE `25006`. Default `false`. |
+| lockTimeoutMs | `number` | Optional. `SET LOCAL lock_timeout`, a whole number of milliseconds from 1 to `MAX_LOCK_TIMEOUT_MS`. Default `DEFAULT_LOCK_TIMEOUT_MS`. |
+| retryMax | `number` | Optional. How many times `fn` is run again after 40001 or 40P01, a whole number from 0 to `TX_RETRY_MAX_CEILING`. Default `TX_RETRY_MAX`. |
+| retryDelay | `IRetryDelay` | Optional. The wait before retry number `retry`. Default `defaultRetryDelay`. |
+
+### `jitteredDelay`, `defaultRetryDelay`
+
+**Import:**
+```ts
+import { jitteredDelay } from '@axiumine/koa-utils/lib/PostgreSQL/tx/jitteredDelay'
+import { defaultRetryDelay } from '@axiumine/koa-utils/lib/PostgreSQL/tx/defaultRetryDelay'
+import type { IRetryDelay } from '@axiumine/koa-utils/lib/PostgreSQL/tx/IRetryDelay'
+```
+
+**Signature:**
+```ts
+export type IRetryDelay = (retry: number) => Promise<void>
+export function jitteredDelay(random?: (maxExclusive: number) => number): IRetryDelay
+export const defaultRetryDelay: IRetryDelay
+```
+
+`jitteredDelay(random)` waits a random length from 0 to `TX_RETRY_BASE_DELAY_MS` times two to the power of the retry number minus one, both ends included ("full jitter"), so that two transactions that collided do not collide again in step: 0 to 25 ms before the first retry, 0 to 50 ms before the second, 0 to 100 ms before the third. `random(n)` answers a whole number from 0 up to `n`, `n` excluded; the default is `randomInt` of `node:crypto`. `defaultRetryDelay` is `jitteredDelay()`. Pass `retryDelay: () => Promise.resolve()` to `withTx` in a test that should wait for nothing.
+
+```ts
+import { jitteredDelay } from '@axiumine/koa-utils/lib/PostgreSQL/tx/jitteredDelay'
+
+// a wait of exactly the longest length the range holds, for a reproducible test
+const slowest = jitteredDelay((maxExclusive) => maxExclusive - 1)
+await slowest(2) // 50 ms
+```
+
+### Transaction constants and types
+
+| Subpath | Export | Value or shape |
+|---|---|---|
+| `tx/DEFAULT_LOCK_TIMEOUT_MS` | `DEFAULT_LOCK_TIMEOUT_MS` | `3_000` |
+| `tx/MAX_LOCK_TIMEOUT_MS` | `MAX_LOCK_TIMEOUT_MS` | `2_147_483_647` (the server takes a 32-bit count of milliseconds) |
+| `tx/TX_RETRY_MAX` | `TX_RETRY_MAX` | `2` |
+| `tx/TX_RETRY_MAX_CEILING` | `TX_RETRY_MAX_CEILING` | `10` |
+| `tx/TX_RETRY_BASE_DELAY_MS` | `TX_RETRY_BASE_DELAY_MS` | `25` |
+| `tx/TX_ISOLATION_LEVELS` | `TX_ISOLATION_LEVELS` | `['READ COMMITTED', 'REPEATABLE READ', 'SERIALIZABLE'] as const` |
+| `tx/TX_FAILURE_REASONS` | `TX_FAILURE_REASONS` | `['TX_RETRY_EXHAUSTED', 'LOCK_TIMEOUT'] as const` |
+| `tx/ITxIsolation` | `ITxIsolation` | one of `TX_ISOLATION_LEVELS` |
+| `tx/ITxFailureReason` | `ITxFailureReason` | one of `TX_FAILURE_REASONS` |
+| `tx/ITx` | `ITx` | `{ query<TRow = Record<string, unknown>>(text: string, values?: readonly unknown[]): Promise<ITxResult<TRow>> }` |
+| `tx/ITxResult` | `ITxResult<TRow>` | `{ readonly rows: TRow[]; readonly rowCount: number \| null; readonly command: string }` |
+| `tx/ITxClient` | `ITxClient` | `query`, `on('error', listener)`, `removeListener('error', listener)` and `release(destroy?: boolean)`: the `pg.PoolClient` has all of it |
+| `tx/ITxPool` | `ITxPool` | `{ connect(): Promise<ITxClient> }`: the `pg.Pool` has it |
+| `tx/ITxOptions` | `ITxOptions` | the options above |
+| `tx/ITxCounter` | `ITxCounter` | `IDbCounter<ITxCounterName>` |
+| `tx/ITxCounterName` | `ITxCounterName` | the five `db_tx_*_total` names above |
+| `tx/IRetryDelay` | `IRetryDelay` | `(retry: number) => Promise<void>` |
+
+`TX_FAILURE_REASONS` are the two reasons `withTx` passes to `errors.internal`. As with the pool counter, a counter typed over a wider list of names, such as `(name: ITxCounterName | IPoolCounterName) => void`, is assignable to `ITxCounter`, so one counter function serves `createPool` and `withTx`.
 
 ## Database URL check
 

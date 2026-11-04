@@ -361,14 +361,22 @@
 	"./lib/PostgreSQL/error/DB_PARSE_REASONS": [
 		"DB_PARSE_REASONS"
 	],
+	"./lib/PostgreSQL/error/DB_TX_REASONS": [
+		"DB_TX_REASONS"
+	],
 	"./lib/PostgreSQL/error/DbConnectError": [
 		"DbConnectError"
 	],
 	"./lib/PostgreSQL/error/DbParseError": [
 		"DbParseError"
 	],
+	"./lib/PostgreSQL/error/DbTxError": [
+		"DbTxError"
+	],
 	"./lib/PostgreSQL/error/IDbConnectReason": [],
+	"./lib/PostgreSQL/error/IDbErrorFactory": [],
 	"./lib/PostgreSQL/error/IDbParseReason": [],
+	"./lib/PostgreSQL/error/IDbTxReason": [],
 	"./lib/PostgreSQL/error/constraintNameOf": [
 		"constraintNameOf"
 	],
@@ -429,6 +437,46 @@
 	],
 	"./lib/PostgreSQL/pool/createPool": [
 		"createPool"
+	],
+	"./lib/PostgreSQL/tx/DEFAULT_LOCK_TIMEOUT_MS": [
+		"DEFAULT_LOCK_TIMEOUT_MS"
+	],
+	"./lib/PostgreSQL/tx/IRetryDelay": [],
+	"./lib/PostgreSQL/tx/ITx": [],
+	"./lib/PostgreSQL/tx/ITxClient": [],
+	"./lib/PostgreSQL/tx/ITxCounter": [],
+	"./lib/PostgreSQL/tx/ITxCounterName": [],
+	"./lib/PostgreSQL/tx/ITxFailureReason": [],
+	"./lib/PostgreSQL/tx/ITxIsolation": [],
+	"./lib/PostgreSQL/tx/ITxOptions": [],
+	"./lib/PostgreSQL/tx/ITxPool": [],
+	"./lib/PostgreSQL/tx/ITxResult": [],
+	"./lib/PostgreSQL/tx/MAX_LOCK_TIMEOUT_MS": [
+		"MAX_LOCK_TIMEOUT_MS"
+	],
+	"./lib/PostgreSQL/tx/TX_FAILURE_REASONS": [
+		"TX_FAILURE_REASONS"
+	],
+	"./lib/PostgreSQL/tx/TX_ISOLATION_LEVELS": [
+		"TX_ISOLATION_LEVELS"
+	],
+	"./lib/PostgreSQL/tx/TX_RETRY_BASE_DELAY_MS": [
+		"TX_RETRY_BASE_DELAY_MS"
+	],
+	"./lib/PostgreSQL/tx/TX_RETRY_MAX": [
+		"TX_RETRY_MAX"
+	],
+	"./lib/PostgreSQL/tx/TX_RETRY_MAX_CEILING": [
+		"TX_RETRY_MAX_CEILING"
+	],
+	"./lib/PostgreSQL/tx/defaultRetryDelay": [
+		"defaultRetryDelay"
+	],
+	"./lib/PostgreSQL/tx/jitteredDelay": [
+		"jitteredDelay"
+	],
+	"./lib/PostgreSQL/tx/withTx": [
+		"withTx"
 	],
 	"./lib/PostgreSQL/url/IDatabaseUrlOptions": [],
 	"./lib/PostgreSQL/url/IDatabaseUrlReason": [],
