@@ -5,6 +5,72 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 8.1.0 — 2026-11-04
+
+A generic PostgreSQL kit under `lib/PostgreSQL/`: 125 new subpaths (284 `exports` keys in all, up from 159), no new peer dependency and no change to any existing export. Nothing in your code changes.
+
+The kit never imports `pg`, `sequelize` or any other peer, at run time or in a `.d.mts`. The database driver is a parameter with a structural type, and the error family, the logger, the counter and the clock are passed in by the caller. `test/package/peerReach.spec.mts` asserts an empty peer budget for every new subpath.
+
+### Added
+
+#### Leaf pieces (39 subpaths)
+
+- Error helpers: `sqlstateOf`, `sqlstateField`, `constraintNameOf`, `errorNameOf` read a driver error defensively and return a value only when it has the expected shape.
+- Errors: `DbParseError` (with `DB_PARSE_REASONS`) and `DbConnectError` (with `DB_CONNECT_REASONS`). Neither error ever carries the offending text, the connection string or a password.
+- Parsers for the text form of PostgreSQL values: `parseDate`, `parseTime`, `parseTimestamptz`, `parseInt8` (stays a string), `parseUuid` and `arrayOf`. No `Date` object is ever built. Years 1 to 9999 are accepted, `time` is `HH:mm` only, `timestamptz` becomes a UTC ISO string with milliseconds (microseconds are cut toward zero).
+- Type registry: `createTypeRegistry` and `TYPE_PARSERS` build a per-pool `types` object from a driver's type table, without touching the driver's global parsers.
+- `createPool`: builds a pool from a structural `IDbDriver`, validates the URL, requires the session time zone to be UTC, applies one connect deadline, counts and logs connect failures with the secrets scrubbed, and scrubs the idle-client error log. Constants: `DEFAULT_CONNECT_TIMEOUT_MS`, `DEFAULT_KEEPALIVE_INITIAL_DELAY_MS`, `REQUIRED_SESSION_TIME_ZONE`.
+- `databaseUrlReason` with `isValidHost`, `isAbsolutePath` and `LOOPBACK_HOSTS`: validates a database URL against a closed allow-list and returns a reason word, never the URL. The options `expectedRole` and `allowPlainLoopback` replace any environment-name mapping.
+- `IDbCounter<TName>`: a generic counter callback type; a counter over a wider name union is assignable to a narrower one.
+
+#### Transactions (24 subpaths)
+
+- `lib/PostgreSQL/tx/withTx`: one transaction wrapper for a node-postgres pool. It opens the transaction with a `BEGIN` taken from a closed table, sets the lock timeout with `SET LOCAL`, runs your function with a handle that has a single `query` method, and commits or rolls back. A failure with SQLSTATE `40001` (serialisation) or `40P01` (deadlock) runs the function again in a fresh transaction, up to `retryMax` times (default 2, at most 10), after a jittered wait. `55P03` (lock timeout) is not retried. When the loop gives up, the error the caller gets is built by the `errors` factory you pass (`errors.internal('TX_RETRY_EXHAUSTED')` or `errors.internal('LOCK_TIMEOUT')`), so the kit imports no error class of your application. Any other error is rethrown unchanged after the rollback.
+- The handle closes with the transaction: a statement sent through a kept handle is refused with `DbTxError` (`HANDLE_CLOSED`). A failure that your function swallows is not reported as a success: when the server answers `COMMIT` with the tag `ROLLBACK`, `withTx` throws the first failed statement, or `DbTxError` (`COMMIT_ROLLED_BACK`) when none is known. A connection that emitted an error, or whose rollback failed, is destroyed instead of returned to the pool.
+- `lib/PostgreSQL/tx/jitteredDelay` and `defaultRetryDelay` (a full-jitter wait of 0 to 25 ms times two to the power of the retry number minus one), the constants `DEFAULT_LOCK_TIMEOUT_MS` (3000), `MAX_LOCK_TIMEOUT_MS`, `TX_RETRY_MAX`, `TX_RETRY_MAX_CEILING`, `TX_RETRY_BASE_DELAY_MS`, `TX_ISOLATION_LEVELS`, `TX_FAILURE_REASONS`, and the types `ITx`, `ITxResult`, `ITxClient`, `ITxPool`, `ITxOptions`, `ITxIsolation`, `ITxFailureReason`, `ITxCounter`, `ITxCounterName`, `IRetryDelay`. `jitteredDelay` uses `randomInt` from `node:crypto`.
+- `lib/PostgreSQL/error/DbTxError` (with `DB_TX_REASONS` and `IDbTxReason`): the closed-reason error of a misused transaction, with a fixed message and no `cause`.
+- `lib/PostgreSQL/error/IDbErrorFactory`: the one error-factory port of the kit (`is`, `make`, `internal`). `withTx` reads `internal` only; the other parts of the kit read all three.
+
+#### Error mapping and write guards (19 subpaths)
+
+- `lib/PostgreSQL/error/mapDbError`: turns any thrown value into an error of your own family, built by the `IDbErrorFactory` you pass as `options.errors`. An error the factory recognises passes through unchanged. A `DbParseError`, `DbConnectError`, `DbTxError` or any other SQLSTATE becomes `errors.internal(reason)` with a reason from `DB_INTERNAL_REASONS`. A unique, check or foreign key violation (SQLSTATE 23505, 23514, 23503) is looked up by constraint name in a table you pass as `options.table`, and becomes `errors.make(code, details)`; the details are the ones the row fixes plus the keys the row lists and the caller supplies. An unmapped constraint is `CONSTRAINT_UNMAPPED`. The log line carries the reason, the SQLSTATE, the constraint name and the class name only, never the driver message, `detail`, `query` or `parameters`. Counters: `db_constraint_unmapped_total` and `db_error_internal_total`. The table, the factory and the logger are parameters; the logger needs only an `error` method. A table row whose code means "a defect" is recognised by `options.internalCode` (default `INTERNAL`).
+- `lib/PostgreSQL/error/buildConstraintEntry`, `lookupConstraint` and the types `IConstraintEntry`, `IConstraintTable` and `IConstraintEntryBuilder`: the constraint table is plain data owned by the application; the kit ships none. `IConstraintEntryBuilder<TCode, TDetailsByCode>` is a typed view of `buildConstraintEntry` over your own closed list of codes and a map from code to details shape, so a row cannot name a key its code does not have.
+- `lib/PostgreSQL/error/DB_INTERNAL_REASONS` and `IDbInternalReason`: the closed reasons that `mapDbError` and `guardVersion` pass to `errors.internal`.
+- `lib/PostgreSQL/guard/assertAffected`: throws the error you pass (or a function that builds it) unless a statement affected exactly the expected number of rows; a row count the server did not report is a mismatch. It builds no error and takes no factory.
+- `lib/PostgreSQL/guard/guardVersion`: after an update guarded by a `version` or `rev` column matched no row, re-reads the row with the statement you give and answers `errors.make('NOT_FOUND', { entity })`, `errors.make('STALE_VERSION')`, `errors.make('STALE_REV')` or `errors.internal('VERSION_UNCHANGED' | 'REREAD_UNREADABLE')`. An absent row and a row the actor may not see give the same answer. Types: `IVersionGuardInput`, `IVersionGuardField`, `IVersionGuardCode`, `IGuardCounter`, `IAffectedResult`, and `VERSION_GUARD_FIELDS`.
+
+#### Role assertion (9 subpaths)
+
+- `lib/PostgreSQL/role/assertRole`: a boot check that the database role a service is connected as is the one it expects. `assertRole(pool, { expectedRole, expectedGrants, allowedMemberships })` runs fixed, read-only catalog statements on one checked-out connection, in a fixed order, and stops at the first failure: the effective role is `expectedRole`; the role is not a superuser and has no CREATEROLE, CREATEDB, BYPASSRLS or REPLICATION attribute; it owns no object in any database of the cluster; it is a member of no role you did not allow, directly or through a chain; `session_user` is the same role (the login did not `SET ROLE`); and every grant in `expectedGrants` is held (schema, table, view, sequence, function or column level). The expected grants are a parameter, so nothing about your roles is built in. The pool is any object with `connect()` and `end()`, the `pg.Pool` from `createPool` included.
+- `lib/PostgreSQL/error/RoleAssertionError` with `ROLE_ASSERT_REASONS` (twelve closed reasons: `INVALID_EXPECTATION`, `ROLE_MISMATCH`, `ROLE_SUPERUSER`, `ROLE_CREATEROLE`, `ROLE_CREATEDB`, `ROLE_BYPASSRLS`, `ROLE_REPLICATION`, `ROLE_OWNS_OBJECTS`, `ROLE_MEMBERSHIP`, `SESSION_ROLE_DIFFERS`, `GRANT_MISSING`, `CHECK_FAILED`), `IRoleAssertionReason` and `IRoleAssertionSubject`. The message is built from names that pass a shape check (anything else prints as `?`, so a connection string given by mistake as a role name is never repeated) and the error has no `cause`.
+- Types: `lib/PostgreSQL/role/IAssertRoleOptions`, `IRoleGrant`, `IRolePool`, `IRoleAssertion`.
+
+#### Clock and lock order (34 subpaths)
+
+- `clock/createDbClock`, `clock/lockTaken`, `clock/CLOCK_SQL`, `clock/DB_NOW_SQL` and the types `IClock`, `IDbClock`, `IDbClockOptions`, `IDbClockSeam`. `createDbClock(tx, { write, seam })` binds the server time to a transaction: it is read once, in epoch milliseconds, with `read()` (asynchronous) and then `now()` (synchronous). A write transaction cannot read it before a lock helper has called `lockTaken(tx)`. The optional test seam is a statement you supply plus an `allowed` flag you compute; a seam that is not allowed is refused before the transaction is touched.
+- `lock/createLockOrderTracker` and its types `ILockOrderSpec`, `ILockOrderTracker`, `ILockTrackerConfig`, `ILockTrackerOptions`, `ILockAdmission`. You give the tracker a spec (`orders`: the ordered ranks per mode, `helpers`: the rank each of your lock helpers takes in each mode, `defaultMode`); it checks the spec when it is made and answers `admit`, `record`, `track`, `configure`, `hold` and `held`. Its state belongs to the tracker object, so two trackers never share a transaction record.
+- `lock/claimRowsSkipLocked`, `lock/lockedRow`, `lock/lockedRows`, `lock/uuidOf`, `lock/uuidsOf`, `lock/rowLockModeOf`, `lock/ROW_LOCK_MODES`, `lock/CLAIM_LIMIT_MAX` and the types `IRowLockMode`, `IClaimRegistry`, `IClaimRequest`. `claimRowsSkipLocked` runs a statement taken from a closed registry that the caller writes; the kit holds no lock clause. The kit exports no raw lock clause and no session-level lock.
+- `error/DbClockError`, `error/DB_CLOCK_REASONS`, `error/IDbClockReason`; `error/LockOrderError`, `error/LOCK_ORDER_REASONS`, `error/ILockOrderReason`; `error/DbStateError`, `error/DB_STATE_REASONS`, `error/IDbStateReason`. A lock order violation is one of `RANK_INVERSION`, `MODE_REQUIRED`, `NOT_IN_MODE_ORDER`, `TRACKER_STARTED`; a clock error is one of `WRITE_BEFORE_LOCK`, `NOT_READ`, `ALREADY_BOUND`, `SEAM_REFUSED`, `BAD_RESULT`, `UNSAFE_INSTANT`.
+
+### Security notes
+
+- `assertRole` counts a catalog answer as a pass only when it is exactly what a pass looks like (a boolean `false` flag, one row with a boolean `true`); a malformed answer, a missing object, a `NULL` and a second row are failures, never passes. On any failure the pool is closed before the error is thrown. A connection that emitted an error or failed in the middle of a query is destroyed; one that only failed an assertion goes back to the pool.
+- `assertRole` is a boot check with a floor, not a ceiling: it proves the listed grants are held and the dangerous attributes absent, but it does not list privileges the role has beyond your list. See `docs/security.md`, R18 and L15.
+- The unit specs run against a fake catalog and pin the exact text of each statement. What the statements do on a real server is not run in this repository: only an integration test against a live PostgreSQL shows it, and you should run one with your own roles if you rely on this check.
+- `createPool` scrubs the connection string and the password from its connect-failure log and from the idle-client error log. `DbParseError`, `DbConnectError` and `DbTxError` carry closed reasons and never the offending text, the connection string or a password; `DbTxError` has a fixed message and no `cause`.
+
+### Shared state across copies of the package
+
+The clock slot of a transaction is kept in a frozen registry on `globalThis` under `Symbol.for('@axiumine/koa-utils/postgres-state')`. Two copies of the package in one process (for example through a nested dependency) therefore see the same slot, and a lock taken through one copy is seen by the clock of the other. A copy that finds a value under that key which is not a registry of its own layout throws `DbStateError` with reason `LAYOUT_MISMATCH` while it loads, so two incompatible copies fail at start instead of splitting the state silently. Keep one version of the package installed.
+
+### Docs
+
+`docs/code/lib-postgres.md` is a new page (layout, policies, option tables, "Mapping driver errors", "Write guards", "Clock and locks", "Single copy of the package and shared state"). `docs/security.md` gains the requirements R14 to R20 and the limits L15 and L16.
+
+### Upgrade notes
+
+Nothing to do. The kit is additive: no existing export changes and no peer is added.
+
 ## 8.0.0 — 2026-11-04
 
 All peer dependencies are now optional. Nothing in your code changes, but npm 7+ and Yarn no longer install them for you: install what the subpaths you import need.
