@@ -387,6 +387,14 @@
 	"./lib/PostgreSQL/error/IDbParseReason": [],
 	"./lib/PostgreSQL/error/IDbTxReason": [],
 	"./lib/PostgreSQL/error/IMapDbErrorOptions": [],
+	"./lib/PostgreSQL/error/IRoleAssertionReason": [],
+	"./lib/PostgreSQL/error/IRoleAssertionSubject": [],
+	"./lib/PostgreSQL/error/ROLE_ASSERT_REASONS": [
+		"ROLE_ASSERT_REASONS"
+	],
+	"./lib/PostgreSQL/error/RoleAssertionError": [
+		"RoleAssertionError"
+	],
 	"./lib/PostgreSQL/error/buildConstraintEntry": [
 		"buildConstraintEntry"
 	],
@@ -470,6 +478,13 @@
 	],
 	"./lib/PostgreSQL/pool/createPool": [
 		"createPool"
+	],
+	"./lib/PostgreSQL/role/IAssertRoleOptions": [],
+	"./lib/PostgreSQL/role/IRoleAssertion": [],
+	"./lib/PostgreSQL/role/IRoleGrant": [],
+	"./lib/PostgreSQL/role/IRolePool": [],
+	"./lib/PostgreSQL/role/assertRole": [
+		"assertRole"
 	],
 	"./lib/PostgreSQL/tx/DEFAULT_LOCK_TIMEOUT_MS": [
 		"DEFAULT_LOCK_TIMEOUT_MS"
