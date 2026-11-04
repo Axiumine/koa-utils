@@ -818,3 +818,22 @@ Past the gate, the comparison runs through [`safeEqualSecret`](#libaccess--const
 | headerValue | string \| undefined | The `x-introspectioncode` header value from the incoming request |
 
 **Returns:** `boolean` — `true` only if `NODE_ENV` is `'development'` or `'test'`, `INTROSPECTION_CODE` is set and non-empty, and `headerValue` equals it exactly; `false` otherwise.
+
+## `lib/PostgreSQL/` — internals of the PostgreSQL kit
+
+**Import:** _internal — not exported_
+
+Helpers behind [`lib-postgres.md`](./lib-postgres.md). None is a public subpath; the public files import them through `@private/lib/PostgreSQL/*.mjs`.
+
+| Module | Exports | Role |
+|---|---|---|
+| `readField` | `readField(value, key): unknown` | `Reflect.get` on an object, `undefined` for `null` and every primitive and function. Behind `sqlstateOf`, `constraintNameOf`, `errorNameOf` and `errorCodeOf`. |
+| `errorCodeOf` | `errorCodeOf(error): string \| undefined` | The string `code` of an error (`ECONNREFUSED`, `28P01`), or `undefined`. Becomes the `code` of a `DbConnectError` and the `errorCode` field of the pool's log lines. |
+| `civilCalendar` | `MIN_YEAR` (1), `MAX_YEAR` (9999), `daysFromCivil`, `civilFromDays`, `isCivilDate`, `pad` | Proleptic Gregorian calendar in whole days since 1970-01-01 (Howard Hinnant's algorithms, public domain); no `Date`. The parsers use it. |
+| `ICivilDate` | type `ICivilDate` | `{ year, month, day }`, `year` astronomical. |
+| `poolUrlSecrets` | `poolUrlSecrets(url): string[]` | Checks the pool URL (scheme, host, no fragment, `sslmode` / `sslrootcert` once each) and returns the strings to scrub from a driver message: the URL and the password, raw and percent-decoded, longest first. Throws `DbConnectError` `URL_INVALID`. |
+| `scrubSecrets` | `scrubSecrets(text, secrets): string` | Replaces each secret with `[REDACTED]`, in the order given. |
+| `assertPoolOptions` | `assertPoolOptions(options): void` | The `TypeError` range checks of `createPool`: `max`, `applicationName`, `connectTimeoutMs`, `keepAliveInitialDelayMs`, in that order. |
+| `connectAndCheck` | `connectAndCheck(client, connect, settings): Promise<void>` | The driver's connect then `SHOW timezone` (must be `UTC`), inside one deadline. On failure counts, logs the closed reason, ends the client without awaiting it, rejects with a `DbConnectError`. |
+| `checkedClient` | `checkedClient(Base, settings): IClientConstructor` | The subclass of the driver's `Client` whose `connect` calls `connectAndCheck`, in promise and callback form. |
+| `IClientShape`, `IClientConstructor`, `IConnectCallback`, `IConnectSettings` | types | The members of the driver client the subclass uses, its constructor, the callback form, and the deadline / logger / counter bundle. |

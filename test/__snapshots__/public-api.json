@@ -354,8 +354,95 @@
 	"./lib/PostgreSQL/IPostgresErrorCodes": [
 		"IPostgresErrorCodes"
 	],
+	"./lib/PostgreSQL/counter/IDbCounter": [],
+	"./lib/PostgreSQL/error/DB_CONNECT_REASONS": [
+		"DB_CONNECT_REASONS"
+	],
+	"./lib/PostgreSQL/error/DB_PARSE_REASONS": [
+		"DB_PARSE_REASONS"
+	],
+	"./lib/PostgreSQL/error/DbConnectError": [
+		"DbConnectError"
+	],
+	"./lib/PostgreSQL/error/DbParseError": [
+		"DbParseError"
+	],
+	"./lib/PostgreSQL/error/IDbConnectReason": [],
+	"./lib/PostgreSQL/error/IDbParseReason": [],
+	"./lib/PostgreSQL/error/constraintNameOf": [
+		"constraintNameOf"
+	],
+	"./lib/PostgreSQL/error/errorNameOf": [
+		"errorNameOf"
+	],
+	"./lib/PostgreSQL/error/sqlstateField": [
+		"sqlstateField"
+	],
+	"./lib/PostgreSQL/error/sqlstateOf": [
+		"sqlstateOf"
+	],
 	"./lib/PostgreSQL/makePostgreSqlLogError": [
 		"makePostgreSqlLogError"
+	],
+	"./lib/PostgreSQL/parse/IArrayParser": [],
+	"./lib/PostgreSQL/parse/IDriverTypes": [],
+	"./lib/PostgreSQL/parse/IStringParser": [],
+	"./lib/PostgreSQL/parse/ITypeParserEntry": [],
+	"./lib/PostgreSQL/parse/TYPE_PARSERS": [
+		"TYPE_PARSERS"
+	],
+	"./lib/PostgreSQL/parse/arrayOf": [
+		"arrayOf"
+	],
+	"./lib/PostgreSQL/parse/createTypeRegistry": [
+		"createTypeRegistry"
+	],
+	"./lib/PostgreSQL/parse/parseDate": [
+		"parseDate"
+	],
+	"./lib/PostgreSQL/parse/parseInt8": [
+		"parseInt8"
+	],
+	"./lib/PostgreSQL/parse/parseTime": [
+		"parseTime"
+	],
+	"./lib/PostgreSQL/parse/parseTimestamptz": [
+		"parseTimestamptz"
+	],
+	"./lib/PostgreSQL/parse/parseUuid": [
+		"parseUuid"
+	],
+	"./lib/PostgreSQL/pool/DEFAULT_CONNECT_TIMEOUT_MS": [
+		"DEFAULT_CONNECT_TIMEOUT_MS"
+	],
+	"./lib/PostgreSQL/pool/DEFAULT_KEEPALIVE_INITIAL_DELAY_MS": [
+		"DEFAULT_KEEPALIVE_INITIAL_DELAY_MS"
+	],
+	"./lib/PostgreSQL/pool/ICreatePoolOptions": [],
+	"./lib/PostgreSQL/pool/IDbDriver": [],
+	"./lib/PostgreSQL/pool/IPoolCounter": [],
+	"./lib/PostgreSQL/pool/IPoolCounterName": [],
+	"./lib/PostgreSQL/pool/IPoolEvents": [],
+	"./lib/PostgreSQL/pool/IPoolLogger": [],
+	"./lib/PostgreSQL/pool/REQUIRED_SESSION_TIME_ZONE": [
+		"REQUIRED_SESSION_TIME_ZONE"
+	],
+	"./lib/PostgreSQL/pool/createPool": [
+		"createPool"
+	],
+	"./lib/PostgreSQL/url/IDatabaseUrlOptions": [],
+	"./lib/PostgreSQL/url/IDatabaseUrlReason": [],
+	"./lib/PostgreSQL/url/LOOPBACK_HOSTS": [
+		"LOOPBACK_HOSTS"
+	],
+	"./lib/PostgreSQL/url/databaseUrlReason": [
+		"databaseUrlReason"
+	],
+	"./lib/PostgreSQL/url/isAbsolutePath": [
+		"isAbsolutePath"
+	],
+	"./lib/PostgreSQL/url/isValidHost": [
+		"isValidHost"
 	],
 	"./lib/Redis/RedisBoolean": [
 		"RedisBoolean"

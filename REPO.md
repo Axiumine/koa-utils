@@ -65,7 +65,12 @@ src/
 │   │   └── verifyEmailMailer.mts      # IVerifyEmailMailer, socketLabs*/throttleMailer/default*
 │   ├── MariaDB/                # IMariaDBErr, MariaDBErrType, throwSqlErrors
 │   ├── MongoDB/                # IMongoDBError, MongoDBErrType, throwIfMongoErr, throwMongoErrors, IOnboarding
-│   ├── PostgreSQL/             # IPostgresError, IPostgresErrorCodes, makePostgreSqlLogError
+│   ├── PostgreSQL/             # IPostgresError, IPostgresErrorCodes, makePostgreSqlLogError; the driver-agnostic kit in subfolders (0 peers, docs/code/lib-postgres.md):
+│   │   ├── error/              # DbParseError, DbConnectError (+ DB_*_REASONS, IDb*Reason), sqlstateOf, sqlstateField, constraintNameOf, errorNameOf
+│   │   ├── parse/              # parseDate, parseTime, parseTimestamptz, parseInt8, parseUuid, arrayOf, TYPE_PARSERS, createTypeRegistry, IStringParser, IArrayParser, IDriverTypes, ITypeParserEntry
+│   │   ├── pool/               # createPool, DEFAULT_CONNECT_TIMEOUT_MS, DEFAULT_KEEPALIVE_INITIAL_DELAY_MS, REQUIRED_SESSION_TIME_ZONE, ICreatePoolOptions, IDbDriver, IPoolEvents, IPoolLogger, IPoolCounter, IPoolCounterName
+│   │   ├── counter/            # IDbCounter<TName>
+│   │   └── url/                # databaseUrlReason, LOOPBACK_HOSTS, isValidHost, isAbsolutePath, IDatabaseUrlOptions, IDatabaseUrlReason
 │   ├── Redis/                  # buildPrefixedRedisKey, RedisBoolean enum + to/from helpers
 │   ├── db/
 │   │   ├── log/                # hitStat, logGlobalError, logGraphql, logThrow
@@ -80,6 +85,7 @@ src/
     └── lib/access/{db/* (incl. abandonUser.mts), handleIf*, assertVerifyEmailAllowed.mts, emailChangeHandlers.mts, pathTools.mts,
                    safeEqualSecret.mts, assertResetAllowed.mts, applyPasswordReset.mts}
         lib/importOptional.mts, loadEnv.mts, sentry.mts, createSentryClient.mts, ISentryClient.mts  # optional-peer loader, dotenv + Sentry facades
+        lib/PostgreSQL/{civilCalendar, readField, errorCodeOf, poolUrlSecrets, scrubSecrets, assertPoolOptions, connectAndCheck, checkedClient}.mts + I*.mts  # internals of the PostgreSQL kit
 ```
 
 `src/types/` holds one ambient declaration, `socketlabs-email.d.ts` (`declare module '@socketlabs/email'`, which ships no types); it emits no `.mjs`.
@@ -189,6 +195,10 @@ Each connector reads `.env` via the internal `loadEnv()` (`dotenv.config()` when
 `redisClient` supports cluster mode when `REDIS_IS_CLUSTER === '1'` (3 nodes from `REDIS_DB{1,2,3}_HOST/PORT`); otherwise single via `REDIS_URL`.
 
 Both paths take their scheme from `REDIS_TLS`, via the three `private/dataSources/` helpers. Set to exactly `true` it builds cluster root nodes as `rediss://` **and** sets `defaults.socket.tls` (node-redis does not inherit root-node TLS for the connections it opens to discovered nodes), and it requires `REDIS_URL` to carry the `rediss:` scheme — `resolveRedisUrl` throws at module load otherwise, rather than upgrading the scheme silently. Any other value, unset included, is off and keeps the pre-flag plaintext behaviour. See `docs/code/data-sources.md` and `docs/code/internal.md`.
+
+### PostgreSQL kit (`lib/PostgreSQL/{error,parse,pool,url,counter}/`)
+
+Driver-agnostic leaf pieces, 0 peers at runtime and in `.d.mts` (budgeted `[]` in `PEER_BUDGET`, `test/package/peerReach.spec.mts`). `createPool` takes the `pg` module as its `driver` argument and uses `Pool`, `Client` and `types` through the structural `IDbDriver`; no file imports `pg`. One value export per file, file name = export name, types in `I*` files, no barrel. The parsers (`parseDate`, `parseTime`, `parseTimestamptz`, `parseInt8`, `parseUuid`, `arrayOf`) return strings and never build a `Date`; `createTypeRegistry` hands them to a pool as its `types` option without calling `setTypeParser`. Errors carry a closed reason, a fixed message and no `cause`. `databaseUrlReason(text, { expectedRole, allowPlainLoopback })` is a strict allow-list check of a database URL and reads no environment variable. The calendar arithmetic and the helpers of `createPool` live in `src/private/lib/PostgreSQL/`. Full reference: `docs/code/lib-postgres.md`.
 
 ### File uploads (`files/uploadTempImage`, `files/uploadTempPdf`)
 
@@ -322,7 +332,7 @@ Sentry is reached through the internal `private/lib/sentry` facade (`captureExce
 - `SECURITY.md` — vulnerability reporting policy and supported-versions table (private advisory or email, response targets). Update the table on every major `version` bump.
 - `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `GOVERNANCE.md`, `ROADMAP.md` — community files. Not published to npm. `GOVERNANCE.md` names the backup owner and the npm publishing gap, so update it when either changes.
 - `.github/ISSUE_TEMPLATE/` (bug report and feature request forms, blank issues off, links to the private advisory form and to `docs/code`), `.github/PULL_REQUEST_TEMPLATE.md` — the checklist mirrors the gates in `CONTRIBUTING.md`.
-- `docs/architecture.md` — design overview and key flows. `docs/security.md` — security requirements (R1 to R13), documented limits (L1 to L13), threat model, trust boundaries and known gaps; update it when a trust boundary, a crypto choice or a validation rule changes. `docs/verify-release.md` — how to check a signed tag, rebuild the tarball and verify a build attestation; it holds the signing-key fingerprint.
+- `docs/architecture.md` — design overview and key flows. `docs/security.md` — security requirements (R1 to R15), documented limits (L1 to L13), threat model, trust boundaries and known gaps; update it when a trust boundary, a crypto choice or a validation rule changes. `docs/verify-release.md` — how to check a signed tag, rebuild the tarball and verify a build attestation; it holds the signing-key fingerprint.
 - `.github/workflows/` — GitHub Actions, all with top-level `permissions: contents: read` and every third-party action pinned by commit SHA with a `# vX.Y.Z` comment. `ci.yml`, `qodana.yml`, `semgrep.yml` and `mutation.yml` run on the self-hosted pool (`runs-on: [self-hosted, Linux, X64]`); `release.yml` and `scorecard.yml` stay on `ubuntu-24.04`. The runner rules are in the agent rule file.
   - `ci.yml` — job `Scope` first (see `.github/actions/scope/` below): on a pull request that changes only documentation, `Test coverage`, `Test coverage (Node 26.13.0)` and Qodana are skipped by a job-level `if`, which still counts as passing for the required check. Every pool job that runs `yarn install` first runs the `.github/actions/public-lockfile` step (see below). Job `Test coverage` (the required check, name unchanged; Node pinned to the `engines` floor `24.14.0`): step `Static gates` (`yarn check:static`, which folds in the old `Coding standard` lint step), `yarn test:coverage` (100% gate), two clean builds must hash identically, and the `npm pack` tarball must hold no `.map`. Job `Test coverage (Node 26.13.0)` (not yet a required check, same pool): Yarn from the Node 24 Corepack because Node 26 ships none, then install plus `yarn test:coverage` on the `^26.13.0` floor of `engines`. Job `Dependency audit`: `yarn audit` gates the shipped dependency groups, the dev tree is only reported. Advisory jobs, not required checks: `Trivy` (digest-pinned image, `fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1`) and `Leak check` (`yarn leak:check`, schedule and manual dispatch only). Runs on push and PR to `main`, plus a weekly cron. Needs no secret.
   - `qodana.yml` — job `Qodana Ultimate Plus`: `yarn test:coverage`, then the Qodana scan. Needs the `QODANA_TOKEN` secret, so it is skipped on Dependabot PRs.

@@ -326,6 +326,162 @@
 			"import": "./dist/lib/PostgreSQL/makePostgreSqlLogError.mjs",
 			"types": "./dist/lib/PostgreSQL/makePostgreSqlLogError.d.mts"
 		},
+		"./lib/PostgreSQL/error/DB_CONNECT_REASONS": {
+			"import": "./dist/lib/PostgreSQL/error/DB_CONNECT_REASONS.mjs",
+			"types": "./dist/lib/PostgreSQL/error/DB_CONNECT_REASONS.d.mts"
+		},
+		"./lib/PostgreSQL/error/DB_PARSE_REASONS": {
+			"import": "./dist/lib/PostgreSQL/error/DB_PARSE_REASONS.mjs",
+			"types": "./dist/lib/PostgreSQL/error/DB_PARSE_REASONS.d.mts"
+		},
+		"./lib/PostgreSQL/error/DbConnectError": {
+			"import": "./dist/lib/PostgreSQL/error/DbConnectError.mjs",
+			"types": "./dist/lib/PostgreSQL/error/DbConnectError.d.mts"
+		},
+		"./lib/PostgreSQL/error/DbParseError": {
+			"import": "./dist/lib/PostgreSQL/error/DbParseError.mjs",
+			"types": "./dist/lib/PostgreSQL/error/DbParseError.d.mts"
+		},
+		"./lib/PostgreSQL/error/IDbConnectReason": {
+			"import": "./dist/lib/PostgreSQL/error/IDbConnectReason.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IDbConnectReason.d.mts"
+		},
+		"./lib/PostgreSQL/error/IDbParseReason": {
+			"import": "./dist/lib/PostgreSQL/error/IDbParseReason.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IDbParseReason.d.mts"
+		},
+		"./lib/PostgreSQL/error/constraintNameOf": {
+			"import": "./dist/lib/PostgreSQL/error/constraintNameOf.mjs",
+			"types": "./dist/lib/PostgreSQL/error/constraintNameOf.d.mts"
+		},
+		"./lib/PostgreSQL/error/errorNameOf": {
+			"import": "./dist/lib/PostgreSQL/error/errorNameOf.mjs",
+			"types": "./dist/lib/PostgreSQL/error/errorNameOf.d.mts"
+		},
+		"./lib/PostgreSQL/error/sqlstateField": {
+			"import": "./dist/lib/PostgreSQL/error/sqlstateField.mjs",
+			"types": "./dist/lib/PostgreSQL/error/sqlstateField.d.mts"
+		},
+		"./lib/PostgreSQL/error/sqlstateOf": {
+			"import": "./dist/lib/PostgreSQL/error/sqlstateOf.mjs",
+			"types": "./dist/lib/PostgreSQL/error/sqlstateOf.d.mts"
+		},
+		"./lib/PostgreSQL/parse/IArrayParser": {
+			"import": "./dist/lib/PostgreSQL/parse/IArrayParser.mjs",
+			"types": "./dist/lib/PostgreSQL/parse/IArrayParser.d.mts"
+		},
+		"./lib/PostgreSQL/parse/IDriverTypes": {
+			"import": "./dist/lib/PostgreSQL/parse/IDriverTypes.mjs",
+			"types": "./dist/lib/PostgreSQL/parse/IDriverTypes.d.mts"
+		},
+		"./lib/PostgreSQL/parse/IStringParser": {
+			"import": "./dist/lib/PostgreSQL/parse/IStringParser.mjs",
+			"types": "./dist/lib/PostgreSQL/parse/IStringParser.d.mts"
+		},
+		"./lib/PostgreSQL/parse/ITypeParserEntry": {
+			"import": "./dist/lib/PostgreSQL/parse/ITypeParserEntry.mjs",
+			"types": "./dist/lib/PostgreSQL/parse/ITypeParserEntry.d.mts"
+		},
+		"./lib/PostgreSQL/parse/TYPE_PARSERS": {
+			"import": "./dist/lib/PostgreSQL/parse/TYPE_PARSERS.mjs",
+			"types": "./dist/lib/PostgreSQL/parse/TYPE_PARSERS.d.mts"
+		},
+		"./lib/PostgreSQL/parse/arrayOf": {
+			"import": "./dist/lib/PostgreSQL/parse/arrayOf.mjs",
+			"types": "./dist/lib/PostgreSQL/parse/arrayOf.d.mts"
+		},
+		"./lib/PostgreSQL/parse/createTypeRegistry": {
+			"import": "./dist/lib/PostgreSQL/parse/createTypeRegistry.mjs",
+			"types": "./dist/lib/PostgreSQL/parse/createTypeRegistry.d.mts"
+		},
+		"./lib/PostgreSQL/parse/parseDate": {
+			"import": "./dist/lib/PostgreSQL/parse/parseDate.mjs",
+			"types": "./dist/lib/PostgreSQL/parse/parseDate.d.mts"
+		},
+		"./lib/PostgreSQL/parse/parseInt8": {
+			"import": "./dist/lib/PostgreSQL/parse/parseInt8.mjs",
+			"types": "./dist/lib/PostgreSQL/parse/parseInt8.d.mts"
+		},
+		"./lib/PostgreSQL/parse/parseTime": {
+			"import": "./dist/lib/PostgreSQL/parse/parseTime.mjs",
+			"types": "./dist/lib/PostgreSQL/parse/parseTime.d.mts"
+		},
+		"./lib/PostgreSQL/parse/parseTimestamptz": {
+			"import": "./dist/lib/PostgreSQL/parse/parseTimestamptz.mjs",
+			"types": "./dist/lib/PostgreSQL/parse/parseTimestamptz.d.mts"
+		},
+		"./lib/PostgreSQL/parse/parseUuid": {
+			"import": "./dist/lib/PostgreSQL/parse/parseUuid.mjs",
+			"types": "./dist/lib/PostgreSQL/parse/parseUuid.d.mts"
+		},
+		"./lib/PostgreSQL/pool/DEFAULT_CONNECT_TIMEOUT_MS": {
+			"import": "./dist/lib/PostgreSQL/pool/DEFAULT_CONNECT_TIMEOUT_MS.mjs",
+			"types": "./dist/lib/PostgreSQL/pool/DEFAULT_CONNECT_TIMEOUT_MS.d.mts"
+		},
+		"./lib/PostgreSQL/pool/DEFAULT_KEEPALIVE_INITIAL_DELAY_MS": {
+			"import": "./dist/lib/PostgreSQL/pool/DEFAULT_KEEPALIVE_INITIAL_DELAY_MS.mjs",
+			"types": "./dist/lib/PostgreSQL/pool/DEFAULT_KEEPALIVE_INITIAL_DELAY_MS.d.mts"
+		},
+		"./lib/PostgreSQL/pool/ICreatePoolOptions": {
+			"import": "./dist/lib/PostgreSQL/pool/ICreatePoolOptions.mjs",
+			"types": "./dist/lib/PostgreSQL/pool/ICreatePoolOptions.d.mts"
+		},
+		"./lib/PostgreSQL/pool/IDbDriver": {
+			"import": "./dist/lib/PostgreSQL/pool/IDbDriver.mjs",
+			"types": "./dist/lib/PostgreSQL/pool/IDbDriver.d.mts"
+		},
+		"./lib/PostgreSQL/pool/IPoolCounter": {
+			"import": "./dist/lib/PostgreSQL/pool/IPoolCounter.mjs",
+			"types": "./dist/lib/PostgreSQL/pool/IPoolCounter.d.mts"
+		},
+		"./lib/PostgreSQL/pool/IPoolCounterName": {
+			"import": "./dist/lib/PostgreSQL/pool/IPoolCounterName.mjs",
+			"types": "./dist/lib/PostgreSQL/pool/IPoolCounterName.d.mts"
+		},
+		"./lib/PostgreSQL/pool/IPoolEvents": {
+			"import": "./dist/lib/PostgreSQL/pool/IPoolEvents.mjs",
+			"types": "./dist/lib/PostgreSQL/pool/IPoolEvents.d.mts"
+		},
+		"./lib/PostgreSQL/pool/IPoolLogger": {
+			"import": "./dist/lib/PostgreSQL/pool/IPoolLogger.mjs",
+			"types": "./dist/lib/PostgreSQL/pool/IPoolLogger.d.mts"
+		},
+		"./lib/PostgreSQL/pool/REQUIRED_SESSION_TIME_ZONE": {
+			"import": "./dist/lib/PostgreSQL/pool/REQUIRED_SESSION_TIME_ZONE.mjs",
+			"types": "./dist/lib/PostgreSQL/pool/REQUIRED_SESSION_TIME_ZONE.d.mts"
+		},
+		"./lib/PostgreSQL/pool/createPool": {
+			"import": "./dist/lib/PostgreSQL/pool/createPool.mjs",
+			"types": "./dist/lib/PostgreSQL/pool/createPool.d.mts"
+		},
+		"./lib/PostgreSQL/url/IDatabaseUrlOptions": {
+			"import": "./dist/lib/PostgreSQL/url/IDatabaseUrlOptions.mjs",
+			"types": "./dist/lib/PostgreSQL/url/IDatabaseUrlOptions.d.mts"
+		},
+		"./lib/PostgreSQL/url/IDatabaseUrlReason": {
+			"import": "./dist/lib/PostgreSQL/url/IDatabaseUrlReason.mjs",
+			"types": "./dist/lib/PostgreSQL/url/IDatabaseUrlReason.d.mts"
+		},
+		"./lib/PostgreSQL/url/LOOPBACK_HOSTS": {
+			"import": "./dist/lib/PostgreSQL/url/LOOPBACK_HOSTS.mjs",
+			"types": "./dist/lib/PostgreSQL/url/LOOPBACK_HOSTS.d.mts"
+		},
+		"./lib/PostgreSQL/url/databaseUrlReason": {
+			"import": "./dist/lib/PostgreSQL/url/databaseUrlReason.mjs",
+			"types": "./dist/lib/PostgreSQL/url/databaseUrlReason.d.mts"
+		},
+		"./lib/PostgreSQL/url/isAbsolutePath": {
+			"import": "./dist/lib/PostgreSQL/url/isAbsolutePath.mjs",
+			"types": "./dist/lib/PostgreSQL/url/isAbsolutePath.d.mts"
+		},
+		"./lib/PostgreSQL/url/isValidHost": {
+			"import": "./dist/lib/PostgreSQL/url/isValidHost.mjs",
+			"types": "./dist/lib/PostgreSQL/url/isValidHost.d.mts"
+		},
+		"./lib/PostgreSQL/counter/IDbCounter": {
+			"import": "./dist/lib/PostgreSQL/counter/IDbCounter.mjs",
+			"types": "./dist/lib/PostgreSQL/counter/IDbCounter.d.mts"
+		},
 		"./lib/MongoDB/IMongoDBError": {
 			"import": "./dist/lib/MongoDB/IMongoDBError.mjs",
 			"types": "./dist/lib/MongoDB/IMongoDBError.d.mts"
