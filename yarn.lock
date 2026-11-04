@@ -1307,14 +1307,14 @@
 
 "@sentry/core@10.78.0":
   version "10.78.0"
-  resolved "https://registry.yarnpkg.com/@sentry/core/-/core-10.78.0.tgz#4a05cde2e455650bb8c68100d2040e2b5f246194"
+  resolved "https://registry.npmjs.org/@sentry/core/-/core-10.78.0.tgz#4a05cde2e455650bb8c68100d2040e2b5f246194"
   integrity sha512-MMR4ME+agrjbvQ0DtTYJJypm+QlCoz9UJgWN8gjcXqlyDjYk69LwPjnaocYN1JyQMy2dx5Hk4S/Rt12gTQ5cGw==
   dependencies:
     "@sentry/conventions" "^0.16.0"
 
 "@sentry/node-core@10.78.0":
   version "10.78.0"
-  resolved "https://registry.yarnpkg.com/@sentry/node-core/-/node-core-10.78.0.tgz#23c8086ffc1610611343da75c29fd5ef4fcf2f55"
+  resolved "https://registry.npmjs.org/@sentry/node-core/-/node-core-10.78.0.tgz#23c8086ffc1610611343da75c29fd5ef4fcf2f55"
   integrity sha512-HJ3k7xINBiiTzc/QaIRHdt5ugctVYtcZnjruTxFa2tXFJSJYhVtgCE+DzLSkHXbVAlVS/rilAMGcO9GUiIqWTQ==
   dependencies:
     "@sentry/conventions" "^0.16.0"
@@ -1324,7 +1324,7 @@
 
 "@sentry/node@^10.78.0":
   version "10.78.0"
-  resolved "https://registry.yarnpkg.com/@sentry/node/-/node-10.78.0.tgz#81c5c48b989ab7dc3638872d2f25d2672f377c5b"
+  resolved "https://registry.npmjs.org/@sentry/node/-/node-10.78.0.tgz#81c5c48b989ab7dc3638872d2f25d2672f377c5b"
   integrity sha512-AE6nyehiCK6zcktrqzzBby5OCBqIL2ZwOyOLqoenczI7ufumfmcOMSpD0IVqjeIC/Kf0N0ymujqGPzqXgu9KrA==
   dependencies:
     "@opentelemetry/api" ">=1.9.1 <1.10.0"
@@ -1339,7 +1339,7 @@
 
 "@sentry/opentelemetry@10.78.0":
   version "10.78.0"
-  resolved "https://registry.yarnpkg.com/@sentry/opentelemetry/-/opentelemetry-10.78.0.tgz#2db2ebc7e11728062e2758231e093fb5fc266528"
+  resolved "https://registry.npmjs.org/@sentry/opentelemetry/-/opentelemetry-10.78.0.tgz#2db2ebc7e11728062e2758231e093fb5fc266528"
   integrity sha512-s47uqNaHres6ijiMsaoI6/DRev80vUqTqRMk0u/DfF9xAJttK7gOGqZBESr0YD2BXA21O+sUPsPeWuHlYHiScA==
   dependencies:
     "@sentry/conventions" "^0.16.0"
@@ -1347,7 +1347,7 @@
 
 "@sentry/server-utils@10.78.0":
   version "10.78.0"
-  resolved "https://registry.yarnpkg.com/@sentry/server-utils/-/server-utils-10.78.0.tgz#ba2a5a19d3d1780b68447cfadf4d6c5884addd73"
+  resolved "https://registry.npmjs.org/@sentry/server-utils/-/server-utils-10.78.0.tgz#ba2a5a19d3d1780b68447cfadf4d6c5884addd73"
   integrity sha512-MssOiA9SansFX4E51cloHZEy4bYSZyszFNWUWeIGgQiYyTN84PbPJmyLuboj26G/ycSBW2pUERPbcfjxcs7BrA==
   dependencies:
     "@sentry/conventions" "^0.16.0"
@@ -3602,7 +3602,7 @@ klaw-sync@^6.0.0:
 
 knip@^6.44.1:
   version "6.44.1"
-  resolved "https://registry.yarnpkg.com/knip/-/knip-6.44.1.tgz#3bdd3fe5c65383e7d305adc88f8ed1e33f70c6b2"
+  resolved "https://registry.npmjs.org/knip/-/knip-6.44.1.tgz#3bdd3fe5c65383e7d305adc88f8ed1e33f70c6b2"
   integrity sha512-Hbd8nvkIsNgFfXgC7Jsb5LHv7jj6VwA3tmfHd53XPX2z9Vc9RnAZqV0BIiP4OrtYqKwCoLseFHQZerb1bNlbSw==
   dependencies:
     formatly "^0.11.4"
