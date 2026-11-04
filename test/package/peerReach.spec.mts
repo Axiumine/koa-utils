@@ -33,10 +33,14 @@ const PEER_SCOPE: Record<string, RegExp> = {
 
 // subpath → the only peers it may reach (runtime, lazy or types). [] = none. Snapshot regen cannot add one.
 // Constants + emailHash + tokens were freed from mongoose / uuid in 8.0.0 → pinned. New peerless subpath → append with []
+// koa/createKoaErrorHandler + its 2 type files: 0 peers at runtime AND in .d.mts (no koa, graphql, sentry, dotenv)
 const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/Constants': [],
 	'./lib/emailHash': [],
 	'./lib/tokens': [],
+	'./koa/createKoaErrorHandler': [],
+	'./koa/IKoaErrorHandlerContext': [],
+	'./koa/IKoaErrorHandlerOptions': [],
 	'./lib/checkEmailLen': ['graphql'],
 	'./lib/checkPwdLen': ['graphql']
 }

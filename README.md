@@ -47,6 +47,8 @@ yarn add @node-rs/bcrypt graphql mongoose redis
 | `sequelize-typescript` | `dataSources/MariaDB` |
 | `sharp` | `files/reEncodeToJpeg`, `files/reEncodeToPng`, `files/reEncodeToWebp`, `files/uploadTempImage` |
 
+A subpath that reaches no peer needs nothing installed, not even `koa` (it appears there only as a type you pass in): `koa/createKoaErrorHandler`, a Koa error middleware you configure with `statusOf`, `bodyOf`, `report` and `noBodyStatuses`, and its two type files `koa/IKoaErrorHandlerOptions` and `koa/IKoaErrorHandlerContext`. `koa/tdwKoaErrorHandler` is the same middleware preconfigured for GraphQL errors, Sentry and dotenv, which is why it needs the peers above.
+
 Two peers do not make a subpath fail when they are missing, because the package loads them only if they are installed:
 
 | Peer | Used by | Without it |

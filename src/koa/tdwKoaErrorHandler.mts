@@ -4,6 +4,7 @@ import * as Sentry from '@private/lib/sentry.mjs'
 import { GraphQLError } from 'graphql'
 import { Next } from 'koa'
 
+import { createKoaErrorHandler } from './createKoaErrorHandler.mjs'
 import { IKoaError } from './IKoaError.mjs'
 
 loadEnv()
@@ -17,19 +18,9 @@ function resolveErrorStatus(errKoa: IKoaError, isIstanceOfGQL: boolean): number 
 }
 
 /**
- * do not set body for status codes that do not allow it
+ * the factory skips this for status codes that do not allow a body
  */
-function buildErrorBody(
-	errKoa: IKoaError,
-	isIstanceOfGQL: boolean,
-	status: number
-): IContextKoaErrorHandler['body'] | undefined {
-	const allowBody = ![100, 101, 102, 204, 205, 304].includes(status)
-
-	if (!allowBody) {
-		return undefined
-	}
-
+function buildErrorBody(errKoa: IKoaError, isIstanceOfGQL: boolean): IContextKoaErrorHandler['body'] {
 	const body: IContextKoaErrorHandler['body'] = {
 		message: errKoa.message
 	}
@@ -48,22 +39,15 @@ function maybeCaptureSentryError(errKoa: IKoaError, isIstanceOfGQL: boolean): vo
 	}
 }
 
-export async function tdwKoaErrorHandler(ctx: IContextKoaErrorHandler, next: Next) {
-	try {
-		await next()
-	} catch (err: unknown) {
-		const errKoa = err as IKoaError
-		const isIstanceOfGQL = err instanceof GraphQLError
-
-		ctx.status = resolveErrorStatus(errKoa, isIstanceOfGQL)
-
-		const body = buildErrorBody(errKoa, isIstanceOfGQL, ctx.status)
-		if (body) {
-			ctx.body = body
-		}
-
-		maybeCaptureSentryError(errKoa, isIstanceOfGQL)
-
-		ctx.app.emit('error', errKoa, ctx)
+const handle = createKoaErrorHandler<IContextKoaErrorHandler>({
+	statusOf: (err) => resolveErrorStatus(err as IKoaError, err instanceof GraphQLError),
+	bodyOf: (err) => buildErrorBody(err as IKoaError, err instanceof GraphQLError),
+	report: (err) => {
+		maybeCaptureSentryError(err as IKoaError, err instanceof GraphQLError)
 	}
+})
+
+// Not async: returns the factory's promise as is, so there is no extra microtask tick. Name and length (2) stay as before.
+export function tdwKoaErrorHandler(ctx: IContextKoaErrorHandler, next: Next): Promise<void> {
+	return handle(ctx, next)
 }

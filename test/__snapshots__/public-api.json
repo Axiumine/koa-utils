@@ -270,6 +270,11 @@
 	],
 	"./koa/IFileUpload": [],
 	"./koa/IKoaError": [],
+	"./koa/IKoaErrorHandlerContext": [],
+	"./koa/IKoaErrorHandlerOptions": [],
+	"./koa/createKoaErrorHandler": [
+		"createKoaErrorHandler"
+	],
 	"./koa/customFormatErrorFn": [
 		"customFormatErrorFn"
 	],

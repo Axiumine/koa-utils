@@ -33,7 +33,7 @@ import { authenticatedResourceHandler } from '@axiumine/koa-utils/koa/middleware
 | [GraphQL — Object & Input Types](./graphql-types.md) | Reusable `GraphQLObjectType`/`GraphQLInputObjectType` building blocks and `IFindAndUpdate<T>`. |
 | [GraphQL — Mutations](./graphql-mutations.md) | Sign-up, login variants, logout, refresh, password reset/change, email-change verify. |
 | [GraphQL — Errors & Status](./graphql-errors.md) | `throwGraphQLError` and the `throwXxxError` helper hierarchy mapping to HTTP status codes. |
-| [Koa — Core Helpers](./koa-core.md) | `customFormatErrorFn`, `logRequestToDb`, `tdwKoaErrorHandler`, and related interfaces. |
+| [Koa — Core Helpers](./koa-core.md) | `customFormatErrorFn`, `logRequestToDb`, `createKoaErrorHandler`, `tdwKoaErrorHandler`, and related interfaces. |
 | [Koa — Auth Middleware & Router](./koa-middleware.md) | Redis-backed session guards, logout handler, and the email-verification router. |
 | [Lib — Model-Agnostic Access Flows](./lib-access.md) | `createResetPwdFlow` / `createVerifyEmailFlow` — bind the password-reset and email-verification flows to any Mongoose model and field layout. Also the verify-email abandonment policy (`onAbandon`), the `IVerifyEmailMailer` seam and the `createMailThrottle` debounce. |
 | [Lib — Auth, Tokens, Crypto, Validation](./lib-core.md) | Token generation, cookie options, bcrypt helpers, validators, `tryCatchRethrow`. |

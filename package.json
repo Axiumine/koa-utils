@@ -318,6 +318,14 @@
 			"import": "./dist/koa/IKoaError.mjs",
 			"types": "./dist/koa/IKoaError.d.mts"
 		},
+		"./koa/IKoaErrorHandlerContext": {
+			"import": "./dist/koa/IKoaErrorHandlerContext.mjs",
+			"types": "./dist/koa/IKoaErrorHandlerContext.d.mts"
+		},
+		"./koa/IKoaErrorHandlerOptions": {
+			"import": "./dist/koa/IKoaErrorHandlerOptions.mjs",
+			"types": "./dist/koa/IKoaErrorHandlerOptions.d.mts"
+		},
 		"./files/uploadTempImage": {
 			"import": "./dist/files/uploadTempImage.mjs",
 			"types": "./dist/files/uploadTempImage.d.mts"
@@ -541,6 +549,10 @@
 		"./koa/router/verifyEmail": {
 			"import": "./dist/koa/router/verifyEmail.mjs",
 			"types": "./dist/koa/router/verifyEmail.d.mts"
+		},
+		"./koa/createKoaErrorHandler": {
+			"import": "./dist/koa/createKoaErrorHandler.mjs",
+			"types": "./dist/koa/createKoaErrorHandler.d.mts"
 		},
 		"./koa/customFormatErrorFn": {
 			"import": "./dist/koa/customFormatErrorFn.mjs",

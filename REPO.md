@@ -27,10 +27,13 @@ src/
 │   ├── middleware/   # authenticatedAuthorizationHandler, authenticatedResourceHandler, authenticatedLogoutHandler, debug
 │   ├── router/       # routerVerifyEmail (Koa router handler)
 │   ├── customFormatErrorFn.mts  # GraphQL error formatter
-│   ├── tdwKoaErrorHandler.mts   # Top-level Koa error middleware
+│   ├── createKoaErrorHandler.mts # Koa error middleware factory (statusOf/bodyOf/report/noBodyStatuses), 0 peers
+│   ├── tdwKoaErrorHandler.mts   # Top-level Koa error middleware: the factory + GraphQL, Sentry, dotenv
 │   ├── logRequestToDb.mts       # Request pass-through middleware (no-op)
 │   ├── IFileUpload.mts          # graphql-upload-compatible shape
-│   └── IKoaError.mts
+│   ├── IKoaError.mts
+│   ├── IKoaErrorHandlerContext.mts  # status/body/app.emit the factory reads and writes
+│   └── IKoaErrorHandlerOptions.mts  # options of createKoaErrorHandler
 ├── lib/
 │   ├── Constants.mts           # OBJECTID_0_STR, EMAIL_MAX_LEN, MIN/MAX_PWD_LENGTH (10/72 OWASP bcrypt), EMAIL_HASH_LEN
 │   ├── OBJECTID_0_OBJ.mts      # OBJECTID_0_OBJ (mongoose ObjectId; own subpath so Constants does not load mongoose)
@@ -175,7 +178,7 @@ Every exported subpath maps to `{ import: dist/.../X.mjs, types: dist/.../X.d.mt
 
 ### Errors
 
-`throwGraphQLError(status, title, desc)` wraps `new GraphQLError(title, { extensions: { http: { status }, description } })`. Every `throw*` helper in `graphQL/throw/` is a thin wrapper with a fixed HTTP code + title. `tdwKoaErrorHandler` is the top-level Koa middleware that catches, sets `ctx.status` from `extensions.http.status`, sets `ctx.body = { message, description }` (skipped for 100/101/102/204/205/304), and emits `'error'` on the app. `customFormatErrorFn` is the formatter passed to graphql-http / koa-graphql.
+`throwGraphQLError(status, title, desc)` wraps `new GraphQLError(title, { extensions: { http: { status }, description } })`. Every `throw*` helper in `graphQL/throw/` is a thin wrapper with a fixed HTTP code + title. `tdwKoaErrorHandler` is the top-level Koa middleware that catches, sets `ctx.status` from `extensions.http.status`, sets `ctx.body = { message, description }` (skipped for 100/101/102/204/205/304), and emits `'error'` on the app. `customFormatErrorFn` is the formatter passed to graphql-http / koa-graphql. `createKoaErrorHandler` is the factory under `tdwKoaErrorHandler` (8.0.0): `statusOf`, `bodyOf`, `report` and `noBodyStatuses` options, status, body, report and `emit('error')` in one synchronous `catch`; it imports nothing, so it reaches no peer (`PEER_BUDGET` in `test/package/peerReach.spec.mts`), and a Koa service with its own error policy builds its handler from it instead of copying `tdwKoaErrorHandler`.
 
 `tryCatchRethrow(e)` is the standard `.catch` body inside every mutation: forwards Mongo errors via `throwIfMongoErr` (turns `DuplicateKeyError` into 409, `[Validator]` prefix into 400), re-throws GraphQL errors verbatim, captures the rest to Sentry and throws `throwInternalError()`.
 
