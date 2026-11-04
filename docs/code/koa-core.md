@@ -65,7 +65,7 @@ Top-level Koa error-handling middleware — install it first in the middleware c
 5. When `process.env.NODE_ENV === 'development'` and the error is **not** a GraphQL error, calls `Sentry.captureException(errKoa)` (GraphQL errors are not sent to Sentry in dev mode).
 6. Always calls `ctx.app.emit('error', errKoa, ctx)` at the end, regardless of environment or error type.
 
-Loads environment variables via `dotenv.config()` at module scope.
+Loads environment variables via the internal `loadEnv()` at module scope (`dotenv.config()` when `dotenv` is installed, nothing otherwise).
 
 **Parameters:**
 

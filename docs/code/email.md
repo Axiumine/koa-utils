@@ -28,7 +28,7 @@ Constructs a SocketLabs client and prepares the reusable HTML wrapper used by ev
 - Reads `process.env.APP_DOMAIN` into `linkBase` (base URL used to build verification/reset links). It is not checked here: `new SocketLabsLib()` succeeds whatever `APP_DOMAIN` holds, and the base is validated when a send method builds a link from it (see [Link base validation](#link-base-validation)).
 - Reads `process.env.EMAIL_FROM` into `emailFrom` (the `From` address for every message).
 - If `htmlHeader1` / `htmlHeader2` / `htmlFooter` are not supplied (or are `''`), falls back to the internal boilerplate `FALLBACK_HEADER_1` / `FALLBACK_HEADER_2` / `FALLBACK_FOOTER` (an XHTML 1.0 Transitional doctype + a 600px centered table body, defined in `src/private/email/htmlFrame.mts`). These three fragments become `emailHtmlHeader1`, `emailHtmlHeader2`, `emailHtmlFooter` and are concatenated around every outgoing message body as `emailHtmlHeader1 + escapeHtml(subject) + emailHtmlHeader2 + htmlBody + emailHtmlFooter` (see `sendTemplate` below). The three fragments you pass in are inserted as HTML unchanged.
-- Calls `dotenv.config()` at module load time.
+- Calls `loadEnv()` at module load time (the internal `dotenv` facade: `dotenv.config()` when `dotenv` is installed, nothing otherwise).
 
 **Parameters:**
 

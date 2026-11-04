@@ -1,12 +1,12 @@
 import { IContextKoaErrorHandler } from '@context/IContextKoaErrorHandler.mjs'
-import * as Sentry from '@sentry/node'
-import * as dotenv from 'dotenv'
+import { loadEnv } from '@private/lib/loadEnv.mjs'
+import * as Sentry from '@private/lib/sentry.mjs'
 import { GraphQLError } from 'graphql'
 import { Next } from 'koa'
 
 import { IKoaError } from './IKoaError.mjs'
 
-dotenv.config()
+loadEnv()
 
 // check status
 function resolveErrorStatus(errKoa: IKoaError, isIstanceOfGQL: boolean): number {

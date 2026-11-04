@@ -1,5 +1,5 @@
 import { sequelize } from '@dataSources/MariaDB.mjs'
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 import { QueryTypes } from 'sequelize'
 
 export async function setLastLoginSQL(id: number): Promise<boolean> {

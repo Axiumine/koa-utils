@@ -103,8 +103,6 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: sharp
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
-      - dependency-name: uuid
-        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

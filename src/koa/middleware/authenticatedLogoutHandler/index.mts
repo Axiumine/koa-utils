@@ -2,17 +2,17 @@ import { IContextLogout } from '@context/IContextLogout.mjs'
 import { IContextRefresh } from '@context/IContextRefresh.mjs'
 import { redisClient } from '@dataSources/Redis.mjs'
 import { isValidUuidV4 } from '@lib/isValidUuidV4.mjs'
+import { loadEnv } from '@private/lib/loadEnv.mjs'
 import { verifyIntrospectionCode } from '@private/lib/verifyIntrospectionCode.mjs'
 import { throwAlreadyDone } from '@throw/throwAlreadyDone.mjs'
 import { throwPreconditionFailedNoAuthCookie } from '@throw/throwPreconditionFailedNoAuthCookie.mjs'
 import { throwPreconditionFailedNoAuthHeader } from '@throw/throwPreconditionFailedNoAuthHeader.mjs'
-import * as dotenv from 'dotenv'
 import Keygrip from 'keygrip'
 import { Next } from 'koa'
 
 import { verifySignedRefreshToken } from '../authenticatedAuthorizationHandler/verifySignedRefreshToken.mjs'
 
-dotenv.config()
+loadEnv()
 
 const requireIntrospectionOrThrow = (header: IContextLogout['request']['header'], throwOnFail: () => never): true => {
 	if (typeof header !== 'undefined' && verifyIntrospectionCode(header['x-introspectioncode'])) {

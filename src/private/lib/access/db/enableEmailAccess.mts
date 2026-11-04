@@ -2,7 +2,7 @@ import { DEFAULT_VERIFY_EMAIL_PATHS, IVerifyEmailPaths, TAccessModel } from '@li
 import { defaultVerifyEmailMailer, IVerifyEmailMailer } from '@lib/access/verifyEmailMailer.mjs'
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { buildUnset } from '@private/lib/access/pathTools.mjs'
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 import mongoose from 'mongoose'
 
 /**

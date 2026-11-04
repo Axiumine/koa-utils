@@ -2,7 +2,7 @@ import { DEFAULT_VERIFY_EMAIL_PATHS, IVerifyEmailPaths, TAccessModel } from '@li
 import { UserBase } from '@models/MongoDB/UserBase.mjs'
 import { EMAIL_CHECK_LINK } from '@private/lib/access/Constants.mjs'
 import { buildProjection } from '@private/lib/access/pathTools.mjs'
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 
 export const createUserData4VerifyEmail = (model: TAccessModel, paths: IVerifyEmailPaths) =>
 	async function userData4VerifyEmail(uEmail: string) {

@@ -654,6 +654,10 @@
 			"import": "./dist/lib/NumLib.mjs",
 			"types": "./dist/lib/NumLib.d.mts"
 		},
+		"./lib/OBJECTID_0_OBJ": {
+			"import": "./dist/lib/OBJECTID_0_OBJ.mjs",
+			"types": "./dist/lib/OBJECTID_0_OBJ.d.mts"
+		},
 		"./lib/setLoginCookies": {
 			"import": "./dist/lib/setLoginCookies.mjs",
 			"types": "./dist/lib/setLoginCookies.d.mts"
@@ -699,20 +703,31 @@
 		"reflect-metadata": "<0.3",
 		"sequelize": "<7",
 		"sequelize-typescript": "<3",
-		"sharp": "<1",
-		"uuid": "<15"
+		"sharp": "<1"
 	},
 	"peerDependenciesMeta": {
+		"@node-rs/bcrypt": {
+			"optional": true
+		},
+		"@sentry/node": {
+			"optional": true
+		},
 		"@socketlabs/email": {
 			"optional": true
 		},
 		"clamscan": {
 			"optional": true
 		},
+		"dotenv": {
+			"optional": true
+		},
 		"file-type": {
 			"optional": true
 		},
 		"fs-extra": {
+			"optional": true
+		},
+		"graphql": {
 			"optional": true
 		},
 		"keygrip": {
@@ -724,7 +739,13 @@
 		"mariadb": {
 			"optional": true
 		},
+		"mongoose": {
+			"optional": true
+		},
 		"pg": {
+			"optional": true
+		},
+		"redis": {
 			"optional": true
 		},
 		"reflect-metadata": {

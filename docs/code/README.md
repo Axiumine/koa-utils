@@ -10,7 +10,7 @@ npm i @axiumine/koa-utils
 
 All dependencies are declared as `peerDependencies` — the library itself ships zero runtime `dependencies`, so the consuming project controls the installed versions of Koa, Mongoose, GraphQL, Redis, etc.
 
-Seven of them are required (`@node-rs/bcrypt`, `@sentry/node`, `dotenv`, `graphql`, `mongoose`, `redis`, `uuid`); the other twelve are marked `optional` in `peerDependenciesMeta` because they sit behind subpaths you opt into. [README.md](../../README.md#install) maps each optional peer to the subpaths that need it.
+Since 8.0.0 every peer is marked `optional` in `peerDependenciesMeta`: they sit behind subpaths you opt into, so you install what the subpaths you import need. `@sentry/node` and `dotenv` are skipped silently when absent (nothing is reported, no environment file is read) instead of failing the import. [README.md](../../README.md#install) maps each peer to the subpaths that need it.
 
 ## Importing
 

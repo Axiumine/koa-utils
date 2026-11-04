@@ -1,6 +1,6 @@
 import { DateLib } from '@lib/DateLib.mjs'
 import type { IResetPwdRecord } from '@private/lib/access/db/getResetPwd.mjs'
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 import { throwForbiddenError } from '@throw/throwForbiddenError.mjs'
 
 import { safeEqualSecret } from './safeEqualSecret.mjs'

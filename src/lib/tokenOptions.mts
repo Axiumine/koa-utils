@@ -1,6 +1,6 @@
-import * as dotenv from 'dotenv'
+import { loadEnv } from '@private/lib/loadEnv.mjs'
 
-dotenv.config()
+loadEnv()
 
 const baseOptions = {
 	httpOnly: true,

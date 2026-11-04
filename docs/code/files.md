@@ -417,7 +417,7 @@ Validates `folder` and `secondFolder` with `assertNoTraversal`, then moves a fil
 export async function storeUploadAsTemp(upload: Promise<IFileUpload>, maxFileSize: number = MAX_FILE_SIZE): Promise<IStoreFile>
 ```
 
-Step 1 of the pipeline: awaits the incoming `IFileUpload` (from `../koa/IFileUpload.mjs`), generates a temp filename as `uuidv4() + <lower-cased original extension>`, and streams it to `${UPLOAD_TEMP_DIRECTORY_URL}/<storedFileName>` (i.e. `/tmp/<uuid><ext>`) while counting bytes as they arrive. `MAX_FILE_SIZE` defaults to `5 * 1024 * 1024` (5 MB) and can be overridden per call via `maxFileSize`. If the running total exceeds the limit mid-stream, the write stream is destroyed and the partial file unlinked before rejecting.
+Step 1 of the pipeline: awaits the incoming `IFileUpload` (from `../koa/IFileUpload.mjs`), generates a temp filename as `randomUUID()` (from `node:crypto`) `+ <lower-cased original extension>`, and streams it to `${UPLOAD_TEMP_DIRECTORY_URL}/<storedFileName>` (i.e. `/tmp/<uuid><ext>`) while counting bytes as they arrive. `MAX_FILE_SIZE` defaults to `5 * 1024 * 1024` (5 MB) and can be overridden per call via `maxFileSize`. If the running total exceeds the limit mid-stream, the write stream is destroyed and the partial file unlinked before rejecting.
 
 **Parameters:**
 

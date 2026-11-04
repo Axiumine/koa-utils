@@ -1,8 +1,8 @@
-import * as Sentry from '@sentry/node'
-import * as dotenv from 'dotenv'
+import { loadEnv } from '@private/lib/loadEnv.mjs'
+import * as Sentry from '@private/lib/sentry.mjs'
 import { Sequelize } from 'sequelize-typescript'
 
-dotenv.config()
+loadEnv()
 
 export const sequelize = new Sequelize(
 	`${process.env['MARIADB_DBNAME']}`,

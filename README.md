@@ -22,16 +22,18 @@ npm install @axiumine/koa-utils
 
 All runtime dependencies are declared as **peer dependencies** — the package ships zero `dependencies`, so the consuming project owns every installed version.
 
-Seven are required. The auth core — sign-up, the login variants, refresh, logout, the middleware, the models and the error helpers — reaches all of them:
+**Every peer is optional** (`peerDependenciesMeta`, since 8.0.0). npm 7+ and Yarn no longer install any of them for you, and they do not warn about a missing one. There is no barrel export: each peer is reachable only through the subpaths that need it, so install the rows for the subpaths you import. A subpath whose peer is missing fails at import with `ERR_MODULE_NOT_FOUND`, except `@sentry/node` and `dotenv` (see below). The auth core (sign-up, the login variants, refresh, logout, the middleware, the models and the error helpers) reaches `@node-rs/bcrypt`, `graphql`, `mongoose` and `redis`:
 
 ```bash
-yarn add @node-rs/bcrypt @sentry/node dotenv graphql mongoose redis uuid
+yarn add @node-rs/bcrypt graphql mongoose redis
 ```
 
-The remaining twelve are declared **optional** in `peerDependenciesMeta`. There is no barrel export: each of these is reachable only through subpaths you opt into by importing them, so a project that never imports the subpath never loads the package, and npm/yarn will not warn about the missing peer. Install the row when you import the subpath:
-
-| Optional peer | Required by |
+| Peer | Needed by (fails at import with `ERR_MODULE_NOT_FOUND` if missing) |
 |---|---|
+| `@node-rs/bcrypt` | the password flows: `lib/encryptPassword`, `lib/hash`, `lib/db/registerNewUser`, `lib/access/createResetPwdFlow`, and the `signUp` / `login*` / `updatePassword` mutations |
+| `graphql` | `graphQL/throw/*`, `graphQL/schema/types/*`, `graphQL/schema/GraphQLInput/*`, the mutations, and every subpath that raises a `GraphQLError` through a `throw*` helper: `lib/checkEmailLen`, `lib/checkPwdLen`, `lib/tryCatchRethrow`, `lib/MongoDB/*`, `lib/MariaDB/throwSqlErrors`, `lib/throwIfNotValidEnumValue`, `lib/access/create*Flow`, `lib/access/*Mailer`, `koa/customFormatErrorFn`, `koa/tdwKoaErrorHandler`, the `koa/middleware/*` handlers, `koa/router/verifyEmail`, `email/SocketLabsLib`, `files/uploadTempImage` and `files/reEncodeTo*` |
+| `mongoose` | `dataSources/MongoDB`, the models (`graphQL/models/MongoDB/*`), the mutations other than `logout` and `refresh`, `lib/db/*`, `lib/OBJECTID_0_OBJ`, `lib/access/create*Flow`, `koa/router/verifyEmail`, `koa/middleware/authenticatedAuthorizationHandler`, `koa/middleware/authenticatedResourceHandler` (its types are also named by a few `.d.mts` files) |
+| `redis` | `dataSources/Redis`, the `login*` / `logout` / `refresh` mutations, `koa/middleware/authenticatedAuthorizationHandler`, `koa/middleware/authenticatedLogoutHandler`, `koa/middleware/authenticatedResourceHandler` |
 | `@socketlabs/email` | `email/SocketLabsLib`, `lib/access/createResetPwdFlow`, `lib/access/createVerifyEmailFlow`, `lib/access/resetPwdMailer`, `lib/access/verifyEmailMailer`, `koa/router/verifyEmail`, and the `signUp` / `login*` / `resetPwd` / `updatePassword` / `emailChangeHashVerify` mutations |
 | `clamscan` | `files/scanVirus`, `files/uploadTempImage`, `files/uploadTempPdf` |
 | `file-type` | `files/validateMimeType`, `files/validateMimeTypeImages`, `files/validateJpgPngMimeType`, `files/uploadTempImage`, `files/uploadTempPdf` — loaded lazily, at first call |
@@ -45,14 +47,23 @@ The remaining twelve are declared **optional** in `peerDependenciesMeta`. There 
 | `sequelize-typescript` | `dataSources/MariaDB` |
 | `sharp` | `files/reEncodeToJpeg`, `files/reEncodeToPng`, `files/reEncodeToWebp`, `files/uploadTempImage` |
 
-Optionality is a promise about the load path, not a way to silence the warning: it holds only while the dependency stays behind a subpath the consumer opts into. Adding a root `"."` barrel, or importing one of these from a module that every subpath reaches, breaks it for every consumer at once.
+Two peers do not make a subpath fail when they are missing, because the package loads them only if they are installed:
+
+| Peer | Used by | Without it |
+|---|---|---|
+| `@sentry/node` | every subpath that reports a caught error: the auth mutations and middleware, `dataSources/MariaDB`, `dataSources/PostgreSQL`, `dataSources/Redis`, `email/SocketLabsLib`, `files/scanVirus`, `files/reEncodeTo*`, `files/uploadTemp*`, `lib/tryCatchRethrow`, `lib/MongoDB/throwMongoErrors`, `koa/router/verifyEmail`, `koa/tdwKoaErrorHandler`, the `lib/access/*` flows | nothing is reported; the call is skipped and the code after it runs as before |
+| `dotenv` | every subpath that reads the environment file at import: the data sources, `email/SocketLabsLib`, `lib/tokenOptions`, `lib/setLoginCookies`, the `lib/access/*` flows, the auth mutations and middleware, `koa/router/verifyEmail`, `koa/tdwKoaErrorHandler` | no environment file is read; `process.env` must already hold your settings |
+
+Before 8.0.0 both were installed for you and their absence was an import error. `test/__snapshots__/peer-reach.json` is the exact, machine-checked version of these tables (which subpath loads which peer at import, lazily, or only in its types).
+
+Optionality is a promise about the load path, not a way to silence the warning: it holds only while the dependency stays behind a subpath the consumer opts into. Adding a root `"."` barrel, or importing one of these from a module that every subpath reaches, breaks it for every consumer at once. `@sentry/node` and `dotenv` are the exception by design: they are reached by many subpaths, so they load through two internal facades that skip them when they are not installed.
 
 ## Quick start
 
 A Koa app that refuses every request without a valid access token and answers with the caller's id. It needs a MongoDB and a Redis server you can reach.
 
 ```bash
-yarn add @axiumine/koa-utils @node-rs/bcrypt @sentry/node dotenv graphql mongoose redis uuid koa
+yarn add @axiumine/koa-utils @node-rs/bcrypt dotenv graphql mongoose redis koa
 printf 'MONGODB_URI=mongodb://localhost:27017/app\nREDIS_URL=redis://localhost:6379\nREDIS_KEY=app:\n' > .env
 ```
 
@@ -247,7 +258,7 @@ import { StringLib } from '@axiumine/koa-utils/lib/StringLib'
 | `STATIC_FOLDER` | Destination for `moveFileStaticDomain` |
 | `NODE_ENV` | `development` enables extra Sentry capture in the error handler. Also gates the introspection bypass: `development` and `test` are the only values that let `x-introspectioncode` skip authentication |
 
-Each module calls `dotenv.config()` at import time.
+Each module that reads these variables calls the internal `loadEnv()` at import time: it runs `dotenv.config()` when `dotenv` is installed and does nothing when it is not (then `process.env` must already hold the values).
 
 ### Introspection bypass and `NODE_ENV` (6.0.0)
 

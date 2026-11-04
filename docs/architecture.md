@@ -4,7 +4,7 @@ A high-level design of `@axiumine/koa-utils`. For the file-by-file map see [REPO
 
 ## What it is
 
-A library, not a service. It has no process, port or scheduler of its own. A consumer's Koa application imports the pieces it needs and runs them inside its own process, with its own configuration and credentials. The package ships ESM only (`.mjs` and `.d.mts`), has zero runtime `dependencies`, and declares 19 `peerDependencies` (seven required, twelve optional).
+A library, not a service. It has no process, port or scheduler of its own. A consumer's Koa application imports the pieces it needs and runs them inside its own process, with its own configuration and credentials. The package ships ESM only (`.mjs` and `.d.mts`), has zero runtime `dependencies`, and declares 18 `peerDependencies`, all optional (since 8.0.0 none is installed for you; `@sentry/node` and `dotenv` are skipped silently when absent).
 
 ## Structure
 
@@ -63,7 +63,7 @@ flowchart LR
 
 ## Configuration and state
 
-The library keeps no persistent state of its own. In memory it holds module-level connection objects, the ClamAV scanner created by `initClamScan()` and, per verify-email flow, a small map used to debounce notification mails. Configuration is environment variables (see the table in [README.md](../README.md#environment-variables)), read from `process.env`, which each module fills with `dotenv`, plus the arguments the consumer passes in (the Keygrip instance, the `paths` of the access factories, custom mailers). Persistent state is in the consumer's MongoDB (users, logs) and Redis (sessions).
+The library keeps no persistent state of its own. In memory it holds module-level connection objects, the ClamAV scanner created by `initClamScan()` and, per verify-email flow, a small map used to debounce notification mails. Configuration is environment variables (see the table in [README.md](../README.md#environment-variables)), read from `process.env`, which each module fills through the internal `loadEnv` (`dotenv` when it is installed, nothing when it is not), plus the arguments the consumer passes in (the Keygrip instance, the `paths` of the access factories, custom mailers). Persistent state is in the consumer's MongoDB (users, logs) and Redis (sessions).
 
 ## Build and release
 

@@ -2,17 +2,17 @@ import { IContextAuthenticatedResource } from '@context/IContextAuthenticatedRes
 import { redisClient } from '@dataSources/Redis.mjs'
 import { isSessionBlocked } from '@lib/isSessionBlocked.mjs'
 import { isValidUuidV4 } from '@lib/isValidUuidV4.mjs'
+import { loadEnv } from '@private/lib/loadEnv.mjs'
 import { verifyIntrospectionCode } from '@private/lib/verifyIntrospectionCode.mjs'
 import { throwAccessTokenExpiredOrDeleted } from '@throw/throwAccessTokenExpiredOrDeleted.mjs'
 import { throwAccessTokenRequired } from '@throw/throwAccessTokenRequired.mjs'
 import { throwForbiddenError } from '@throw/throwForbiddenError.mjs'
 import { throwMissingMalformedInvalidToken } from '@throw/throwMissingMalformedInvalidToken.mjs'
 import { throwPreconditionFailedNoAuthHeader } from '@throw/throwPreconditionFailedNoAuthHeader.mjs'
-import * as dotenv from 'dotenv'
 import { Next } from 'koa'
 import { Types } from 'mongoose'
 
-dotenv.config()
+loadEnv()
 
 /**
  * Find out access token in Bearer header

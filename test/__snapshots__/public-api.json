@@ -307,7 +307,6 @@
 		"EMAIL_MAX_LEN",
 		"MAX_PWD_LENGTH",
 		"MIN_PWD_LENGTH",
-		"OBJECTID_0_OBJ",
 		"OBJECTID_0_STR"
 	],
 	"./lib/DateLib": [
@@ -335,6 +334,9 @@
 	],
 	"./lib/NumLib": [
 		"NumLib"
+	],
+	"./lib/OBJECTID_0_OBJ": [
+		"OBJECTID_0_OBJ"
 	],
 	"./lib/PostgreSQL/IPostgresError": [],
 	"./lib/PostgreSQL/IPostgresErrorCodes": [

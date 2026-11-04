@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/node'
+import * as Sentry from '@private/lib/sentry.mjs'
 import NodeClam from 'clamscan'
 
 let clamScanInstance: NodeClam | null = null

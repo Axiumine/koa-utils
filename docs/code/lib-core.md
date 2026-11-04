@@ -11,7 +11,7 @@ Core, dependency-light building blocks used across the auth flow (`signUp` → `
 export function generateAccessToken(): string
 ```
 
-Generates a new access token. Internally calls a private `generateToken()` helper that wraps `uuidv4()` from the `uuid` package — the token is an opaque random UUID v4 string, not a JWT. Call this on successful login to mint the token that is returned to the client as `{ accessToken }` in the response body and stored server-side in Redis under `${REDIS_KEY}access:<uuid>`.
+Generates a new access token. Internally calls a private `generateToken()` helper that wraps `randomUUID()` from `node:crypto` (the `uuid` package is no longer a peer dependency since 8.0.0; the output is the same lowercase v4 string) — the token is an opaque random UUID v4 string, not a JWT. Call this on successful login to mint the token that is returned to the client as `{ accessToken }` in the response body and stored server-side in Redis under `${REDIS_KEY}access:<uuid>`.
 
 **Returns:** `string` — a UUID v4 string.
 
@@ -68,7 +68,7 @@ export const accessTokenOptions: {
 }
 ```
 
-Cookie-options preset for an access-token cookie, built by spreading a private `baseOptions` object (`{ httpOnly: true, sameSite: 'Strict', secure: false, expirationDate: 0 }`) with no additional overrides. Not currently consumed elsewhere in this package (the access token is returned in the response body, not set as a cookie, in the shipped mutations) but is exported for consumers that do want to cookie-store the access token. Importing this module has the side effect of calling `dotenv.config()`.
+Cookie-options preset for an access-token cookie, built by spreading a private `baseOptions` object (`{ httpOnly: true, sameSite: 'Strict', secure: false, expirationDate: 0 }`) with no additional overrides. Not currently consumed elsewhere in this package (the access token is returned in the response body, not set as a cookie, in the shipped mutations) but is exported for consumers that do want to cookie-store the access token. Importing this module has the side effect of calling the internal `loadEnv()` (`dotenv.config()` when `dotenv` is installed).
 
 **Notes:** `secure: false` is intentional — TLS is terminated at Nginx, which is expected to rewrite/enforce `secure` at the reverse-proxy layer. Do not change this in source.
 
@@ -86,7 +86,7 @@ export const refreshTokenOptions: {
 }
 ```
 
-Cookie-options preset for the `refresh_token` cookie, spread from the same private `baseOptions` as `accessTokenOptions` (`{ httpOnly: true, sameSite: 'Strict', secure: false, expirationDate: 0 }`). Used by `setLoginCookies` (merged with `maxAge`) and directly by the `logout` mutation to clear the cookie (`ctx.cookies.set('refresh_token', '', refreshTokenOptions)`). Importing this module has the side effect of calling `dotenv.config()`.
+Cookie-options preset for the `refresh_token` cookie, spread from the same private `baseOptions` as `accessTokenOptions` (`{ httpOnly: true, sameSite: 'Strict', secure: false, expirationDate: 0 }`). Used by `setLoginCookies` (merged with `maxAge`) and directly by the `logout` mutation to clear the cookie (`ctx.cookies.set('refresh_token', '', refreshTokenOptions)`). Importing this module has the side effect of calling the internal `loadEnv()` (`dotenv.config()` when `dotenv` is installed).
 
 **Notes:** `secure: false` is intentional — TLS is terminated at Nginx, not in this cookie config. Do not change this in source.
 
@@ -269,7 +269,7 @@ The canonical all-zero MongoDB ObjectId, as a 24-character hex string. Useful as
 
 ## `OBJECTID_0_OBJ`
 
-**Import:** `import { OBJECTID_0_OBJ } from '@axiumine/koa-utils/lib/Constants'`
+**Import:** `import { OBJECTID_0_OBJ } from '@axiumine/koa-utils/lib/OBJECTID_0_OBJ'`
 
 **Signature:**
 ```ts
@@ -277,6 +277,8 @@ export const OBJECTID_0_OBJ = new Types.ObjectId(OBJECTID_0_STR)
 ```
 
 The same all-zero sentinel id as `OBJECTID_0_STR`, pre-constructed as a Mongoose `Types.ObjectId` instance for direct use in queries/documents without re-parsing the string on every use.
+
+**Breaking in 8.0.0:** through 7.2.0 this constant was exported by `lib/Constants`. It has its own subpath now because it is the only thing in `Constants` that needs `mongoose`: with it there, `lib/Constants`, `lib/emailHash`, `lib/checkEmailLen` and `lib/checkPwdLen` all loaded `mongoose` for nothing. Change the import path; the value is the same. Importing this subpath needs `mongoose` installed; `lib/Constants` does not.
 
 **Returns:** `Types.ObjectId` — instance wrapping `OBJECTID_0_STR`.
 
