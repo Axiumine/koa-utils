@@ -358,6 +358,9 @@
 	"./lib/PostgreSQL/error/DB_CONNECT_REASONS": [
 		"DB_CONNECT_REASONS"
 	],
+	"./lib/PostgreSQL/error/DB_INTERNAL_REASONS": [
+		"DB_INTERNAL_REASONS"
+	],
 	"./lib/PostgreSQL/error/DB_PARSE_REASONS": [
 		"DB_PARSE_REASONS"
 	],
@@ -373,21 +376,51 @@
 	"./lib/PostgreSQL/error/DbTxError": [
 		"DbTxError"
 	],
+	"./lib/PostgreSQL/error/IConstraintEntry": [],
+	"./lib/PostgreSQL/error/IConstraintEntryBuilder": [],
+	"./lib/PostgreSQL/error/IConstraintTable": [],
 	"./lib/PostgreSQL/error/IDbConnectReason": [],
+	"./lib/PostgreSQL/error/IDbErrorCounter": [],
+	"./lib/PostgreSQL/error/IDbErrorCounterName": [],
 	"./lib/PostgreSQL/error/IDbErrorFactory": [],
+	"./lib/PostgreSQL/error/IDbInternalReason": [],
 	"./lib/PostgreSQL/error/IDbParseReason": [],
 	"./lib/PostgreSQL/error/IDbTxReason": [],
+	"./lib/PostgreSQL/error/IMapDbErrorOptions": [],
+	"./lib/PostgreSQL/error/buildConstraintEntry": [
+		"buildConstraintEntry"
+	],
 	"./lib/PostgreSQL/error/constraintNameOf": [
 		"constraintNameOf"
 	],
 	"./lib/PostgreSQL/error/errorNameOf": [
 		"errorNameOf"
 	],
+	"./lib/PostgreSQL/error/lookupConstraint": [
+		"lookupConstraint"
+	],
+	"./lib/PostgreSQL/error/mapDbError": [
+		"mapDbError"
+	],
 	"./lib/PostgreSQL/error/sqlstateField": [
 		"sqlstateField"
 	],
 	"./lib/PostgreSQL/error/sqlstateOf": [
 		"sqlstateOf"
+	],
+	"./lib/PostgreSQL/guard/IAffectedResult": [],
+	"./lib/PostgreSQL/guard/IGuardCounter": [],
+	"./lib/PostgreSQL/guard/IVersionGuardCode": [],
+	"./lib/PostgreSQL/guard/IVersionGuardField": [],
+	"./lib/PostgreSQL/guard/IVersionGuardInput": [],
+	"./lib/PostgreSQL/guard/VERSION_GUARD_FIELDS": [
+		"VERSION_GUARD_FIELDS"
+	],
+	"./lib/PostgreSQL/guard/assertAffected": [
+		"assertAffected"
+	],
+	"./lib/PostgreSQL/guard/guardVersion": [
+		"guardVersion"
 	],
 	"./lib/PostgreSQL/makePostgreSqlLogError": [
 		"makePostgreSqlLogError"

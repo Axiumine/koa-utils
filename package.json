@@ -330,6 +330,10 @@
 			"import": "./dist/lib/PostgreSQL/error/DB_CONNECT_REASONS.mjs",
 			"types": "./dist/lib/PostgreSQL/error/DB_CONNECT_REASONS.d.mts"
 		},
+		"./lib/PostgreSQL/error/DB_INTERNAL_REASONS": {
+			"import": "./dist/lib/PostgreSQL/error/DB_INTERNAL_REASONS.mjs",
+			"types": "./dist/lib/PostgreSQL/error/DB_INTERNAL_REASONS.d.mts"
+		},
 		"./lib/PostgreSQL/error/DB_PARSE_REASONS": {
 			"import": "./dist/lib/PostgreSQL/error/DB_PARSE_REASONS.mjs",
 			"types": "./dist/lib/PostgreSQL/error/DB_PARSE_REASONS.d.mts"
@@ -350,13 +354,37 @@
 			"import": "./dist/lib/PostgreSQL/error/DbTxError.mjs",
 			"types": "./dist/lib/PostgreSQL/error/DbTxError.d.mts"
 		},
+		"./lib/PostgreSQL/error/IConstraintEntry": {
+			"import": "./dist/lib/PostgreSQL/error/IConstraintEntry.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IConstraintEntry.d.mts"
+		},
+		"./lib/PostgreSQL/error/IConstraintEntryBuilder": {
+			"import": "./dist/lib/PostgreSQL/error/IConstraintEntryBuilder.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IConstraintEntryBuilder.d.mts"
+		},
+		"./lib/PostgreSQL/error/IConstraintTable": {
+			"import": "./dist/lib/PostgreSQL/error/IConstraintTable.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IConstraintTable.d.mts"
+		},
 		"./lib/PostgreSQL/error/IDbConnectReason": {
 			"import": "./dist/lib/PostgreSQL/error/IDbConnectReason.mjs",
 			"types": "./dist/lib/PostgreSQL/error/IDbConnectReason.d.mts"
 		},
+		"./lib/PostgreSQL/error/IDbErrorCounter": {
+			"import": "./dist/lib/PostgreSQL/error/IDbErrorCounter.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IDbErrorCounter.d.mts"
+		},
+		"./lib/PostgreSQL/error/IDbErrorCounterName": {
+			"import": "./dist/lib/PostgreSQL/error/IDbErrorCounterName.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IDbErrorCounterName.d.mts"
+		},
 		"./lib/PostgreSQL/error/IDbErrorFactory": {
 			"import": "./dist/lib/PostgreSQL/error/IDbErrorFactory.mjs",
 			"types": "./dist/lib/PostgreSQL/error/IDbErrorFactory.d.mts"
+		},
+		"./lib/PostgreSQL/error/IDbInternalReason": {
+			"import": "./dist/lib/PostgreSQL/error/IDbInternalReason.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IDbInternalReason.d.mts"
 		},
 		"./lib/PostgreSQL/error/IDbParseReason": {
 			"import": "./dist/lib/PostgreSQL/error/IDbParseReason.mjs",
@@ -366,6 +394,14 @@
 			"import": "./dist/lib/PostgreSQL/error/IDbTxReason.mjs",
 			"types": "./dist/lib/PostgreSQL/error/IDbTxReason.d.mts"
 		},
+		"./lib/PostgreSQL/error/IMapDbErrorOptions": {
+			"import": "./dist/lib/PostgreSQL/error/IMapDbErrorOptions.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IMapDbErrorOptions.d.mts"
+		},
+		"./lib/PostgreSQL/error/buildConstraintEntry": {
+			"import": "./dist/lib/PostgreSQL/error/buildConstraintEntry.mjs",
+			"types": "./dist/lib/PostgreSQL/error/buildConstraintEntry.d.mts"
+		},
 		"./lib/PostgreSQL/error/constraintNameOf": {
 			"import": "./dist/lib/PostgreSQL/error/constraintNameOf.mjs",
 			"types": "./dist/lib/PostgreSQL/error/constraintNameOf.d.mts"
@@ -373,6 +409,14 @@
 		"./lib/PostgreSQL/error/errorNameOf": {
 			"import": "./dist/lib/PostgreSQL/error/errorNameOf.mjs",
 			"types": "./dist/lib/PostgreSQL/error/errorNameOf.d.mts"
+		},
+		"./lib/PostgreSQL/error/lookupConstraint": {
+			"import": "./dist/lib/PostgreSQL/error/lookupConstraint.mjs",
+			"types": "./dist/lib/PostgreSQL/error/lookupConstraint.d.mts"
+		},
+		"./lib/PostgreSQL/error/mapDbError": {
+			"import": "./dist/lib/PostgreSQL/error/mapDbError.mjs",
+			"types": "./dist/lib/PostgreSQL/error/mapDbError.d.mts"
 		},
 		"./lib/PostgreSQL/error/sqlstateField": {
 			"import": "./dist/lib/PostgreSQL/error/sqlstateField.mjs",
@@ -573,6 +617,38 @@
 		"./lib/PostgreSQL/tx/withTx": {
 			"import": "./dist/lib/PostgreSQL/tx/withTx.mjs",
 			"types": "./dist/lib/PostgreSQL/tx/withTx.d.mts"
+		},
+		"./lib/PostgreSQL/guard/IAffectedResult": {
+			"import": "./dist/lib/PostgreSQL/guard/IAffectedResult.mjs",
+			"types": "./dist/lib/PostgreSQL/guard/IAffectedResult.d.mts"
+		},
+		"./lib/PostgreSQL/guard/IGuardCounter": {
+			"import": "./dist/lib/PostgreSQL/guard/IGuardCounter.mjs",
+			"types": "./dist/lib/PostgreSQL/guard/IGuardCounter.d.mts"
+		},
+		"./lib/PostgreSQL/guard/IVersionGuardCode": {
+			"import": "./dist/lib/PostgreSQL/guard/IVersionGuardCode.mjs",
+			"types": "./dist/lib/PostgreSQL/guard/IVersionGuardCode.d.mts"
+		},
+		"./lib/PostgreSQL/guard/IVersionGuardField": {
+			"import": "./dist/lib/PostgreSQL/guard/IVersionGuardField.mjs",
+			"types": "./dist/lib/PostgreSQL/guard/IVersionGuardField.d.mts"
+		},
+		"./lib/PostgreSQL/guard/IVersionGuardInput": {
+			"import": "./dist/lib/PostgreSQL/guard/IVersionGuardInput.mjs",
+			"types": "./dist/lib/PostgreSQL/guard/IVersionGuardInput.d.mts"
+		},
+		"./lib/PostgreSQL/guard/VERSION_GUARD_FIELDS": {
+			"import": "./dist/lib/PostgreSQL/guard/VERSION_GUARD_FIELDS.mjs",
+			"types": "./dist/lib/PostgreSQL/guard/VERSION_GUARD_FIELDS.d.mts"
+		},
+		"./lib/PostgreSQL/guard/assertAffected": {
+			"import": "./dist/lib/PostgreSQL/guard/assertAffected.mjs",
+			"types": "./dist/lib/PostgreSQL/guard/assertAffected.d.mts"
+		},
+		"./lib/PostgreSQL/guard/guardVersion": {
+			"import": "./dist/lib/PostgreSQL/guard/guardVersion.mjs",
+			"types": "./dist/lib/PostgreSQL/guard/guardVersion.d.mts"
 		},
 		"./lib/PostgreSQL/counter/IDbCounter": {
 			"import": "./dist/lib/PostgreSQL/counter/IDbCounter.mjs",

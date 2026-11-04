@@ -845,3 +845,11 @@ Helpers behind [`lib-postgres.md`](./lib-postgres.md). None is a public subpath;
 | `runTxWithRetries` | `runTxWithRetries(pool, settings, fn, retries): Promise<T>` | The retry loop, as a recursion: 55P03 ends it, 40001 and 40P01 are retried after `settings.retryDelay` until `retryMax`, anything else is rethrown. |
 | `txFailure` | `txFailure(settings, reason, sqlstate, attempts): Error` | Counts and logs the failure that ends the loop and returns what `settings.errors.internal(reason)` builds. |
 | `ITxSettings`, `ITxHandleState` | types | The options after the checks, and what a handle shares with its attempt. |
+| `internalFailure` | `internalFailure(sink, counterName, message, fields): TError` | Counts `counterName` (when the sink has a counter), logs `message` with `fields` at `error` level, and returns `sink.errors.internal(fields.reason)`, in that order. Shared by `mapDbError` and `guardVersion`. |
+| `IInternalSink` | `IInternalSink<TError, TName>` | The factory's `internal`, a logger with `error`, and an optional counter over the names it emits. |
+| `mapTypedError` | `mapTypedError(error, options): TError \| undefined` | Step 2 of `mapDbError`: `DbParseError`, `DbConnectError` and `DbTxError` to their internal reasons; `undefined` for any other value. |
+| `mapViolation` | `mapViolation(error, sqlstate, options): TError` | Step 3 of `mapDbError`: the row of the table for the constraint name built with `errors.make`, or `CONSTRAINT_UNMAPPED`, `CONSTRAINT_INTERNAL` or `DETAILS_NOT_SUPPLIED`. |
+| `constraintDetails` | `constraintDetails(entry, supplied): Record \| null \| undefined` | The details of a row: the fixed ones plus the listed keys that the caller supplied (own keys only; `undefined` value is missing). `undefined` for a row with no details, `null` when a listed key is missing. |
+| `constraintField` | `constraintField(name): { constraint?: string }` | The log field for a constraint name, with no key when there is none. |
+| `assertVersionGuardInput` | `assertVersionGuardInput(input): void` | The `TypeError` checks of `guardVersion` in the order field, expected, entity. |
+| `versionText` | `versionText(value): string \| undefined` | A version column value as text: a safe integer, or a string of 1 to 19 digits; `undefined` for anything else. |

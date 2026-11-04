@@ -36,9 +36,11 @@ const PEER_SCOPE: Record<string, RegExp> = {
 // koa/createKoaErrorHandler + its 2 type files: 0 peers at runtime AND in .d.mts (no koa, graphql, sentry, dotenv)
 // email/createSocketLabsSender: only @socketlabs/email at runtime, 0 in .d.mts (local structural types). Its 4 type files: 0 peers
 // No sentry, no dotenv, no graphql: those stay in SocketLabsLib
-// lib/PostgreSQL/{error,parse,pool,url,counter,tx}/*: 0 peers at runtime AND in .d.mts. Driver = param w/ structural type (IDbDriver),
-// never import of 'pg'. Only node:net (isValidHost) + node:crypto (tx/jitteredDelay) = builtin. Later kit subpaths (guard, role, clock, lock) append here too
+// lib/PostgreSQL/{error,parse,pool,url,counter,tx,guard}/*: 0 peers at runtime AND in .d.mts. Driver = param w/ structural type (IDbDriver),
+// never import of 'pg'. Only node:net (isValidHost) + node:crypto (tx/jitteredDelay) = builtin. Later kit subpaths (role, clock, lock) append here too
 // lib/PostgreSQL/tx/* + error/{DbTxError,DB_TX_REASONS,IDbTxReason,IDbErrorFactory}: same, 0 peers runtime AND .d.mts. withTx take pool as param (ITxPool)
+// lib/PostgreSQL/guard/* + error/{mapDbError,lookupConstraint,buildConstraintEntry,DB_INTERNAL_REASONS + types}: same, 0 peers runtime AND .d.mts.
+// Error family = param (IDbErrorFactory), table = param (IConstraintTable), tx = param (ITx). No import of pg / application error class
 const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/Constants': [],
 	'./lib/emailHash': [],
@@ -65,6 +67,17 @@ const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/PostgreSQL/error/DbTxError': [],
 	'./lib/PostgreSQL/error/IDbErrorFactory': [],
 	'./lib/PostgreSQL/error/IDbTxReason': [],
+	'./lib/PostgreSQL/error/DB_INTERNAL_REASONS': [],
+	'./lib/PostgreSQL/error/IConstraintEntry': [],
+	'./lib/PostgreSQL/error/IConstraintEntryBuilder': [],
+	'./lib/PostgreSQL/error/IConstraintTable': [],
+	'./lib/PostgreSQL/error/IDbErrorCounter': [],
+	'./lib/PostgreSQL/error/IDbErrorCounterName': [],
+	'./lib/PostgreSQL/error/IDbInternalReason': [],
+	'./lib/PostgreSQL/error/IMapDbErrorOptions': [],
+	'./lib/PostgreSQL/error/buildConstraintEntry': [],
+	'./lib/PostgreSQL/error/lookupConstraint': [],
+	'./lib/PostgreSQL/error/mapDbError': [],
 	'./lib/PostgreSQL/parse/IArrayParser': [],
 	'./lib/PostgreSQL/parse/IDriverTypes': [],
 	'./lib/PostgreSQL/parse/IStringParser': [],
@@ -113,6 +126,14 @@ const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/PostgreSQL/tx/defaultRetryDelay': [],
 	'./lib/PostgreSQL/tx/jitteredDelay': [],
 	'./lib/PostgreSQL/tx/withTx': [],
+	'./lib/PostgreSQL/guard/IAffectedResult': [],
+	'./lib/PostgreSQL/guard/IGuardCounter': [],
+	'./lib/PostgreSQL/guard/IVersionGuardCode': [],
+	'./lib/PostgreSQL/guard/IVersionGuardField': [],
+	'./lib/PostgreSQL/guard/IVersionGuardInput': [],
+	'./lib/PostgreSQL/guard/VERSION_GUARD_FIELDS': [],
+	'./lib/PostgreSQL/guard/assertAffected': [],
+	'./lib/PostgreSQL/guard/guardVersion': [],
 	'./lib/PostgreSQL/counter/IDbCounter': [],
 	'./lib/checkEmailLen': ['graphql'],
 	'./lib/checkPwdLen': ['graphql']

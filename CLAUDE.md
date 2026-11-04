@@ -79,7 +79,7 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 | `src/lib/access/**` | `docs/code/lib-access.md` |
 | `src/lib/db/**` | `docs/code/lib-db.md` |
 | `src/lib/MariaDB/**`, `lib/MongoDB/**`, `lib/PostgreSQL/*.mts` (top level only) | `docs/code/lib-datasource-errors.md` |
-| `src/lib/PostgreSQL/{error,parse,pool,url,counter,tx}/**` (kit subfolders, later parts add more) | `docs/code/lib-postgres.md` |
+| `src/lib/PostgreSQL/{error,parse,pool,url,counter,tx,guard}/**` (kit subfolders, later parts add more) | `docs/code/lib-postgres.md` |
 | `src/lib/Redis/**` + remaining `src/lib/` utilities | `docs/code/lib-utilities.md` |
 | `src/private/**` | `docs/code/internal.md` |
 | Any file added/removed/moved under `src/` | `REPO.md` |
