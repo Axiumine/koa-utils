@@ -31,10 +31,10 @@ function modeOrders(orders: unknown): Map<string, IModeOrder> {
 	return byMode
 }
 
-/** Puts one helper in the order of each mode it names; answers how many. A `TypeError` for a mode or a rank the spec lacks. */
-function placeHelper(helper: string, entry: unknown, byMode: ReadonlyMap<string, IModeOrder>): number {
+/** Puts one helper in the order of each mode it names; answers whether it named any. A `TypeError` for a mode or a rank the spec lacks. */
+function placeHelper(helper: string, entry: unknown, byMode: ReadonlyMap<string, IModeOrder>): boolean {
 	if (typeof entry !== 'object' || entry === null) throw new TypeError(`${helper} must map modes to rank names`)
-	let placed = 0
+	let placed = false
 	for (const [mode, name] of Object.entries(entry)) {
 		const order = byMode.get(mode)
 		if (order === undefined) throw new TypeError(`${helper} names a mode that is not in spec.orders`)
@@ -42,7 +42,7 @@ function placeHelper(helper: string, entry: unknown, byMode: ReadonlyMap<string,
 		const rank = order.names.indexOf(name as string) + 1
 		if (rank === 0) throw new TypeError(`${helper} names a rank that is not in the ${mode} order`)
 		order.ranks.set(helper, { name: name as string, rank })
-		placed += 1
+		placed = true
 	}
 	return placed
 }
@@ -62,7 +62,7 @@ export function lockOrderPlan(spec: unknown): ILockOrderPlan {
 	if (typeof helpers !== 'object' || helpers === null) throw new TypeError('spec.helpers must be an object')
 	const names = new Set<string>()
 	for (const [helper, entry] of Object.entries(helpers)) {
-		if (placeHelper(helper, entry, byMode) === 0) throw new TypeError(`${helper} takes no rank in any mode`)
+		if (!placeHelper(helper, entry, byMode)) throw new TypeError(`${helper} takes no rank in any mode`)
 		names.add(helper)
 	}
 	return { defaultOrder, orders: byMode, helpers: names }
