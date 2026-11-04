@@ -36,8 +36,9 @@ const PEER_SCOPE: Record<string, RegExp> = {
 // koa/createKoaErrorHandler + its 2 type files: 0 peers at runtime AND in .d.mts (no koa, graphql, sentry, dotenv)
 // email/createSocketLabsSender: only @socketlabs/email at runtime, 0 in .d.mts (local structural types). Its 4 type files: 0 peers
 // No sentry, no dotenv, no graphql: those stay in SocketLabsLib
-// lib/PostgreSQL/{error,parse,pool,url,counter}/*: 0 peers at runtime AND in .d.mts. Driver = param w/ structural type (IDbDriver),
-// never import of 'pg'. Only node:net (isValidHost) = builtin. Later kit subpaths (tx, guard, role, clock, lock) append here too
+// lib/PostgreSQL/{error,parse,pool,url,counter,tx}/*: 0 peers at runtime AND in .d.mts. Driver = param w/ structural type (IDbDriver),
+// never import of 'pg'. Only node:net (isValidHost) + node:crypto (tx/jitteredDelay) = builtin. Later kit subpaths (guard, role, clock, lock) append here too
+// lib/PostgreSQL/tx/* + error/{DbTxError,DB_TX_REASONS,IDbTxReason,IDbErrorFactory}: same, 0 peers runtime AND .d.mts. withTx take pool as param (ITxPool)
 const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/Constants': [],
 	'./lib/emailHash': [],
@@ -60,6 +61,10 @@ const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/PostgreSQL/error/errorNameOf': [],
 	'./lib/PostgreSQL/error/sqlstateField': [],
 	'./lib/PostgreSQL/error/sqlstateOf': [],
+	'./lib/PostgreSQL/error/DB_TX_REASONS': [],
+	'./lib/PostgreSQL/error/DbTxError': [],
+	'./lib/PostgreSQL/error/IDbErrorFactory': [],
+	'./lib/PostgreSQL/error/IDbTxReason': [],
 	'./lib/PostgreSQL/parse/IArrayParser': [],
 	'./lib/PostgreSQL/parse/IDriverTypes': [],
 	'./lib/PostgreSQL/parse/IStringParser': [],
@@ -88,6 +93,26 @@ const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/PostgreSQL/url/databaseUrlReason': [],
 	'./lib/PostgreSQL/url/isAbsolutePath': [],
 	'./lib/PostgreSQL/url/isValidHost': [],
+	'./lib/PostgreSQL/tx/DEFAULT_LOCK_TIMEOUT_MS': [],
+	'./lib/PostgreSQL/tx/IRetryDelay': [],
+	'./lib/PostgreSQL/tx/ITx': [],
+	'./lib/PostgreSQL/tx/ITxClient': [],
+	'./lib/PostgreSQL/tx/ITxCounter': [],
+	'./lib/PostgreSQL/tx/ITxCounterName': [],
+	'./lib/PostgreSQL/tx/ITxFailureReason': [],
+	'./lib/PostgreSQL/tx/ITxIsolation': [],
+	'./lib/PostgreSQL/tx/ITxOptions': [],
+	'./lib/PostgreSQL/tx/ITxPool': [],
+	'./lib/PostgreSQL/tx/ITxResult': [],
+	'./lib/PostgreSQL/tx/MAX_LOCK_TIMEOUT_MS': [],
+	'./lib/PostgreSQL/tx/TX_FAILURE_REASONS': [],
+	'./lib/PostgreSQL/tx/TX_ISOLATION_LEVELS': [],
+	'./lib/PostgreSQL/tx/TX_RETRY_BASE_DELAY_MS': [],
+	'./lib/PostgreSQL/tx/TX_RETRY_MAX': [],
+	'./lib/PostgreSQL/tx/TX_RETRY_MAX_CEILING': [],
+	'./lib/PostgreSQL/tx/defaultRetryDelay': [],
+	'./lib/PostgreSQL/tx/jitteredDelay': [],
+	'./lib/PostgreSQL/tx/withTx': [],
 	'./lib/PostgreSQL/counter/IDbCounter': [],
 	'./lib/checkEmailLen': ['graphql'],
 	'./lib/checkPwdLen': ['graphql']

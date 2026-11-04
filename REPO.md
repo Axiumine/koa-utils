@@ -66,10 +66,11 @@ src/
 │   ├── MariaDB/                # IMariaDBErr, MariaDBErrType, throwSqlErrors
 │   ├── MongoDB/                # IMongoDBError, MongoDBErrType, throwIfMongoErr, throwMongoErrors, IOnboarding
 │   ├── PostgreSQL/             # IPostgresError, IPostgresErrorCodes, makePostgreSqlLogError; the driver-agnostic kit in subfolders (0 peers, docs/code/lib-postgres.md):
-│   │   ├── error/              # DbParseError, DbConnectError (+ DB_*_REASONS, IDb*Reason), sqlstateOf, sqlstateField, constraintNameOf, errorNameOf
+│   │   ├── error/              # DbParseError, DbConnectError, DbTxError (+ DB_*_REASONS, IDb*Reason), IDbErrorFactory, sqlstateOf, sqlstateField, constraintNameOf, errorNameOf
 │   │   ├── parse/              # parseDate, parseTime, parseTimestamptz, parseInt8, parseUuid, arrayOf, TYPE_PARSERS, createTypeRegistry, IStringParser, IArrayParser, IDriverTypes, ITypeParserEntry
 │   │   ├── pool/               # createPool, DEFAULT_CONNECT_TIMEOUT_MS, DEFAULT_KEEPALIVE_INITIAL_DELAY_MS, REQUIRED_SESSION_TIME_ZONE, ICreatePoolOptions, IDbDriver, IPoolEvents, IPoolLogger, IPoolCounter, IPoolCounterName
 │   │   ├── counter/            # IDbCounter<TName>
+│   │   ├── tx/                 # withTx, jitteredDelay, defaultRetryDelay, DEFAULT_LOCK_TIMEOUT_MS, MAX_LOCK_TIMEOUT_MS, TX_RETRY_MAX, TX_RETRY_MAX_CEILING, TX_RETRY_BASE_DELAY_MS, TX_ISOLATION_LEVELS, TX_FAILURE_REASONS, ITx, ITxResult, ITxClient, ITxPool, ITxOptions, ITxIsolation, ITxFailureReason, ITxCounter, ITxCounterName, IRetryDelay
 │   │   └── url/                # databaseUrlReason, LOOPBACK_HOSTS, isValidHost, isAbsolutePath, IDatabaseUrlOptions, IDatabaseUrlReason
 │   ├── Redis/                  # buildPrefixedRedisKey, RedisBoolean enum + to/from helpers
 │   ├── db/
@@ -85,7 +86,7 @@ src/
     └── lib/access/{db/* (incl. abandonUser.mts), handleIf*, assertVerifyEmailAllowed.mts, emailChangeHandlers.mts, pathTools.mts,
                    safeEqualSecret.mts, assertResetAllowed.mts, applyPasswordReset.mts}
         lib/importOptional.mts, loadEnv.mts, sentry.mts, createSentryClient.mts, ISentryClient.mts  # optional-peer loader, dotenv + Sentry facades
-        lib/PostgreSQL/{civilCalendar, readField, errorCodeOf, poolUrlSecrets, scrubSecrets, assertPoolOptions, connectAndCheck, checkedClient}.mts + I*.mts  # internals of the PostgreSQL kit
+        lib/PostgreSQL/{civilCalendar, readField, errorCodeOf, poolUrlSecrets, scrubSecrets, assertPoolOptions, connectAndCheck, checkedClient, txSettings, txHandle, txFailure, runTxBody, runTxAttempt, runTxWithRetries, TX_BEGIN_STATEMENTS}.mts + I*.mts  # internals of the PostgreSQL kit
 ```
 
 `src/types/` holds one ambient declaration, `socketlabs-email.d.ts` (`declare module '@socketlabs/email'`, which ships no types); it emits no `.mjs`.
@@ -196,9 +197,9 @@ Each connector reads `.env` via the internal `loadEnv()` (`dotenv.config()` when
 
 Both paths take their scheme from `REDIS_TLS`, via the three `private/dataSources/` helpers. Set to exactly `true` it builds cluster root nodes as `rediss://` **and** sets `defaults.socket.tls` (node-redis does not inherit root-node TLS for the connections it opens to discovered nodes), and it requires `REDIS_URL` to carry the `rediss:` scheme — `resolveRedisUrl` throws at module load otherwise, rather than upgrading the scheme silently. Any other value, unset included, is off and keeps the pre-flag plaintext behaviour. See `docs/code/data-sources.md` and `docs/code/internal.md`.
 
-### PostgreSQL kit (`lib/PostgreSQL/{error,parse,pool,url,counter}/`)
+### PostgreSQL kit (`lib/PostgreSQL/{error,parse,pool,url,counter,tx}/`)
 
-Driver-agnostic leaf pieces, 0 peers at runtime and in `.d.mts` (budgeted `[]` in `PEER_BUDGET`, `test/package/peerReach.spec.mts`). `createPool` takes the `pg` module as its `driver` argument and uses `Pool`, `Client` and `types` through the structural `IDbDriver`; no file imports `pg`. One value export per file, file name = export name, types in `I*` files, no barrel. The parsers (`parseDate`, `parseTime`, `parseTimestamptz`, `parseInt8`, `parseUuid`, `arrayOf`) return strings and never build a `Date`; `createTypeRegistry` hands them to a pool as its `types` option without calling `setTypeParser`. Errors carry a closed reason, a fixed message and no `cause`. `databaseUrlReason(text, { expectedRole, allowPlainLoopback })` is a strict allow-list check of a database URL and reads no environment variable. The calendar arithmetic and the helpers of `createPool` live in `src/private/lib/PostgreSQL/`. Full reference: `docs/code/lib-postgres.md`.
+Driver-agnostic leaf pieces and the transaction wrapper, 0 peers at runtime and in `.d.mts` (budgeted `[]` in `PEER_BUDGET`, `test/package/peerReach.spec.mts`). `createPool` takes the `pg` module as its `driver` argument and uses `Pool`, `Client` and `types` through the structural `IDbDriver`; no file imports `pg`. One value export per file, file name = export name, types in `I*` files, no barrel. The parsers (`parseDate`, `parseTime`, `parseTimestamptz`, `parseInt8`, `parseUuid`, `arrayOf`) return strings and never build a `Date`; `createTypeRegistry` hands them to a pool as its `types` option without calling `setTypeParser`. Errors carry a closed reason, a fixed message and no `cause`. `withTx(pool, options, fn)` (`tx/`) runs `fn` in one transaction with a closed `BEGIN`, `SET LOCAL lock_timeout`, a bounded retry on SQLSTATE 40001 and 40P01, a handle that dies with the transaction, and the error for a give-up built by the caller's `IDbErrorFactory` (only `internal` is read), so no application error class is imported. `databaseUrlReason(text, { expectedRole, allowPlainLoopback })` is a strict allow-list check of a database URL and reads no environment variable. The calendar arithmetic and the helpers of `createPool` live in `src/private/lib/PostgreSQL/`. Full reference: `docs/code/lib-postgres.md`.
 
 ### File uploads (`files/uploadTempImage`, `files/uploadTempPdf`)
 

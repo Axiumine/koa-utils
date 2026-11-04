@@ -334,6 +334,10 @@
 			"import": "./dist/lib/PostgreSQL/error/DB_PARSE_REASONS.mjs",
 			"types": "./dist/lib/PostgreSQL/error/DB_PARSE_REASONS.d.mts"
 		},
+		"./lib/PostgreSQL/error/DB_TX_REASONS": {
+			"import": "./dist/lib/PostgreSQL/error/DB_TX_REASONS.mjs",
+			"types": "./dist/lib/PostgreSQL/error/DB_TX_REASONS.d.mts"
+		},
 		"./lib/PostgreSQL/error/DbConnectError": {
 			"import": "./dist/lib/PostgreSQL/error/DbConnectError.mjs",
 			"types": "./dist/lib/PostgreSQL/error/DbConnectError.d.mts"
@@ -342,13 +346,25 @@
 			"import": "./dist/lib/PostgreSQL/error/DbParseError.mjs",
 			"types": "./dist/lib/PostgreSQL/error/DbParseError.d.mts"
 		},
+		"./lib/PostgreSQL/error/DbTxError": {
+			"import": "./dist/lib/PostgreSQL/error/DbTxError.mjs",
+			"types": "./dist/lib/PostgreSQL/error/DbTxError.d.mts"
+		},
 		"./lib/PostgreSQL/error/IDbConnectReason": {
 			"import": "./dist/lib/PostgreSQL/error/IDbConnectReason.mjs",
 			"types": "./dist/lib/PostgreSQL/error/IDbConnectReason.d.mts"
 		},
+		"./lib/PostgreSQL/error/IDbErrorFactory": {
+			"import": "./dist/lib/PostgreSQL/error/IDbErrorFactory.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IDbErrorFactory.d.mts"
+		},
 		"./lib/PostgreSQL/error/IDbParseReason": {
 			"import": "./dist/lib/PostgreSQL/error/IDbParseReason.mjs",
 			"types": "./dist/lib/PostgreSQL/error/IDbParseReason.d.mts"
+		},
+		"./lib/PostgreSQL/error/IDbTxReason": {
+			"import": "./dist/lib/PostgreSQL/error/IDbTxReason.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IDbTxReason.d.mts"
 		},
 		"./lib/PostgreSQL/error/constraintNameOf": {
 			"import": "./dist/lib/PostgreSQL/error/constraintNameOf.mjs",
@@ -477,6 +493,86 @@
 		"./lib/PostgreSQL/url/isValidHost": {
 			"import": "./dist/lib/PostgreSQL/url/isValidHost.mjs",
 			"types": "./dist/lib/PostgreSQL/url/isValidHost.d.mts"
+		},
+		"./lib/PostgreSQL/tx/DEFAULT_LOCK_TIMEOUT_MS": {
+			"import": "./dist/lib/PostgreSQL/tx/DEFAULT_LOCK_TIMEOUT_MS.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/DEFAULT_LOCK_TIMEOUT_MS.d.mts"
+		},
+		"./lib/PostgreSQL/tx/IRetryDelay": {
+			"import": "./dist/lib/PostgreSQL/tx/IRetryDelay.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/IRetryDelay.d.mts"
+		},
+		"./lib/PostgreSQL/tx/ITx": {
+			"import": "./dist/lib/PostgreSQL/tx/ITx.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/ITx.d.mts"
+		},
+		"./lib/PostgreSQL/tx/ITxClient": {
+			"import": "./dist/lib/PostgreSQL/tx/ITxClient.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/ITxClient.d.mts"
+		},
+		"./lib/PostgreSQL/tx/ITxCounter": {
+			"import": "./dist/lib/PostgreSQL/tx/ITxCounter.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/ITxCounter.d.mts"
+		},
+		"./lib/PostgreSQL/tx/ITxCounterName": {
+			"import": "./dist/lib/PostgreSQL/tx/ITxCounterName.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/ITxCounterName.d.mts"
+		},
+		"./lib/PostgreSQL/tx/ITxFailureReason": {
+			"import": "./dist/lib/PostgreSQL/tx/ITxFailureReason.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/ITxFailureReason.d.mts"
+		},
+		"./lib/PostgreSQL/tx/ITxIsolation": {
+			"import": "./dist/lib/PostgreSQL/tx/ITxIsolation.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/ITxIsolation.d.mts"
+		},
+		"./lib/PostgreSQL/tx/ITxOptions": {
+			"import": "./dist/lib/PostgreSQL/tx/ITxOptions.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/ITxOptions.d.mts"
+		},
+		"./lib/PostgreSQL/tx/ITxPool": {
+			"import": "./dist/lib/PostgreSQL/tx/ITxPool.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/ITxPool.d.mts"
+		},
+		"./lib/PostgreSQL/tx/ITxResult": {
+			"import": "./dist/lib/PostgreSQL/tx/ITxResult.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/ITxResult.d.mts"
+		},
+		"./lib/PostgreSQL/tx/MAX_LOCK_TIMEOUT_MS": {
+			"import": "./dist/lib/PostgreSQL/tx/MAX_LOCK_TIMEOUT_MS.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/MAX_LOCK_TIMEOUT_MS.d.mts"
+		},
+		"./lib/PostgreSQL/tx/TX_FAILURE_REASONS": {
+			"import": "./dist/lib/PostgreSQL/tx/TX_FAILURE_REASONS.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/TX_FAILURE_REASONS.d.mts"
+		},
+		"./lib/PostgreSQL/tx/TX_ISOLATION_LEVELS": {
+			"import": "./dist/lib/PostgreSQL/tx/TX_ISOLATION_LEVELS.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/TX_ISOLATION_LEVELS.d.mts"
+		},
+		"./lib/PostgreSQL/tx/TX_RETRY_BASE_DELAY_MS": {
+			"import": "./dist/lib/PostgreSQL/tx/TX_RETRY_BASE_DELAY_MS.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/TX_RETRY_BASE_DELAY_MS.d.mts"
+		},
+		"./lib/PostgreSQL/tx/TX_RETRY_MAX": {
+			"import": "./dist/lib/PostgreSQL/tx/TX_RETRY_MAX.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/TX_RETRY_MAX.d.mts"
+		},
+		"./lib/PostgreSQL/tx/TX_RETRY_MAX_CEILING": {
+			"import": "./dist/lib/PostgreSQL/tx/TX_RETRY_MAX_CEILING.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/TX_RETRY_MAX_CEILING.d.mts"
+		},
+		"./lib/PostgreSQL/tx/defaultRetryDelay": {
+			"import": "./dist/lib/PostgreSQL/tx/defaultRetryDelay.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/defaultRetryDelay.d.mts"
+		},
+		"./lib/PostgreSQL/tx/jitteredDelay": {
+			"import": "./dist/lib/PostgreSQL/tx/jitteredDelay.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/jitteredDelay.d.mts"
+		},
+		"./lib/PostgreSQL/tx/withTx": {
+			"import": "./dist/lib/PostgreSQL/tx/withTx.mjs",
+			"types": "./dist/lib/PostgreSQL/tx/withTx.d.mts"
 		},
 		"./lib/PostgreSQL/counter/IDbCounter": {
 			"import": "./dist/lib/PostgreSQL/counter/IDbCounter.mjs",

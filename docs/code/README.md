@@ -39,7 +39,7 @@ import { authenticatedResourceHandler } from '@axiumine/koa-utils/koa/middleware
 | [Lib — Auth, Tokens, Crypto, Validation](./lib-core.md) | Token generation, cookie options, bcrypt helpers, validators, `tryCatchRethrow`. |
 | [Lib — Utility Classes](./lib-utilities.md) | `ArrayLib`, `DateLib`, `NumLib`, `StringLib`. |
 | [Lib — DB Error Mapping & Redis Booleans](./lib-datasource-errors.md) | Per-engine error shapes/mappers for MariaDB, MongoDB, PostgreSQL, plus the Redis boolean codec. |
-| [Lib — PostgreSQL Kit](./lib-postgres.md) | Driver-agnostic leaf pieces for `pg`: `createPool` (URL check, UTC session check, connect deadline, idle-error listener), string parsers that never build a `Date`, the type registry, closed-reason `DbParseError` / `DbConnectError`, SQLSTATE readers, and `databaseUrlReason`. No peer is loaded. |
+| [Lib — PostgreSQL Kit](./lib-postgres.md) | Driver-agnostic leaf pieces for `pg`: `createPool` (URL check, UTC session check, connect deadline, idle-error listener), `withTx` (closed `BEGIN`, `SET LOCAL lock_timeout`, bounded retry on 40001 / 40P01), string parsers that never build a `Date`, the type registry, closed-reason `DbParseError` / `DbConnectError` / `DbTxError`, `IDbErrorFactory`, SQLSTATE readers, and `databaseUrlReason`. No peer is loaded. |
 | [Lib — DB Operations & Logging](./lib-db.md) | Direct MongoDB write helpers: hit-stat/error/call logging, sign-up's `registerNewUser`/`userExist`. |
 | [Internal Helpers (private/)](./internal.md) | Non-exported `src/private/**` internals — documented for maintainers only. |
 
