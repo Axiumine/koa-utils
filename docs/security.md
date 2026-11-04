@@ -99,7 +99,7 @@ flowchart LR
 | Least privilege | The library holds no standing credentials; it uses what the consumer injects. Access tokens live 30 to 90 minutes. |
 | Least common mechanism | The reset and verification flows use separate hash fields, and each verify-email flow builds its own mail throttle. The flow factories take the field layout as a parameter instead of a shared schema. |
 | Psychological acceptability | Safe behaviour needs no options: every flow works with defaults, errors are named `throw*` helpers with stable status codes, and the README shows the minimal setup. The exceptions are the settings listed as limits (cookie `Secure`, `REDIS_TLS`, the Keygrip algorithm). |
-| Limit the attack surface | Optional peers; `src/private/**` is never exported; a documented, finite list of 150 subpaths. |
+| Limit the attack surface | Optional peers; `src/private/**` is never exported; a documented, finite list of 159 subpaths. |
 
 ## 7. Common weaknesses and how they are countered
 
