@@ -10,9 +10,10 @@ Only the latest major line receives fixes. A fix ships as a new release; it is n
 
 | Version | Supported |
 | --- | --- |
-| 7.x | Yes. Upgrade to the newest 7.x release. |
-| 6.x | No. Upgrade to 7.x; the only breaking change in 7.0.0 is the `uploadTempImage` export rename. |
-| 5.9.x and older | No. Known vulnerable and marked deprecated on npm. Upgrade to 7.x. |
+| 8.x | Yes. Upgrade to the newest 8.x release. |
+| 7.x | No. Upgrade to 8.x; the breaking changes in 8.0.0 are the optional peers and the move of `OBJECTID_0_OBJ` (see [CHANGELOG.md](CHANGELOG.md)). |
+| 6.x | No. Upgrade to 8.x; the only breaking change in 7.0.0 is the `uploadTempImage` export rename. |
+| 5.9.x and older | No. Known vulnerable and marked deprecated on npm. Upgrade to 8.x. |
 
 Every published version that carried a real defect is marked deprecated on npm with a message that names the defect
 and the version that fixes it. [CHANGELOG.md](CHANGELOG.md) is the record: look for the `### Security` and `### Fixed`

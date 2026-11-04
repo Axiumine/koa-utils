@@ -5,6 +5,114 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 8.0.0 — 2026-11-04
+
+All peer dependencies are now optional. Nothing in your code changes, but npm 7+ and Yarn no longer install them for you: install what the subpaths you import need.
+
+It also adds two factories with no environment, Sentry or dotenv behind them: `koa/createKoaErrorHandler` and `email/createSocketLabsSender`.
+
+### Breaking
+
+- `@node-rs/bcrypt`, `@sentry/node`, `dotenv`, `graphql`, `mongoose` and `redis` are now optional peers (`uuid` is no longer a peer: tokens use `node:crypto`). Ranges are unchanged. See the matrix in README.md ("Install") for which subpath needs which peer.
+- Without `@sentry/node` nothing is reported, and without `dotenv` no environment file is loaded (before, both were installed for you); the subpaths that use them no longer fail at import. Everything else fails with `ERR_MODULE_NOT_FOUND` when its peer is missing, as the optional peers always did.
+- `lib/Constants` no longer exports `OBJECTID_0_OBJ` (it pulled `mongoose` into `lib/Constants`, `lib/emailHash`, `lib/checkEmailLen` and `lib/checkPwdLen`). It lives in `lib/OBJECTID_0_OBJ`; the value is the same. New export key: `./lib/OBJECTID_0_OBJ`.
+
+### Added
+
+- **`createKoaErrorHandler`, a Koa error middleware you configure, with no peer dependency.**
+  `import { createKoaErrorHandler } from '@axiumine/koa-utils/koa/createKoaErrorHandler'` builds the middleware
+  `tdwKoaErrorHandler` always was, but the status, the body and the reporting are yours:
+
+  ```ts
+  app.use(
+  	createKoaErrorHandler<ParameterizedContext>({
+  		statusOf: (err) => (err instanceof SyntaxError ? 400 : 500),
+  		bodyOf: (_err, ctx) => ({ code: ctx.status === 400 ? 'BAD_INPUT' : 'INTERNAL' }),
+  		report: (err) => console.error('request failed', err)
+  	})
+  )
+  ```
+
+  All four options are optional. The defaults reproduce `tdwKoaErrorHandler` minus GraphQL, Sentry and dotenv:
+  `statusOf` is `err?.status || 500` (a status of `0` or `NaN` gives 500), `bodyOf` is `{ message: err?.message }`, there
+  is no `report`, and `noBodyStatuses` is `[100, 101, 102, 204, 205, 304]` (replaced, not extended, by a list you pass;
+  copied when the handler is created). On a throw the handler sets `ctx.status`, sets `ctx.body` unless the status read
+  back from `ctx` is in `noBodyStatuses` or `bodyOf` returned `undefined`, calls `report`, then emits `'error'` on the
+  app, all in one synchronous `catch` block, so `emit` listeners see the final `ctx`. The callbacks are not wrapped in
+  `try`/`catch`: a throwing `report` rejects the middleware and skips the `emit`, as a throwing Sentry call always did.
+
+  Unlike `tdwKoaErrorHandler`, a thrown `null`, `undefined`, string or number is answered with 500 and
+  `{ message: undefined }` instead of a `TypeError`.
+
+  The file imports nothing. Importing it loads no environment file, no Sentry, no `graphql` and no `koa`, in the
+  runtime or in the `.d.mts`; `test/package/peerReach.spec.mts` pins that for the three new subpaths.
+
+- Three new `exports` keys: `./koa/createKoaErrorHandler`, `./koa/IKoaErrorHandlerOptions` and
+  `./koa/IKoaErrorHandlerContext` (the option and context types). `public-api.json` gains exactly those three.
+
+- **`email/createSocketLabsSender`: a sender for one mail you composed, with no environment, Sentry or dotenv.**
+  `createSocketLabsSender({ serverId, apiKey, requestTimeout?, numberOfRetries?, client?, onError? })` returns a
+  function `(message) => Promise<{ ok: true } | { ok: false; code: string }>`. A failed send does not reject: it calls
+  `onError` with the raw rejection (default: nothing) and resolves `{ ok: false, code }`, where `code` is the SDK's
+  `result.name` (`Timeout`, `InvalidAuthentication`, `Warning`, ...) or `'UnknownError'`. Nothing else leaves the
+  function: not `responseMessage`, not `addressResults`, not the raw error, which can hold recipients and a receipt.
+  The message is `{ from, fromName?, to, subject, text?, html?, messageId? }`; `html` is sent as given.
+
+  Defaults are what `SocketLabsLib` has always used: `requestTimeout` 120 s and `numberOfRetries` 3. A
+  `requestTimeout` that is not finite and above 0, or a `numberOfRetries` that is not an integer from 0 to 5, throws a
+  `RangeError` when the sender is created (the text never holds the API key). There is no `endpointUrl` and no proxy
+  option, and `serverId` and `apiKey` are not validated: the SDK rejects bad credentials at send time. An injected
+  `client` (`{ send(message): Promise<unknown> }`) replaces the SDK client and makes `serverId` and `apiKey` unused.
+  There is no `try`/`catch`: a throw from a setter, from `client.send` or from `onError` rejects the returned promise.
+
+  The subpath reaches one peer, `@socketlabs/email`, and its `.d.mts` files name none (the SDK ships no types, so the
+  options are declared locally). Four type-only subpaths come with it: `email/ISocketLabsSenderOptions`,
+  `email/ISocketLabsMessage`, `email/ISocketLabsSendResult` and `email/ISocketLabsClient`. `test/package/peerReach.spec.mts`
+  pins all five.
+
+### Changed
+
+- Access and refresh tokens and the temp file names of `files/storeUploadAsTemp` come from `node:crypto` `randomUUID()` instead of `uuid` `v4()`. Same format (lowercase UUID v4), still accepted by `isValidUuidV4`.
+- `lib/Constants`, `lib/emailHash` and `lib/tokens` reach no peer at all; `lib/checkEmailLen` and `lib/checkPwdLen` reach only `graphql`. A new spec (`test/package/peerReach.spec.mts`, snapshot `test/__snapshots__/peer-reach.json`) pins which subpath loads which peer, so a later change cannot widen it unnoticed.
+
+- **`tdwKoaErrorHandler` is now a thin wrapper over `createKoaErrorHandler`.** Same file, same `exports` key, same
+  name, same two parameters, and no behaviour change: GraphQL status and `description`, the Sentry capture of
+  non-GraphQL errors in `NODE_ENV=development` (read on every error), the `TypeError` on a thrown `null` or `undefined`,
+  and the `emit('error', err, ctx)` last. It is a plain function that returns the factory's promise instead of an
+  `async` function, so it settles in the same number of microtask ticks. The three existing specs pass unchanged, and a
+  new parity spec runs a frozen copy of the 7.2.0 algorithm against it over GraphQL and plain errors, in development and
+  production.
+
+- `SocketLabsLib` now sends through `createSocketLabsSender`. Behaviour is unchanged: the same `BasicMessage`
+  built the same way, the same `Sentry.captureException(rejection, { extra: { detail: 'Error in sending the email' } })`
+  with the raw rejection, the same boolean result, and the same `SOCKETLABS_SERVER_ID` / `SOCKETLABS_SERVER_APIKEY`
+  reads in the constructor. Its 121-case spec passes unchanged.
+
+### Migration required
+
+If you import a subpath listed in the second column, its peer must be installed. Generated from `test/__snapshots__/peer-reach.json` (159 export keys).
+
+| Peer | Fails with `ERR_MODULE_NOT_FOUND` when missing | Notes |
+|---|---|---|
+| `@node-rs/bcrypt` | 9 subpath(s): <details><summary>list</summary>`graphQL/schema/mutations/login4Ever`, `graphQL/schema/mutations/loginAdmin`, `graphQL/schema/mutations/loginRememberme`, `graphQL/schema/mutations/signUp`, `graphQL/schema/mutations/updatePassword`, `lib/access/createResetPwdFlow`, `lib/db/registerNewUser`, `lib/encryptPassword`, `lib/hash`</details> |  |
+| `@sentry/node` | none | skipped silently when not installed; used by 30 subpath(s) |
+| `@socketlabs/email` | 14 subpath(s): <details><summary>list</summary>`email/SocketLabsLib`, `email/createSocketLabsSender`, `graphQL/schema/mutations/emailChangeHashVerify`, `graphQL/schema/mutations/login4Ever`, `graphQL/schema/mutations/loginAdmin`, `graphQL/schema/mutations/loginRememberme`, `graphQL/schema/mutations/resetPwd`, `graphQL/schema/mutations/signUp`, `graphQL/schema/mutations/updatePassword`, `koa/router/verifyEmail`, `lib/access/createResetPwdFlow`, `lib/access/createVerifyEmailFlow`, `lib/access/resetPwdMailer`, `lib/access/verifyEmailMailer`</details> |  |
+| `clamscan` | 3 subpath(s): <details><summary>list</summary>`files/scanVirus`, `files/uploadTempImage`, `files/uploadTempPdf`</details> |  |
+| `dotenv` | none | skipped silently when not installed; used by 25 subpath(s) |
+| `file-type` | none | fails at first call, not at import; used by 5 subpath(s) |
+| `fs-extra` | 10 subpath(s): <details><summary>list</summary>`files/moveFileStaticDomain`, `files/moveImageFile`, `files/moveTempFile`, `files/uploadTempImage`, `files/uploadTempPdf`, `files/validateJpgPngExtension`, `files/validateJpgPngMimeType`, `files/validateMimeType`, `files/validateMimeTypeImages`, `files/validatePdfExtension`</details> |  |
+| `graphql` | 72 subpath(s): <details><summary>list</summary>`email/SocketLabsLib`, `files/reEncodeToJpeg`, `files/reEncodeToPng`, `files/reEncodeToWebp`, `files/uploadTempImage`, `graphQL/schema/GraphQLInput/GraphQLInputLogin`, `graphQL/schema/mutations/emailChangeHashVerify`, `graphQL/schema/mutations/login4Ever`, `graphQL/schema/mutations/loginAdmin`, `graphQL/schema/mutations/loginRememberme`, `graphQL/schema/mutations/logout`, `graphQL/schema/mutations/refresh`, `graphQL/schema/mutations/resetPwd`, `graphQL/schema/mutations/signUp`, `graphQL/schema/mutations/updatePassword`, `graphQL/schema/types/DeleteType`, `graphQL/schema/types/DoneType`, `graphQL/schema/types/FindOneAndUpdateType`, `graphQL/schema/types/LoginAppType`, `graphQL/schema/types/LoginType`, `graphQL/schema/types/MidNameType`, `graphQL/schema/types/OnlyIdType`, `graphQL/schema/types/RefreshType`, `graphQL/schema/types/RetStatusMexType`, `graphQL/schema/types/RetStatusType`, `graphQL/schema/types/SaveType`, `graphQL/schema/types/SidNameType`, `graphQL/schema/types/SidNomeType`, `graphQL/schema/types/UpdateResultType`, `graphQL/throw/throwAccessTokenExpiredOrDeleted`, `graphQL/throw/throwAccessTokenRequired`, `graphQL/throw/throwAlreadyDone`, `graphQL/throw/throwAlreadyTakenError`, `graphQL/throw/throwConflictError`, `graphQL/throw/throwErrorWrongUserInput`, `graphQL/throw/throwForbiddenError`, `graphQL/throw/throwGoneError`, `graphQL/throw/throwGraphQLError`, `graphQL/throw/throwInternalError`, `graphQL/throw/throwMethodNotAllowedError`, `graphQL/throw/throwMissingMalformedInvalidToken`, `graphQL/throw/throwNotAcceptableError`, `graphQL/throw/throwNotFoundError`, `graphQL/throw/throwNotImplementedError`, `graphQL/throw/throwPaymentRequiredError`, `graphQL/throw/throwPreconditionFailedNoAuthCookie`, `graphQL/throw/throwPreconditionFailedNoAuthHeader`, `graphQL/throw/throwRefreshTokenExpiredOrDeleted`, `graphQL/throw/throwRefreshTokenRequired`, `graphQL/throw/throwRefreshTokenSignatureRequired`, `graphQL/throw/throwTooManyRequestsError`, `graphQL/throw/throwUnauthorizedError`, `graphQL/throw/throwUnprocessableContentError`, `graphQL/throw/throwUnsupportedMediaTypeError`, `koa/customFormatErrorFn`, `koa/middleware/authenticatedAuthorizationHandler`, `koa/middleware/authenticatedAuthorizationHandler/verifySignedRefreshToken`, `koa/middleware/authenticatedLogoutHandler`, `koa/middleware/authenticatedResourceHandler`, `koa/router/verifyEmail`, `koa/tdwKoaErrorHandler`, `lib/MariaDB/throwSqlErrors`, `lib/MongoDB/throwIfMongoErr`, `lib/MongoDB/throwMongoErrors`, `lib/access/createResetPwdFlow`, `lib/access/createVerifyEmailFlow`, `lib/access/resetPwdMailer`, `lib/access/verifyEmailMailer`, `lib/checkEmailLen`, `lib/checkPwdLen`, `lib/throwIfNotValidEnumValue`, `lib/tryCatchRethrow`</details> |  |
+| `keygrip` | none | types only: `koa/middleware/authenticatedAuthorizationHandler`, `koa/middleware/authenticatedAuthorizationHandler/verifySignedRefreshToken`, `koa/middleware/authenticatedLogoutHandler` |
+| `koa` | none | types only: `koa/logRequestToDb`, `koa/middleware/authenticatedAuthorizationHandler`, `koa/middleware/authenticatedLogoutHandler`, `koa/middleware/authenticatedResourceHandler`, `koa/middleware/debug`, `koa/tdwKoaErrorHandler` |
+| `mariadb` | none (loaded by name, or by another peer) | |
+| `mongoose` | 25 subpath(s): <details><summary>list</summary>`dataSources/MongoDB`, `graphQL/models/MongoDB/UserBase`, `graphQL/models/MongoDB/log/DevStatsGraphQLCalls`, `graphQL/models/MongoDB/log/LogGlobalError`, `graphQL/models/MongoDB/log/LogStatsGraphql`, `graphQL/models/MongoDB/log/LogThrow`, `graphQL/schema/mutations/emailChangeHashVerify`, `graphQL/schema/mutations/login4Ever`, `graphQL/schema/mutations/loginAdmin`, `graphQL/schema/mutations/loginRememberme`, `graphQL/schema/mutations/resetPwd`, `graphQL/schema/mutations/signUp`, `graphQL/schema/mutations/updatePassword`, `koa/middleware/authenticatedAuthorizationHandler`, `koa/middleware/authenticatedResourceHandler`, `koa/router/verifyEmail`, `lib/OBJECTID_0_OBJ`, `lib/access/createResetPwdFlow`, `lib/access/createVerifyEmailFlow`, `lib/db/log/hitStat`, `lib/db/log/logGlobalError`, `lib/db/log/logGraphql`, `lib/db/log/logThrow`, `lib/db/registerNewUser`, `lib/db/userExist`</details> | types only: `graphQL/schema/context/IContextAuthenticatedResource`, `graphQL/schema/context/IContextRefresh`, `graphQL/schema/interfaces/IFindAndUpdate`, `graphQL/schema/mutations/refresh`, `koa/middleware/authenticatedAuthorizationHandler/verifySignedRefreshToken`, `koa/middleware/debug`, `lib/access/accessPaths` |
+| `pg` | 1 subpath(s): <details><summary>list</summary>`dataSources/PostgreSQL`</details> |  |
+| `redis` | 9 subpath(s): <details><summary>list</summary>`dataSources/Redis`, `graphQL/schema/mutations/login4Ever`, `graphQL/schema/mutations/loginAdmin`, `graphQL/schema/mutations/loginRememberme`, `graphQL/schema/mutations/logout`, `graphQL/schema/mutations/refresh`, `koa/middleware/authenticatedAuthorizationHandler`, `koa/middleware/authenticatedLogoutHandler`, `koa/middleware/authenticatedResourceHandler`</details> |  |
+| `reflect-metadata` | none (loaded by name, or by another peer) | |
+| `sequelize` | none (loaded by name, or by another peer) | |
+| `sequelize-typescript` | 1 subpath(s): <details><summary>list</summary>`dataSources/MariaDB`</details> |  |
+| `sharp` | 4 subpath(s): <details><summary>list</summary>`files/reEncodeToJpeg`, `files/reEncodeToPng`, `files/reEncodeToWebp`, `files/uploadTempImage`</details> |  |
+
 ## 7.2.0 — 2026-11-01
 
 Email links are now built only on an `http(s)` base, and a failed welcome mail can no longer break an activation that

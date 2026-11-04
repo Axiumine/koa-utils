@@ -35,5 +35,6 @@ export function poolUrlSecrets(url: string): string[] {
 	} catch {
 		// A password that is not valid percent-encoding is still in the set in its raw form.
 	}
+	// nosemgrep: ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack -- drops empty strings; no secret is compared with another value
 	return [...secrets].filter((secret) => secret !== '')
 }
