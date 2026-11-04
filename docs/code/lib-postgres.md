@@ -2,7 +2,7 @@
 
 A kit of small, driver-agnostic building blocks for services that talk to PostgreSQL through [node-postgres](https://node-postgres.com) (`pg`): a pool factory that checks the session before it hands a connection out, a transaction wrapper with a bounded retry, a mapper from a driver error to your own error family, guards for writes that matched nothing, string parsers for the date and integer types that would otherwise become a JavaScript `Date` or lose digits, closed-reason errors that never carry a password or a row, and a strict check for a database URL. It is separate from `dataSources/PostgreSQL` (the environment-driven singletons, see [data-sources.md](./data-sources.md)) and from `lib/PostgreSQL/IPostgresError` and `makePostgreSqlLogError` (documented in [lib-datasource-errors.md](./lib-datasource-errors.md)): nothing in this kit reads an environment variable or opens a connection on import.
 
-This page covers the leaf pieces (errors, parsers, type registry, pool, database URL check), the transaction wrapper `withTx`, the error mapper `mapDbError` with its constraint helpers, and the write guards `assertAffected` and `guardVersion`. Later parts are added beside it under the same folder.
+This page covers the leaf pieces (errors, parsers, type registry, pool, database URL check), the transaction wrapper `withTx`, the error mapper `mapDbError` with its constraint helpers, the write guards `assertAffected` and `guardVersion`, and the boot check of the database role, `assertRole`. Later parts are added beside it under the same folder.
 
 ## Principles
 
@@ -17,13 +17,14 @@ All subpaths are `@axiumine/koa-utils/lib/PostgreSQL/<folder>/<File>`. The file 
 
 | Folder | Holds |
 |---|---|
-| `error/` | `DbParseError`, `DbConnectError`, `DbTxError`, their reason lists and types, `IDbErrorFactory`, the SQLSTATE readers (`sqlstateOf`, `sqlstateField`, `constraintNameOf`, `errorNameOf`), `mapDbError` and its options and counter types, `DB_INTERNAL_REASONS`, and the constraint helpers (`buildConstraintEntry`, `lookupConstraint`, `IConstraintEntry`, `IConstraintTable`, `IConstraintEntryBuilder`) |
+| `error/` | `DbParseError`, `DbConnectError`, `DbTxError`, `RoleAssertionError`, their reason lists and types, `IDbErrorFactory`, the SQLSTATE readers (`sqlstateOf`, `sqlstateField`, `constraintNameOf`, `errorNameOf`), `mapDbError` and its options and counter types, `DB_INTERNAL_REASONS`, and the constraint helpers (`buildConstraintEntry`, `lookupConstraint`, `IConstraintEntry`, `IConstraintTable`, `IConstraintEntryBuilder`) |
 | `parse/` | the string parsers, `arrayOf`, and the type registry (`TYPE_PARSERS`, `createTypeRegistry`) |
 | `pool/` | `createPool`, its options and constants |
 | `counter/` | `IDbCounter`, the counter callback type |
 | `url/` | `databaseUrlReason` and the host and path checks it uses |
 | `tx/` | `withTx`, `jitteredDelay`, `defaultRetryDelay`, the transaction constants, and the types of the handle, the pool, the client and the options |
 | `guard/` | `assertAffected` and `guardVersion` for a write that matched no row, `VERSION_GUARD_FIELDS`, and their input, code and counter types |
+| `role/` | `assertRole`, the boot check that the connected role has exactly the expected attributes, ownership, memberships and grants, and the types of its options, its pool and its answer (`RoleAssertionError` is in `error/`) |
 
 Types are named `I<Name>`. When you move code that used the unprefixed names of a private copy, the mapping is:
 
@@ -43,6 +44,8 @@ Types are named `I<Name>`. When you move code that used the unprefixed names of 
 | `DbInternalReason`, `MapDbErrorOptions` | `IDbInternalReason`, `IMapDbErrorOptions` |
 | `ConstraintEntry`, `ConstraintTable` | `IConstraintEntry`, `IConstraintTable` |
 | `AffectedResult`, `VersionGuardField`, `VersionGuardInput` | `IAffectedResult`, `IVersionGuardField`, `IVersionGuardInput` |
+| `RoleGrant`, `AssertRoleOptions`, `RolePool`, `RoleAssertion` | `IRoleGrant`, `IAssertRoleOptions`, `IRolePool`, `IRoleAssertion` |
+| `RoleAssertionReason`, `RoleAssertionSubject` | `IRoleAssertionReason`, `IRoleAssertionSubject` |
 
 The module `src/lib/PostgreSQL` also holds three older files (`IPostgresError`, `IPostgresErrorCodes`, `makePostgreSqlLogError`). They are unrelated to the kit and unchanged. `makePostgreSqlLogError` logs the `detail` of an error; the kit's readers below never read it. They are two policies, not one to merge.
 
@@ -133,6 +136,42 @@ The error of a misused transaction, both reasons a defect of the calling code. `
 |---|---|
 | `HANDLE_CLOSED` | a statement was sent through the handle of a transaction that has already committed, rolled back or started to commit |
 | `COMMIT_ROLLED_BACK` | the server answered `COMMIT` with the command tag `ROLLBACK` (what it does for a transaction that a failed statement aborted) and no failed statement of the handle is known to say why |
+
+### `RoleAssertionError`, `ROLE_ASSERT_REASONS`, `IRoleAssertionReason`, `IRoleAssertionSubject`
+
+**Import:**
+```ts
+import { RoleAssertionError } from '@axiumine/koa-utils/lib/PostgreSQL/error/RoleAssertionError'
+import { ROLE_ASSERT_REASONS } from '@axiumine/koa-utils/lib/PostgreSQL/error/ROLE_ASSERT_REASONS'
+import type { IRoleAssertionReason } from '@axiumine/koa-utils/lib/PostgreSQL/error/IRoleAssertionReason'
+import type { IRoleAssertionSubject } from '@axiumine/koa-utils/lib/PostgreSQL/error/IRoleAssertionSubject'
+```
+
+**Signature:**
+```ts
+export const ROLE_ASSERT_REASONS: readonly [
+	'INVALID_EXPECTATION', 'ROLE_MISMATCH', 'ROLE_SUPERUSER', 'ROLE_CREATEROLE', 'ROLE_CREATEDB', 'ROLE_BYPASSRLS',
+	'ROLE_REPLICATION', 'ROLE_OWNS_OBJECTS', 'ROLE_MEMBERSHIP', 'SESSION_ROLE_DIFFERS', 'GRANT_MISSING', 'CHECK_FAILED'
+]
+export type IRoleAssertionReason = (typeof ROLE_ASSERT_REASONS)[number]
+export interface IRoleAssertionSubject {
+	readonly object?: string | undefined
+	readonly privilege?: string | undefined
+	readonly column?: string | undefined
+	readonly code?: string | undefined
+}
+export class RoleAssertionError extends Error {
+	readonly reason: IRoleAssertionReason
+	readonly role: string
+	readonly object: string | undefined
+	readonly privilege: string | undefined
+	readonly column: string | undefined
+	readonly code: string | undefined
+	constructor(reason: IRoleAssertionReason, role: string, subject?: IRoleAssertionSubject)
+}
+```
+
+The error of [`assertRole`](#assertrole). `name` is `'RoleAssertionError'` and `message` is `` `role assertion failed for ${role}: ${reason}` `` followed by a subject in parentheses for three reasons: `GRANT_MISSING` (`(SELECT on app.orders)`, or `(UPDATE on app.items column locale)` for a column-level grant), `ROLE_MEMBERSHIP` (`(member of owner_role)`) and `CHECK_FAILED` with a code (`(42501)`). A part that was not given prints as `?`. Every name passes a shape check before it is printed or stored: letters, digits, `_`, `$` and `.`, starting with a letter or `_`, at most 127 characters. A text that fails it, such as a connection string passed as a role name by mistake, is stored and printed as `?`, and the same goes for a `role` that is not a string at all. `code` is kept only when it is 1 to 32 letters, digits or underscores. No `cause`: the driver error behind a `CHECK_FAILED` can quote an argument, and is not kept. The reasons are listed under [`assertRole`](#assertrole).
 
 ### `IDbErrorFactory`
 
@@ -749,6 +788,107 @@ export async function deleteItem(pool: ITxPool, id: number): Promise<void> {
 | `guard/IVersionGuardInput` | `IVersionGuardInput<TError>` | the input above |
 | `guard/IGuardCounter` | `IGuardCounter` | `IDbCounter<'db_error_internal_total'>` |
 | `guard/IAffectedResult` | `IAffectedResult` | `{ readonly rowCount: number \| null }` |
+
+## Role assertion
+
+### `assertRole`
+
+**Import:**
+```ts
+import { assertRole } from '@axiumine/koa-utils/lib/PostgreSQL/role/assertRole'
+import type { IAssertRoleOptions } from '@axiumine/koa-utils/lib/PostgreSQL/role/IAssertRoleOptions'
+import type { IRoleGrant } from '@axiumine/koa-utils/lib/PostgreSQL/role/IRoleGrant'
+import type { IRolePool } from '@axiumine/koa-utils/lib/PostgreSQL/role/IRolePool'
+import type { IRoleAssertion } from '@axiumine/koa-utils/lib/PostgreSQL/role/IRoleAssertion'
+```
+
+**Signature:**
+```ts
+export interface IRoleGrant {
+	readonly object: string
+	readonly privilege: string
+	readonly columns?: readonly string[]
+}
+export interface IAssertRoleOptions {
+	readonly expectedRole: string
+	readonly expectedGrants: readonly IRoleGrant[]
+	readonly allowedMemberships?: readonly string[]
+}
+export interface IRolePool {
+	connect(): Promise<ITxClient>
+	end(): Promise<void>
+}
+export interface IRoleAssertion {
+	readonly role: string
+	readonly grantsChecked: number
+}
+export function assertRole(pool: IRolePool, options: IAssertRoleOptions): Promise<IRoleAssertion>
+```
+
+A boot check: a service proves, once, on one connection, that it runs as the role it believes it is, that the role cannot do what it must not, and that the grants it needs are there. A service wired by mistake to a more privileged login (a migration role, an administrator, a superuser) stops before it opens a listener. It is not a per-request check and nothing in it is meant for a request path. The pool is any object with `connect()` and `end()`; the `pg.Pool` that `createPool` returns has both. Nothing is imported from `pg`.
+
+The checks run in this order, on one checked-out connection; the first failure ends the check and is the one reported:
+
+| Step | Check | Reason on failure |
+|---|---|---|
+| 0 | the options are well formed; found before the pool is asked for a connection | `INVALID_EXPECTATION` |
+| 1 | `current_user` is `expectedRole` | `ROLE_MISMATCH` |
+| 2 | the role has none of the five attributes, tested in this order: superuser, CREATEROLE, CREATEDB, BYPASSRLS, REPLICATION (read from `pg_roles`) | `ROLE_SUPERUSER`, `ROLE_CREATEROLE`, `ROLE_CREATEDB`, `ROLE_BYPASSRLS`, `ROLE_REPLICATION` |
+| 3 | the role owns nothing: `pg_shdepend`, the shared dependency catalog, has one owner row for every object of every database of the cluster that a role owns, so one read answers for tables, functions, schemas, types, databases and the rest | `ROLE_OWNS_OBJECTS` |
+| 4 | the role is a member of no other role, directly or through a chain of roles, except those named in `allowedMemberships` (default none); `object` of the error is the first role, in code unit order, that is not allowed | `ROLE_MEMBERSHIP` |
+| 5 | `session_user` is `current_user`: the connection did not log in as one role and then `SET ROLE` to another, which would make the login hold more than the role | `SESSION_ROLE_DIFFERS` |
+| 6 | each entry of `expectedGrants` is held, in the order of the list, checked with the catalog privilege functions for `current_user`; `object`, `privilege` and for a column-level grant `column` name the first that is not | `GRANT_MISSING` |
+| any | the check could not be made: no connection, a catalog query that failed, an answer that is not what the catalog gives (a missing list of rows, a flag that is not a boolean, a name that is not text); `code` is the closed reason of a `DbConnectError` or the driver's short code | `CHECK_FAILED` |
+
+An answer is never read as a pass unless it is exactly what a pass looks like: a flag counts only if it is the boolean `false`, a grant only if the catalog answers one row whose `held` is the boolean `true`. An object that does not exist, a privilege the kind of object cannot hold (`USAGE` on a table, `DELETE` on a sequence), a `NULL` and a second row are all a missing grant.
+
+**Grants (`IRoleGrant`):** the expected grants are a parameter; nothing about any role is built in.
+
+| `object` | `privilege` | `columns` |
+|---|---|---|
+| a schema, `app` | `USAGE` or `CREATE` | not allowed |
+| a table, a view or a sequence, `app.orders` | `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES` or `TRIGGER` (a table or view), `USAGE` (a sequence). On a sequence only `USAGE`, `SELECT` and `UPDATE` can be held; on a table or view `USAGE` is always reported missing | optional, see below |
+| a function, `app.resolve_token`: every function of that name, arguments not given | `EXECUTE` | not allowed |
+
+`columns` is for `SELECT`, `INSERT`, `UPDATE` or `REFERENCES` on a table: a non-empty list of column names, each checked with `has_column_privilege`, which a table-level grant also satisfies. Without `columns` the check is `has_table_privilege`, which a column-level grant does not satisfy. A column the table does not have is missing too.
+
+Every name is a plain identifier (a letter or `_`, then letters, digits, `_` or `$`, at most 63 characters) and an object is a name or `schema.name` with those same parts; quoting, a third part, a space and a privilege in lower case are `INVALID_EXPECTATION`. A name or a privilege reaches the server only as a bound parameter, never in the text of a statement.
+
+**Failure handling.** On any failure, `assertRole` closes the pool (`pool.end()`, whose own failure is ignored so the real one is reported) and then throws a [`RoleAssertionError`](#roleassertionerror-role_assert_reasons-iroleassertionreason-iroleassertionsubject). A connection that emitted an error or failed in the middle of a query is destroyed (`release(true)`); one that only failed an assertion goes back to the pool. On success the pool stays open and the answer is `{ role, grantsChecked }`. The error never carries the connection string: the function is given the pool, not the URL. A role name that is not a plain name prints as `?`.
+
+```ts
+import pg from 'pg'
+import { createPool } from '@axiumine/koa-utils/lib/PostgreSQL/pool/createPool'
+import { assertRole } from '@axiumine/koa-utils/lib/PostgreSQL/role/assertRole'
+import type { IRoleGrant } from '@axiumine/koa-utils/lib/PostgreSQL/role/IRoleGrant'
+
+const logger = { warn: console.warn, error: console.error }
+const expectedGrants: IRoleGrant[] = [
+	{ object: 'app', privilege: 'USAGE' },
+	{ object: 'app.orders', privilege: 'SELECT' },
+	{ object: 'app.items', privilege: 'UPDATE', columns: ['label', 'locale'] },
+	{ object: 'app.resolve_token', privilege: 'EXECUTE' }
+]
+
+const pool = createPool({ driver: pg, url: process.env['DATABASE_URL'] ?? '', max: 10, applicationName: 'orders-api', logger })
+
+// at boot, before the listener opens: throws RoleAssertionError, with the pool already closed, if the login is wrong
+const { role, grantsChecked } = await assertRole(pool, { expectedRole: 'app_role', expectedGrants, allowedMemberships: ['reader_role'] })
+logger.warn('database role verified', { role, grantsChecked })
+```
+
+**What the tests in this package prove, and what they do not.** The specs run `assertRole` against a fake pool whose client answers from a small model of the catalog. The fake recognises each statement by its exact text, held in the spec as a golden copy, and by the number of values it is sent, so any edit of a statement fails a spec until the copy is edited too. They prove the order of the checks, what each failure names, what is closed, and that nothing of the connection string or the driver reaches the error. They do **not** prove what the statements do on a real server, because no database runs in this repository: that the recursive membership walk finds a role reached through a chain, that `pg_shdepend` lists a table owner, or that `has_sequence_privilege` is what answers for a sequence is shown only by an integration test against a live PostgreSQL, which belongs to the consumer that depends on this check. If you rely on `assertRole` for a security decision, run such a test with your own roles.
+
+### Role assertion types
+
+| Subpath | Export | Value or shape |
+|---|---|---|
+| `role/IRoleGrant` | `IRoleGrant` | one expected privilege, above |
+| `role/IAssertRoleOptions` | `IAssertRoleOptions` | the options above |
+| `role/IRolePool` | `IRolePool` | `{ connect(): Promise<ITxClient>; end(): Promise<void> }` |
+| `role/IRoleAssertion` | `IRoleAssertion` | `{ readonly role: string; readonly grantsChecked: number }` |
+| `error/IRoleAssertionReason` | `IRoleAssertionReason` | one of `ROLE_ASSERT_REASONS` |
+| `error/IRoleAssertionSubject` | `IRoleAssertionSubject` | `{ object?, privilege?, column?, code? }`, each `string \| undefined`, none ever a value from the driver |
 
 ## Database URL check
 

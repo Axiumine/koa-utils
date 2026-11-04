@@ -36,11 +36,13 @@ const PEER_SCOPE: Record<string, RegExp> = {
 // koa/createKoaErrorHandler + its 2 type files: 0 peers at runtime AND in .d.mts (no koa, graphql, sentry, dotenv)
 // email/createSocketLabsSender: only @socketlabs/email at runtime, 0 in .d.mts (local structural types). Its 4 type files: 0 peers
 // No sentry, no dotenv, no graphql: those stay in SocketLabsLib
-// lib/PostgreSQL/{error,parse,pool,url,counter,tx,guard}/*: 0 peers at runtime AND in .d.mts. Driver = param w/ structural type (IDbDriver),
-// never import of 'pg'. Only node:net (isValidHost) + node:crypto (tx/jitteredDelay) = builtin. Later kit subpaths (role, clock, lock) append here too
+// lib/PostgreSQL/{error,parse,pool,url,counter,tx,guard,role}/*: 0 peers at runtime AND in .d.mts. Driver = param w/ structural type (IDbDriver),
+// never import of 'pg'. Only node:net (isValidHost) + node:crypto (tx/jitteredDelay) = builtin. Later kit subpaths (clock, lock) append here too
 // lib/PostgreSQL/tx/* + error/{DbTxError,DB_TX_REASONS,IDbTxReason,IDbErrorFactory}: same, 0 peers runtime AND .d.mts. withTx take pool as param (ITxPool)
 // lib/PostgreSQL/guard/* + error/{mapDbError,lookupConstraint,buildConstraintEntry,DB_INTERNAL_REASONS + types}: same, 0 peers runtime AND .d.mts.
 // Error family = param (IDbErrorFactory), table = param (IConstraintTable), tx = param (ITx). No import of pg / application error class
+// lib/PostgreSQL/role/* + error/{RoleAssertionError,ROLE_ASSERT_REASONS,IRoleAssertionReason,IRoleAssertionSubject}: same, 0 peers runtime AND .d.mts.
+// assertRole take pool as param (IRolePool, structural over ITxClient). Catalog queries go through that pool, never through pg
 const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/Constants': [],
 	'./lib/emailHash': [],
@@ -134,6 +136,15 @@ const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/PostgreSQL/guard/VERSION_GUARD_FIELDS': [],
 	'./lib/PostgreSQL/guard/assertAffected': [],
 	'./lib/PostgreSQL/guard/guardVersion': [],
+	'./lib/PostgreSQL/error/IRoleAssertionReason': [],
+	'./lib/PostgreSQL/error/IRoleAssertionSubject': [],
+	'./lib/PostgreSQL/error/ROLE_ASSERT_REASONS': [],
+	'./lib/PostgreSQL/error/RoleAssertionError': [],
+	'./lib/PostgreSQL/role/IAssertRoleOptions': [],
+	'./lib/PostgreSQL/role/IRoleAssertion': [],
+	'./lib/PostgreSQL/role/IRoleGrant': [],
+	'./lib/PostgreSQL/role/IRolePool': [],
+	'./lib/PostgreSQL/role/assertRole': [],
 	'./lib/PostgreSQL/counter/IDbCounter': [],
 	'./lib/checkEmailLen': ['graphql'],
 	'./lib/checkPwdLen': ['graphql']
