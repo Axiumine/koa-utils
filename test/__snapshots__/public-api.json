@@ -354,7 +354,26 @@
 	"./lib/PostgreSQL/IPostgresErrorCodes": [
 		"IPostgresErrorCodes"
 	],
+	"./lib/PostgreSQL/clock/CLOCK_SQL": [
+		"CLOCK_SQL"
+	],
+	"./lib/PostgreSQL/clock/DB_NOW_SQL": [
+		"DB_NOW_SQL"
+	],
+	"./lib/PostgreSQL/clock/IClock": [],
+	"./lib/PostgreSQL/clock/IDbClock": [],
+	"./lib/PostgreSQL/clock/IDbClockOptions": [],
+	"./lib/PostgreSQL/clock/IDbClockSeam": [],
+	"./lib/PostgreSQL/clock/createDbClock": [
+		"createDbClock"
+	],
+	"./lib/PostgreSQL/clock/lockTaken": [
+		"lockTaken"
+	],
 	"./lib/PostgreSQL/counter/IDbCounter": [],
+	"./lib/PostgreSQL/error/DB_CLOCK_REASONS": [
+		"DB_CLOCK_REASONS"
+	],
 	"./lib/PostgreSQL/error/DB_CONNECT_REASONS": [
 		"DB_CONNECT_REASONS"
 	],
@@ -364,8 +383,14 @@
 	"./lib/PostgreSQL/error/DB_PARSE_REASONS": [
 		"DB_PARSE_REASONS"
 	],
+	"./lib/PostgreSQL/error/DB_STATE_REASONS": [
+		"DB_STATE_REASONS"
+	],
 	"./lib/PostgreSQL/error/DB_TX_REASONS": [
 		"DB_TX_REASONS"
+	],
+	"./lib/PostgreSQL/error/DbClockError": [
+		"DbClockError"
 	],
 	"./lib/PostgreSQL/error/DbConnectError": [
 		"DbConnectError"
@@ -373,22 +398,34 @@
 	"./lib/PostgreSQL/error/DbParseError": [
 		"DbParseError"
 	],
+	"./lib/PostgreSQL/error/DbStateError": [
+		"DbStateError"
+	],
 	"./lib/PostgreSQL/error/DbTxError": [
 		"DbTxError"
 	],
 	"./lib/PostgreSQL/error/IConstraintEntry": [],
 	"./lib/PostgreSQL/error/IConstraintEntryBuilder": [],
 	"./lib/PostgreSQL/error/IConstraintTable": [],
+	"./lib/PostgreSQL/error/IDbClockReason": [],
 	"./lib/PostgreSQL/error/IDbConnectReason": [],
 	"./lib/PostgreSQL/error/IDbErrorCounter": [],
 	"./lib/PostgreSQL/error/IDbErrorCounterName": [],
 	"./lib/PostgreSQL/error/IDbErrorFactory": [],
 	"./lib/PostgreSQL/error/IDbInternalReason": [],
 	"./lib/PostgreSQL/error/IDbParseReason": [],
+	"./lib/PostgreSQL/error/IDbStateReason": [],
 	"./lib/PostgreSQL/error/IDbTxReason": [],
+	"./lib/PostgreSQL/error/ILockOrderReason": [],
 	"./lib/PostgreSQL/error/IMapDbErrorOptions": [],
 	"./lib/PostgreSQL/error/IRoleAssertionReason": [],
 	"./lib/PostgreSQL/error/IRoleAssertionSubject": [],
+	"./lib/PostgreSQL/error/LOCK_ORDER_REASONS": [
+		"LOCK_ORDER_REASONS"
+	],
+	"./lib/PostgreSQL/error/LockOrderError": [
+		"LockOrderError"
+	],
 	"./lib/PostgreSQL/error/ROLE_ASSERT_REASONS": [
 		"ROLE_ASSERT_REASONS"
 	],
@@ -429,6 +466,41 @@
 	],
 	"./lib/PostgreSQL/guard/guardVersion": [
 		"guardVersion"
+	],
+	"./lib/PostgreSQL/lock/CLAIM_LIMIT_MAX": [
+		"CLAIM_LIMIT_MAX"
+	],
+	"./lib/PostgreSQL/lock/IClaimRegistry": [],
+	"./lib/PostgreSQL/lock/IClaimRequest": [],
+	"./lib/PostgreSQL/lock/ILockAdmission": [],
+	"./lib/PostgreSQL/lock/ILockOrderSpec": [],
+	"./lib/PostgreSQL/lock/ILockOrderTracker": [],
+	"./lib/PostgreSQL/lock/ILockTrackerConfig": [],
+	"./lib/PostgreSQL/lock/ILockTrackerOptions": [],
+	"./lib/PostgreSQL/lock/IRowLockMode": [],
+	"./lib/PostgreSQL/lock/ROW_LOCK_MODES": [
+		"ROW_LOCK_MODES"
+	],
+	"./lib/PostgreSQL/lock/claimRowsSkipLocked": [
+		"claimRowsSkipLocked"
+	],
+	"./lib/PostgreSQL/lock/createLockOrderTracker": [
+		"createLockOrderTracker"
+	],
+	"./lib/PostgreSQL/lock/lockedRow": [
+		"lockedRow"
+	],
+	"./lib/PostgreSQL/lock/lockedRows": [
+		"lockedRows"
+	],
+	"./lib/PostgreSQL/lock/rowLockModeOf": [
+		"rowLockModeOf"
+	],
+	"./lib/PostgreSQL/lock/uuidOf": [
+		"uuidOf"
+	],
+	"./lib/PostgreSQL/lock/uuidsOf": [
+		"uuidsOf"
 	],
 	"./lib/PostgreSQL/makePostgreSqlLogError": [
 		"makePostgreSqlLogError"
