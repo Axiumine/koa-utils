@@ -326,6 +326,10 @@
 			"import": "./dist/lib/PostgreSQL/makePostgreSqlLogError.mjs",
 			"types": "./dist/lib/PostgreSQL/makePostgreSqlLogError.d.mts"
 		},
+		"./lib/PostgreSQL/error/DB_CLOCK_REASONS": {
+			"import": "./dist/lib/PostgreSQL/error/DB_CLOCK_REASONS.mjs",
+			"types": "./dist/lib/PostgreSQL/error/DB_CLOCK_REASONS.d.mts"
+		},
 		"./lib/PostgreSQL/error/DB_CONNECT_REASONS": {
 			"import": "./dist/lib/PostgreSQL/error/DB_CONNECT_REASONS.mjs",
 			"types": "./dist/lib/PostgreSQL/error/DB_CONNECT_REASONS.d.mts"
@@ -338,9 +342,17 @@
 			"import": "./dist/lib/PostgreSQL/error/DB_PARSE_REASONS.mjs",
 			"types": "./dist/lib/PostgreSQL/error/DB_PARSE_REASONS.d.mts"
 		},
+		"./lib/PostgreSQL/error/DB_STATE_REASONS": {
+			"import": "./dist/lib/PostgreSQL/error/DB_STATE_REASONS.mjs",
+			"types": "./dist/lib/PostgreSQL/error/DB_STATE_REASONS.d.mts"
+		},
 		"./lib/PostgreSQL/error/DB_TX_REASONS": {
 			"import": "./dist/lib/PostgreSQL/error/DB_TX_REASONS.mjs",
 			"types": "./dist/lib/PostgreSQL/error/DB_TX_REASONS.d.mts"
+		},
+		"./lib/PostgreSQL/error/DbClockError": {
+			"import": "./dist/lib/PostgreSQL/error/DbClockError.mjs",
+			"types": "./dist/lib/PostgreSQL/error/DbClockError.d.mts"
 		},
 		"./lib/PostgreSQL/error/DbConnectError": {
 			"import": "./dist/lib/PostgreSQL/error/DbConnectError.mjs",
@@ -349,6 +361,10 @@
 		"./lib/PostgreSQL/error/DbParseError": {
 			"import": "./dist/lib/PostgreSQL/error/DbParseError.mjs",
 			"types": "./dist/lib/PostgreSQL/error/DbParseError.d.mts"
+		},
+		"./lib/PostgreSQL/error/DbStateError": {
+			"import": "./dist/lib/PostgreSQL/error/DbStateError.mjs",
+			"types": "./dist/lib/PostgreSQL/error/DbStateError.d.mts"
 		},
 		"./lib/PostgreSQL/error/DbTxError": {
 			"import": "./dist/lib/PostgreSQL/error/DbTxError.mjs",
@@ -365,6 +381,10 @@
 		"./lib/PostgreSQL/error/IConstraintTable": {
 			"import": "./dist/lib/PostgreSQL/error/IConstraintTable.mjs",
 			"types": "./dist/lib/PostgreSQL/error/IConstraintTable.d.mts"
+		},
+		"./lib/PostgreSQL/error/IDbClockReason": {
+			"import": "./dist/lib/PostgreSQL/error/IDbClockReason.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IDbClockReason.d.mts"
 		},
 		"./lib/PostgreSQL/error/IDbConnectReason": {
 			"import": "./dist/lib/PostgreSQL/error/IDbConnectReason.mjs",
@@ -390,9 +410,17 @@
 			"import": "./dist/lib/PostgreSQL/error/IDbParseReason.mjs",
 			"types": "./dist/lib/PostgreSQL/error/IDbParseReason.d.mts"
 		},
+		"./lib/PostgreSQL/error/IDbStateReason": {
+			"import": "./dist/lib/PostgreSQL/error/IDbStateReason.mjs",
+			"types": "./dist/lib/PostgreSQL/error/IDbStateReason.d.mts"
+		},
 		"./lib/PostgreSQL/error/IDbTxReason": {
 			"import": "./dist/lib/PostgreSQL/error/IDbTxReason.mjs",
 			"types": "./dist/lib/PostgreSQL/error/IDbTxReason.d.mts"
+		},
+		"./lib/PostgreSQL/error/ILockOrderReason": {
+			"import": "./dist/lib/PostgreSQL/error/ILockOrderReason.mjs",
+			"types": "./dist/lib/PostgreSQL/error/ILockOrderReason.d.mts"
 		},
 		"./lib/PostgreSQL/error/IMapDbErrorOptions": {
 			"import": "./dist/lib/PostgreSQL/error/IMapDbErrorOptions.mjs",
@@ -405,6 +433,14 @@
 		"./lib/PostgreSQL/error/IRoleAssertionSubject": {
 			"import": "./dist/lib/PostgreSQL/error/IRoleAssertionSubject.mjs",
 			"types": "./dist/lib/PostgreSQL/error/IRoleAssertionSubject.d.mts"
+		},
+		"./lib/PostgreSQL/error/LOCK_ORDER_REASONS": {
+			"import": "./dist/lib/PostgreSQL/error/LOCK_ORDER_REASONS.mjs",
+			"types": "./dist/lib/PostgreSQL/error/LOCK_ORDER_REASONS.d.mts"
+		},
+		"./lib/PostgreSQL/error/LockOrderError": {
+			"import": "./dist/lib/PostgreSQL/error/LockOrderError.mjs",
+			"types": "./dist/lib/PostgreSQL/error/LockOrderError.d.mts"
 		},
 		"./lib/PostgreSQL/error/ROLE_ASSERT_REASONS": {
 			"import": "./dist/lib/PostgreSQL/error/ROLE_ASSERT_REASONS.mjs",
@@ -689,6 +725,106 @@
 		"./lib/PostgreSQL/counter/IDbCounter": {
 			"import": "./dist/lib/PostgreSQL/counter/IDbCounter.mjs",
 			"types": "./dist/lib/PostgreSQL/counter/IDbCounter.d.mts"
+		},
+		"./lib/PostgreSQL/clock/CLOCK_SQL": {
+			"import": "./dist/lib/PostgreSQL/clock/CLOCK_SQL.mjs",
+			"types": "./dist/lib/PostgreSQL/clock/CLOCK_SQL.d.mts"
+		},
+		"./lib/PostgreSQL/clock/DB_NOW_SQL": {
+			"import": "./dist/lib/PostgreSQL/clock/DB_NOW_SQL.mjs",
+			"types": "./dist/lib/PostgreSQL/clock/DB_NOW_SQL.d.mts"
+		},
+		"./lib/PostgreSQL/clock/IClock": {
+			"import": "./dist/lib/PostgreSQL/clock/IClock.mjs",
+			"types": "./dist/lib/PostgreSQL/clock/IClock.d.mts"
+		},
+		"./lib/PostgreSQL/clock/IDbClock": {
+			"import": "./dist/lib/PostgreSQL/clock/IDbClock.mjs",
+			"types": "./dist/lib/PostgreSQL/clock/IDbClock.d.mts"
+		},
+		"./lib/PostgreSQL/clock/IDbClockOptions": {
+			"import": "./dist/lib/PostgreSQL/clock/IDbClockOptions.mjs",
+			"types": "./dist/lib/PostgreSQL/clock/IDbClockOptions.d.mts"
+		},
+		"./lib/PostgreSQL/clock/IDbClockSeam": {
+			"import": "./dist/lib/PostgreSQL/clock/IDbClockSeam.mjs",
+			"types": "./dist/lib/PostgreSQL/clock/IDbClockSeam.d.mts"
+		},
+		"./lib/PostgreSQL/clock/createDbClock": {
+			"import": "./dist/lib/PostgreSQL/clock/createDbClock.mjs",
+			"types": "./dist/lib/PostgreSQL/clock/createDbClock.d.mts"
+		},
+		"./lib/PostgreSQL/clock/lockTaken": {
+			"import": "./dist/lib/PostgreSQL/clock/lockTaken.mjs",
+			"types": "./dist/lib/PostgreSQL/clock/lockTaken.d.mts"
+		},
+		"./lib/PostgreSQL/lock/CLAIM_LIMIT_MAX": {
+			"import": "./dist/lib/PostgreSQL/lock/CLAIM_LIMIT_MAX.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/CLAIM_LIMIT_MAX.d.mts"
+		},
+		"./lib/PostgreSQL/lock/IClaimRegistry": {
+			"import": "./dist/lib/PostgreSQL/lock/IClaimRegistry.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/IClaimRegistry.d.mts"
+		},
+		"./lib/PostgreSQL/lock/IClaimRequest": {
+			"import": "./dist/lib/PostgreSQL/lock/IClaimRequest.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/IClaimRequest.d.mts"
+		},
+		"./lib/PostgreSQL/lock/ILockAdmission": {
+			"import": "./dist/lib/PostgreSQL/lock/ILockAdmission.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/ILockAdmission.d.mts"
+		},
+		"./lib/PostgreSQL/lock/ILockOrderSpec": {
+			"import": "./dist/lib/PostgreSQL/lock/ILockOrderSpec.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/ILockOrderSpec.d.mts"
+		},
+		"./lib/PostgreSQL/lock/ILockOrderTracker": {
+			"import": "./dist/lib/PostgreSQL/lock/ILockOrderTracker.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/ILockOrderTracker.d.mts"
+		},
+		"./lib/PostgreSQL/lock/ILockTrackerConfig": {
+			"import": "./dist/lib/PostgreSQL/lock/ILockTrackerConfig.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/ILockTrackerConfig.d.mts"
+		},
+		"./lib/PostgreSQL/lock/ILockTrackerOptions": {
+			"import": "./dist/lib/PostgreSQL/lock/ILockTrackerOptions.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/ILockTrackerOptions.d.mts"
+		},
+		"./lib/PostgreSQL/lock/IRowLockMode": {
+			"import": "./dist/lib/PostgreSQL/lock/IRowLockMode.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/IRowLockMode.d.mts"
+		},
+		"./lib/PostgreSQL/lock/ROW_LOCK_MODES": {
+			"import": "./dist/lib/PostgreSQL/lock/ROW_LOCK_MODES.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/ROW_LOCK_MODES.d.mts"
+		},
+		"./lib/PostgreSQL/lock/claimRowsSkipLocked": {
+			"import": "./dist/lib/PostgreSQL/lock/claimRowsSkipLocked.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/claimRowsSkipLocked.d.mts"
+		},
+		"./lib/PostgreSQL/lock/createLockOrderTracker": {
+			"import": "./dist/lib/PostgreSQL/lock/createLockOrderTracker.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/createLockOrderTracker.d.mts"
+		},
+		"./lib/PostgreSQL/lock/lockedRow": {
+			"import": "./dist/lib/PostgreSQL/lock/lockedRow.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/lockedRow.d.mts"
+		},
+		"./lib/PostgreSQL/lock/lockedRows": {
+			"import": "./dist/lib/PostgreSQL/lock/lockedRows.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/lockedRows.d.mts"
+		},
+		"./lib/PostgreSQL/lock/rowLockModeOf": {
+			"import": "./dist/lib/PostgreSQL/lock/rowLockModeOf.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/rowLockModeOf.d.mts"
+		},
+		"./lib/PostgreSQL/lock/uuidOf": {
+			"import": "./dist/lib/PostgreSQL/lock/uuidOf.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/uuidOf.d.mts"
+		},
+		"./lib/PostgreSQL/lock/uuidsOf": {
+			"import": "./dist/lib/PostgreSQL/lock/uuidsOf.mjs",
+			"types": "./dist/lib/PostgreSQL/lock/uuidsOf.d.mts"
 		},
 		"./lib/MongoDB/IMongoDBError": {
 			"import": "./dist/lib/MongoDB/IMongoDBError.mjs",

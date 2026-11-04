@@ -43,6 +43,8 @@ const PEER_SCOPE: Record<string, RegExp> = {
 // Error family = param (IDbErrorFactory), table = param (IConstraintTable), tx = param (ITx). No import of pg / application error class
 // lib/PostgreSQL/role/* + error/{RoleAssertionError,ROLE_ASSERT_REASONS,IRoleAssertionReason,IRoleAssertionSubject}: same, 0 peers runtime AND .d.mts.
 // assertRole take pool as param (IRolePool, structural over ITxClient). Catalog queries go through that pool, never through pg
+// lib/PostgreSQL/clock/* + lock/* + error/{DbClockError,DbStateError,LockOrderError + reasons + types}: same, 0 peers runtime AND .d.mts.
+// Tx = param (ITx), claim registry = param (IClaimRegistry), lock spec = param (ILockOrderSpec). Clock slots sit in private postgresState (globalThis registry, 0 peers)
 const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/Constants': [],
 	'./lib/emailHash': [],
@@ -146,6 +148,40 @@ const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/PostgreSQL/role/IRolePool': [],
 	'./lib/PostgreSQL/role/assertRole': [],
 	'./lib/PostgreSQL/counter/IDbCounter': [],
+	'./lib/PostgreSQL/error/DB_CLOCK_REASONS': [],
+	'./lib/PostgreSQL/error/DB_STATE_REASONS': [],
+	'./lib/PostgreSQL/error/DbClockError': [],
+	'./lib/PostgreSQL/error/DbStateError': [],
+	'./lib/PostgreSQL/error/IDbClockReason': [],
+	'./lib/PostgreSQL/error/IDbStateReason': [],
+	'./lib/PostgreSQL/error/ILockOrderReason': [],
+	'./lib/PostgreSQL/error/LOCK_ORDER_REASONS': [],
+	'./lib/PostgreSQL/error/LockOrderError': [],
+	'./lib/PostgreSQL/clock/CLOCK_SQL': [],
+	'./lib/PostgreSQL/clock/DB_NOW_SQL': [],
+	'./lib/PostgreSQL/clock/IClock': [],
+	'./lib/PostgreSQL/clock/IDbClock': [],
+	'./lib/PostgreSQL/clock/IDbClockOptions': [],
+	'./lib/PostgreSQL/clock/IDbClockSeam': [],
+	'./lib/PostgreSQL/clock/createDbClock': [],
+	'./lib/PostgreSQL/clock/lockTaken': [],
+	'./lib/PostgreSQL/lock/CLAIM_LIMIT_MAX': [],
+	'./lib/PostgreSQL/lock/IClaimRegistry': [],
+	'./lib/PostgreSQL/lock/IClaimRequest': [],
+	'./lib/PostgreSQL/lock/ILockAdmission': [],
+	'./lib/PostgreSQL/lock/ILockOrderSpec': [],
+	'./lib/PostgreSQL/lock/ILockOrderTracker': [],
+	'./lib/PostgreSQL/lock/ILockTrackerConfig': [],
+	'./lib/PostgreSQL/lock/ILockTrackerOptions': [],
+	'./lib/PostgreSQL/lock/IRowLockMode': [],
+	'./lib/PostgreSQL/lock/ROW_LOCK_MODES': [],
+	'./lib/PostgreSQL/lock/claimRowsSkipLocked': [],
+	'./lib/PostgreSQL/lock/createLockOrderTracker': [],
+	'./lib/PostgreSQL/lock/lockedRow': [],
+	'./lib/PostgreSQL/lock/lockedRows': [],
+	'./lib/PostgreSQL/lock/rowLockModeOf': [],
+	'./lib/PostgreSQL/lock/uuidOf': [],
+	'./lib/PostgreSQL/lock/uuidsOf': [],
 	'./lib/checkEmailLen': ['graphql'],
 	'./lib/checkPwdLen': ['graphql']
 }

@@ -2,7 +2,7 @@
 
 A kit of small, driver-agnostic building blocks for services that talk to PostgreSQL through [node-postgres](https://node-postgres.com) (`pg`): a pool factory that checks the session before it hands a connection out, a transaction wrapper with a bounded retry, a mapper from a driver error to your own error family, guards for writes that matched nothing, string parsers for the date and integer types that would otherwise become a JavaScript `Date` or lose digits, closed-reason errors that never carry a password or a row, and a strict check for a database URL. It is separate from `dataSources/PostgreSQL` (the environment-driven singletons, see [data-sources.md](./data-sources.md)) and from `lib/PostgreSQL/IPostgresError` and `makePostgreSqlLogError` (documented in [lib-datasource-errors.md](./lib-datasource-errors.md)): nothing in this kit reads an environment variable or opens a connection on import.
 
-This page covers the leaf pieces (errors, parsers, type registry, pool, database URL check), the transaction wrapper `withTx`, the error mapper `mapDbError` with its constraint helpers, the write guards `assertAffected` and `guardVersion`, and the boot check of the database role, `assertRole`. Later parts are added beside it under the same folder.
+This page covers the leaf pieces (errors, parsers, type registry, pool, database URL check), the transaction wrapper `withTx`, the error mapper `mapDbError` with its constraint helpers, the write guards `assertAffected` and `guardVersion`, the boot check of the database role, `assertRole`, and the pieces for time and locks inside one transaction: the server clock `createDbClock` with `lockTaken`, the lock-order tracker `createLockOrderTracker`, and the small helpers for writing lock helpers (`uuidOf`, `uuidsOf`, `rowLockModeOf`, `lockedRow`, `lockedRows`, `claimRowsSkipLocked`). The kit ships no lock helper of its own: it ships the parts you build yours from.
 
 ## Principles
 
@@ -10,6 +10,7 @@ This page covers the leaf pieces (errors, parsers, type registry, pool, database
 - **Structural seams.** A logger is any object with `warn` and `error` (`IPoolLogger`). A counter is any function of the counter name (`IDbCounter`). An error factory is any object that builds your own error class for a code or a closed reason (`IDbErrorFactory`), so the kit imports no error class of your application. A constraint table is plain data that you pass in (`IConstraintTable`); the kit ships none. Nothing is a class you must extend.
 - **Closed reasons, fixed messages.** Every error and every check answers with a word from a closed list. A message is built from the reason and the name of a type, never from a stored value, a URL or the text of the driver, so a password or a row cannot reach a log line through them. No error here has a `cause`.
 - **One export per file.** Each value has its own subpath, and its types live in `I*` files. There is no barrel.
+- **No lock clause, no session lock.** No file of the kit issues `FOR UPDATE`, `FOR SHARE`, `SKIP LOCKED` or an advisory lock, and none exports one as statement text. The one statement of the kit that reads the clock, `CLOCK_SQL`, is a plain `SELECT`. Lock clauses live in your own helpers, where one grep finds them. The rank each of your helpers takes is checked by a tracker you build from your own spec, and a claim runs only a statement from a closed registry you wrote.
 
 ## Layout and names
 
@@ -17,7 +18,7 @@ All subpaths are `@axiumine/koa-utils/lib/PostgreSQL/<folder>/<File>`. The file 
 
 | Folder | Holds |
 |---|---|
-| `error/` | `DbParseError`, `DbConnectError`, `DbTxError`, `RoleAssertionError`, their reason lists and types, `IDbErrorFactory`, the SQLSTATE readers (`sqlstateOf`, `sqlstateField`, `constraintNameOf`, `errorNameOf`), `mapDbError` and its options and counter types, `DB_INTERNAL_REASONS`, and the constraint helpers (`buildConstraintEntry`, `lookupConstraint`, `IConstraintEntry`, `IConstraintTable`, `IConstraintEntryBuilder`) |
+| `error/` | `DbParseError`, `DbConnectError`, `DbTxError`, `RoleAssertionError`, `DbClockError`, `LockOrderError`, `DbStateError`, their reason lists and types, `IDbErrorFactory`, the SQLSTATE readers (`sqlstateOf`, `sqlstateField`, `constraintNameOf`, `errorNameOf`), `mapDbError` and its options and counter types, `DB_INTERNAL_REASONS`, and the constraint helpers (`buildConstraintEntry`, `lookupConstraint`, `IConstraintEntry`, `IConstraintTable`, `IConstraintEntryBuilder`) |
 | `parse/` | the string parsers, `arrayOf`, and the type registry (`TYPE_PARSERS`, `createTypeRegistry`) |
 | `pool/` | `createPool`, its options and constants |
 | `counter/` | `IDbCounter`, the counter callback type |
@@ -25,6 +26,8 @@ All subpaths are `@axiumine/koa-utils/lib/PostgreSQL/<folder>/<File>`. The file 
 | `tx/` | `withTx`, `jitteredDelay`, `defaultRetryDelay`, the transaction constants, and the types of the handle, the pool, the client and the options |
 | `guard/` | `assertAffected` and `guardVersion` for a write that matched no row, `VERSION_GUARD_FIELDS`, and their input, code and counter types |
 | `role/` | `assertRole`, the boot check that the connected role has exactly the expected attributes, ownership, memberships and grants, and the types of its options, its pool and its answer (`RoleAssertionError` is in `error/`) |
+| `clock/` | `createDbClock`, `lockTaken`, `CLOCK_SQL`, `DB_NOW_SQL`, and the types of the clock, its options and its seam (`DbClockError` is in `error/`) |
+| `lock/` | `createLockOrderTracker`, `claimRowsSkipLocked`, `lockedRow`, `lockedRows`, `uuidOf`, `uuidsOf`, `rowLockModeOf`, `ROW_LOCK_MODES`, `CLAIM_LIMIT_MAX`, and the types of the spec, the tracker and the claim (`LockOrderError` is in `error/`) |
 
 Types are named `I<Name>`. When you move code that used the unprefixed names of a private copy, the mapping is:
 
@@ -46,6 +49,8 @@ Types are named `I<Name>`. When you move code that used the unprefixed names of 
 | `AffectedResult`, `VersionGuardField`, `VersionGuardInput` | `IAffectedResult`, `IVersionGuardField`, `IVersionGuardInput` |
 | `RoleGrant`, `AssertRoleOptions`, `RolePool`, `RoleAssertion` | `IRoleGrant`, `IAssertRoleOptions`, `IRolePool`, `IRoleAssertion` |
 | `RoleAssertionReason`, `RoleAssertionSubject` | `IRoleAssertionReason`, `IRoleAssertionSubject` |
+| `Clock`, `DbClock`, `DbClockOptions`, `DbClockReason` | `IClock`, `IDbClock`, `IDbClockOptions`, `IDbClockReason` |
+| `LockOrderReason`, `RowLockMode`, `ClaimRequest` | `ILockOrderReason`, `IRowLockMode`, `IClaimRequest` |
 
 The module `src/lib/PostgreSQL` also holds three older files (`IPostgresError`, `IPostgresErrorCodes`, `makePostgreSqlLogError`). They are unrelated to the kit and unchanged. `makePostgreSqlLogError` logs the `detail` of an error; the kit's readers below never read it. They are two policies, not one to merge.
 
@@ -959,6 +964,420 @@ export function isAbsolutePath(text: string): boolean
 
 `isAbsolutePath` is true for a POSIX path that starts with `/`, has no `..` segment and no ASCII control character (below `0x20`, or `0x7f`). A space or a non-ASCII character is allowed.
 
-## Single copy of the package
+## Clock and locks
+
+Two pieces that meet inside one transaction. The **clock** reads the server time once per transaction, as epoch milliseconds, so that every comparison in one request uses one instant and no application host clock decides a deadline. The **lock tracker** keeps the order in which a transaction takes its locks, so that two requests can never wait for each other. They meet in `lockTaken`: a lock helper tells the clock that it has taken a lock, and a write transaction may read the time only after that.
+
+### `createDbClock`
+
+**Import:**
+```ts
+import { createDbClock } from '@axiumine/koa-utils/lib/PostgreSQL/clock/createDbClock'
+import type { IDbClock } from '@axiumine/koa-utils/lib/PostgreSQL/clock/IDbClock'
+import type { IDbClockOptions } from '@axiumine/koa-utils/lib/PostgreSQL/clock/IDbClockOptions'
+import type { IDbClockSeam } from '@axiumine/koa-utils/lib/PostgreSQL/clock/IDbClockSeam'
+import type { IClock } from '@axiumine/koa-utils/lib/PostgreSQL/clock/IClock'
+```
+
+**Signature:**
+```ts
+export interface IClock {
+	now(): number
+}
+export interface IDbClock extends IClock {
+	now(): number
+	read(): Promise<number>
+}
+export interface IDbClockSeam {
+	readonly statement: string
+	readonly allowed: boolean
+}
+export interface IDbClockOptions {
+	readonly write: boolean
+	readonly seam?: IDbClockSeam | undefined
+}
+export function createDbClock(tx: ITx, options: IDbClockOptions): IDbClock
+```
+
+Makes the clock of one transaction. Call it once, where the transaction opens (inside [`withTx`](#withtx)), before or after the first lock helper. `IClock` is the plain port, `{ now(): number }`: pass the clock to any code that wants an instant, and a fake `{ now: () => 1700000000000 }` stands in for it in a test.
+
+- `read()` is the asynchronous member. The first call runs one statement, [`CLOCK_SQL`](#clock_sql-db_now_sql), with no parameter; every later call answers the same number without a statement, and reads that start together share one statement. A read that failed is not retried: its failure is the answer of every later call.
+- `now()` is the synchronous member and never touches the database. It answers the instant that was read. Before that it throws `DbClockError`: `NOT_READ` in a read-only transaction (await `read()` once first), `WRITE_BEFORE_LOCK` in a write transaction that has not taken a lock yet.
+- `write` is required and has no default, so that the choice is made in the code that opens the transaction. A transaction flagged `write: true` must take a lock before it reads the time, so that the instant it stamps on its rows is later than the commit of every transaction that held the same lock before it. `now()` and `read()` before [`lockTaken`](#locktaken) has been called throw `DbClockError` `WRITE_BEFORE_LOCK`, a defect of the calling code. A read-only transaction has no such guard.
+- The state of the transaction (whether a lock was taken, the instant) sits in a slot keyed by the handle that `withTx` hands out, so a retry that gets a fresh handle starts again. A second `createDbClock` for the same handle throws `ALREADY_BOUND`, also when the other clock was made by another copy of this package (see [Single copy of the package](#single-copy-of-the-package-and-shared-state)).
+
+**The instant.** `extract(epoch FROM <timestamptz>)` does not depend on the session time zone, so the value is the same in UTC, in `America/Los_Angeles` and in `Asia/Tokyo`, and no value passes through a JavaScript `Date`. The server sends the `bigint` as text; the text goes through the `int8` rule of the kit (`parseInt8`: shape and 64-bit range), then through a safe-integer check, and only then becomes a number. `trunc` cuts toward zero; from 1970 on that is cutting the digits.
+
+**The checks, in this order:** a `TypeError` (`write must be a boolean`) when `write` is not a boolean; then the seam (below); then `DbClockError` `ALREADY_BOUND`. Nothing is sent to the database before the first `read()`.
+
+**The seam, for a test build.** `seam: { statement, allowed }` replaces `CLOCK_SQL` with a statement of yours. It must answer the same shape (one row, one `bigint` column named `ms`) and take no parameter; the typical use reads an override from a table that exists only in test databases, so a test can set the instant. The kit names no table and reads no environment variable: **you** compute `allowed` from your own environment, and it must be exactly `true`. The checks of the seam, in order: it is an object, `statement` is a non-empty string, `allowed` is a boolean (a `TypeError` each: `seam must be an object`, `seam.statement must be a non-empty string`, `seam.allowed must be a boolean`), and `allowed` is `true`; a seam that is not allowed throws `DbClockError` `SEAM_REFUSED` before anything touches the transaction. A missing flag is a `TypeError`, never an allowed seam.
+
+```ts
+import { createDbClock } from '@axiumine/koa-utils/lib/PostgreSQL/clock/createDbClock'
+import { withTx } from '@axiumine/koa-utils/lib/PostgreSQL/tx/withTx'
+import type { ITxOptions } from '@axiumine/koa-utils/lib/PostgreSQL/tx/ITxOptions'
+import type { ITxPool } from '@axiumine/koa-utils/lib/PostgreSQL/tx/ITxPool'
+
+declare const pool: ITxPool
+declare const options: ITxOptions
+
+// a read-only transaction: await read() once, then now() is ready
+const stamp = await withTx(pool, options, async (tx) => {
+	const clock = createDbClock(tx, { write: false })
+	return await clock.read()
+})
+
+// a test build: the statement and the flag are yours
+const testStatement = 'SELECT 1767323045678::bigint AS ms'
+const frozen = await withTx(pool, options, async (tx) => {
+	const clock = createDbClock(tx, { write: false, seam: { statement: testStatement, allowed: process.env['APP_ENV'] === 'ci' } })
+	return await clock.read()
+})
+```
+
+### `lockTaken`
+
+**Import:** `import { lockTaken } from '@axiumine/koa-utils/lib/PostgreSQL/clock/lockTaken'`
+
+**Signature:**
+```ts
+export function lockTaken(tx: ITx): Promise<void>
+```
+
+Called by a lock helper after the statement that took its lock. It records that the transaction holds a lock and, when a clock is bound to the handle and has not read yet, reads the instant right there: the instant of the request is then the first one taken after the first lock. When no clock is bound the read waits for the caller (`IDbClock.read`), which is allowed because the lock is already taken. A transaction without a clock pays nothing: no statement is added. It rejects with the failure of the read, which stays the answer of the clock. `lockedRow` and `lockedRows` call it for you.
+
+### `CLOCK_SQL`, `DB_NOW_SQL`
+
+| Subpath | Export | Value |
+|---|---|---|
+| `clock/CLOCK_SQL` | `CLOCK_SQL` | `'SELECT trunc(extract(epoch FROM clock_timestamp()) * 1000)::bigint AS ms'` |
+| `clock/DB_NOW_SQL` | `DB_NOW_SQL` | `'clock_timestamp()'` |
+
+`clock_timestamp()` is the wall clock at the moment the statement runs, unlike `now()` and `transaction_timestamp()`, which stay at the start of the transaction. `trunc` cuts toward zero (a cast to `bigint` alone would round). `DB_NOW_SQL` is the same expression as a `timestamptz`, for a statement that decides inside the database, such as a lease that compares with the database time; it names no table.
+
+### `DbClockError`, `DB_CLOCK_REASONS`, `IDbClockReason`
+
+**Import:**
+```ts
+import { DbClockError } from '@axiumine/koa-utils/lib/PostgreSQL/error/DbClockError'
+import { DB_CLOCK_REASONS } from '@axiumine/koa-utils/lib/PostgreSQL/error/DB_CLOCK_REASONS'
+import type { IDbClockReason } from '@axiumine/koa-utils/lib/PostgreSQL/error/IDbClockReason'
+```
+
+**Signature:**
+```ts
+export const DB_CLOCK_REASONS = [
+	'WRITE_BEFORE_LOCK', 'NOT_READ', 'ALREADY_BOUND', 'SEAM_REFUSED', 'BAD_RESULT', 'UNSAFE_INSTANT'
+] as const
+export type IDbClockReason = (typeof DB_CLOCK_REASONS)[number]
+export class DbClockError extends Error {
+	readonly reason: IDbClockReason
+	constructor(reason: IDbClockReason)
+}
+```
+
+The programming or configuration error of the clock. `name` is `'DbClockError'`; the message is fixed for each reason and holds no value; no `cause`.
+
+| Reason | Message | Meaning |
+|---|---|---|
+| `WRITE_BEFORE_LOCK` | `the clock of a write transaction is read after the first lock helper has returned, not before` | `now()` or `read()` in a transaction flagged `write: true` before `lockTaken` |
+| `NOT_READ` | `the instant of this transaction was not read yet: await clock.read() once before now()` | `now()` before the instant was read |
+| `ALREADY_BOUND` | `this transaction already has a clock` | a second `createDbClock` for the same handle |
+| `SEAM_REFUSED` | `the test seam of the clock is not allowed here` | a seam whose `allowed` is `false` |
+| `BAD_RESULT` | `the clock statement did not answer one int8 value` | no row, more than one row, or a value that is not the text of an `int8` (a number, `null`, a missing column) |
+| `UNSAFE_INSTANT` | `the database instant is not a safe integer number of milliseconds` | the value is a valid `int8` outside the safe-integer range of a JavaScript number |
+
+A text that is not the shape of an `int8`, or is outside 64 bits, is a [`DbParseError`](#dbparseerror-db_parse_reasons-idbparsereason) from the `int8` parser (`MALFORMED`, `OUT_OF_RANGE`), not a `DbClockError`.
+
+### `createLockOrderTracker`
+
+**Import:**
+```ts
+import { createLockOrderTracker } from '@axiumine/koa-utils/lib/PostgreSQL/lock/createLockOrderTracker'
+import type { ILockOrderSpec } from '@axiumine/koa-utils/lib/PostgreSQL/lock/ILockOrderSpec'
+import type { ILockOrderTracker } from '@axiumine/koa-utils/lib/PostgreSQL/lock/ILockOrderTracker'
+import type { ILockTrackerConfig } from '@axiumine/koa-utils/lib/PostgreSQL/lock/ILockTrackerConfig'
+import type { ILockTrackerOptions } from '@axiumine/koa-utils/lib/PostgreSQL/lock/ILockTrackerOptions'
+import type { ILockAdmission } from '@axiumine/koa-utils/lib/PostgreSQL/lock/ILockAdmission'
+```
+
+**Signature:**
+```ts
+export interface ILockOrderSpec<TMode extends string = string, THelper extends string = string> {
+	readonly orders: Readonly<Record<TMode, readonly string[]>>
+	readonly helpers: Readonly<Record<THelper, { readonly [TKey in TMode]?: string | undefined }>>
+	readonly defaultMode: TMode
+}
+export interface ILockAdmission {
+	readonly rank: number
+}
+export interface ILockTrackerConfig {
+	readonly rankCheck?: boolean | undefined
+}
+export interface ILockTrackerOptions<TMode extends string = string> {
+	readonly mode?: TMode | undefined
+	readonly rankCheck?: boolean | undefined
+}
+export interface ILockOrderTracker<TMode extends string = string, THelper extends string = string> {
+	configure(config?: ILockTrackerConfig): void
+	track(tx: object, options?: ILockTrackerOptions<TMode>): void
+	admit(tx: object, helper: THelper): ILockAdmission | undefined
+	record(tx: object, admission: ILockAdmission | undefined): void
+	hold(tx: object, key: string, strength: number): void
+	held(tx: object, key: string): number
+}
+export function createLockOrderTracker<TMode extends string, THelper extends string>(
+	spec: ILockOrderSpec<TMode, THelper>
+): ILockOrderTracker<TMode, THelper>
+```
+
+Makes the tracker of the order of the locks in a transaction. The kit ships no order: the order is your **spec**, with the names you choose.
+
+- `orders`: for each mode, the ranks lowest first, as distinct names. The rank of a name is its position, counted from 1. A transaction is in one mode; `defaultMode` is the mode of a transaction that was not given one.
+- `helpers`: for each of your lock helpers, the rank it takes, by mode. A mode left out, or `undefined`, means the helper does not belong to that order. The same helper may belong to several orders.
+
+The spec is checked once, when the tracker is made, and copied: changing the object afterwards changes nothing. A `TypeError` names the part that is wrong for a spec that would leave the order silently off: no mode, an order that is not a non-empty list of distinct names, a `defaultMode` that is not a mode, a helper that names a mode or a rank the spec lacks, a helper that takes no rank in any mode. TypeScript infers the mode and helper names from the spec, so `tracker.admit(tx, 'lockTypo')` and `tracker.track(tx, { mode: 'typo' })` do not compile.
+
+**The state is the tracker's own.** It is a `WeakMap` that belongs to the tracker object (there is no module-level state), keyed by the handle that `withTx` hands out, so a retry (which gets a fresh handle) starts again and nothing is kept past the transaction. Make one tracker per spec, once, where your lock helpers live, and have every helper call it: two trackers do not see each other's transactions.
+
+**The members.**
+
+| Member | What it does |
+|---|---|
+| `admit(tx, helper)` | Checks the request against the order of the transaction's mode, **before the statement**, and answers the rank to record (`{ rank }`), or `undefined` when the helper has no rank in this mode and the check is off. Nothing is recorded yet. The same rank again passes; a lower rank than one already recorded throws `LockOrderError` `RANK_INVERSION`; a helper outside the mode throws `MODE_REQUIRED` (the transaction is in the default mode) or `NOT_IN_MODE_ORDER` (it is in another mode). With the check off none of them throws. A `TypeError` for a helper the spec does not name. |
+| `record(tx, admission)` | Records the admitted rank once the lock was taken (the highest rank wins). `undefined` records nothing. A helper that takes its lock unconditionally records before its statement; a try-lock (`SKIP LOCKED`) records only when a row came back. |
+| `track(tx, { mode, rankCheck })` | Puts the transaction in a mode and/or forces its rank check. Call it right after `withTx` opened the transaction and before the first lock; after a recorded lock it throws `LockOrderError` `TRACKER_STARTED`. A `TypeError` for a mode that is not in the spec (`mode must be one of ...`) and for a `rankCheck` that is not a boolean. With no options it puts the transaction back in the default mode with the default check. |
+| `configure({ rankCheck })` | Sets the default of the rank check for every transaction that does not say otherwise. Default `true`. Call it once at start, with a value **you** computed: the tracker reads no environment variable. With nothing it restores `true`. It does not touch a transaction that is already tracked. |
+| `hold(tx, key, strength)` | Records the strength of a lock of the transaction under a key you chose (`1` weakest): a stronger lock replaces a weaker one and a weaker one never replaces a stronger one. Recorded also when the rank check is off, because a later check of yours may read it. A `TypeError` for a strength that is not a whole number of at least 1. |
+| `held(tx, key)` | The strength recorded under the key, `0` when none. A read: it creates no state. |
+
+**Writing a lock helper.** The helper is yours: the statement, the table and the order live in your code. The parts above and below make it short.
+
+```ts
+import { createLockOrderTracker } from '@axiumine/koa-utils/lib/PostgreSQL/lock/createLockOrderTracker'
+import { lockedRow } from '@axiumine/koa-utils/lib/PostgreSQL/lock/lockedRow'
+import { rowLockModeOf } from '@axiumine/koa-utils/lib/PostgreSQL/lock/rowLockModeOf'
+import { uuidOf } from '@axiumine/koa-utils/lib/PostgreSQL/lock/uuidOf'
+import type { IRowLockMode } from '@axiumine/koa-utils/lib/PostgreSQL/lock/IRowLockMode'
+import type { ITx } from '@axiumine/koa-utils/lib/PostgreSQL/tx/ITx'
+
+const tracker = createLockOrderTracker({
+	orders: { standard: ['account', 'order', 'invoice'], cleanup: ['order', 'invoice'] },
+	helpers: {
+		lockAccount: { standard: 'account' },
+		lockOrder: { standard: 'order', cleanup: 'order' },
+		lockInvoice: { standard: 'invoice', cleanup: 'invoice' }
+	},
+	defaultMode: 'standard'
+})
+
+interface IOrderRow {
+	readonly id: string
+	readonly status: string
+}
+
+const ORDER_FOR_UPDATE = 'SELECT id, status FROM shop.orders WHERE id = $1 FOR UPDATE'
+const ORDER_FOR_SHARE = 'SELECT id, status FROM shop.orders WHERE id = $1 FOR SHARE'
+
+export async function lockOrder(tx: ITx, orderId: string, mode: IRowLockMode): Promise<IOrderRow | undefined> {
+	const id = uuidOf(orderId, 'orderId') // a TypeError that never quotes the value
+	const statement = rowLockModeOf(mode) === 'update' ? ORDER_FOR_UPDATE : ORDER_FOR_SHARE
+	tracker.record(tx, tracker.admit(tx, 'lockOrder')) // the order is checked before the statement
+	const { rows } = await tx.query<IOrderRow>(statement, [id])
+	return lockedRow(tx, rows[0]) // tells the clock a lock was taken, when a row came back
+}
+
+// a try-lock: the rank is checked first, recorded only when the row came back
+export async function tryLockOrder(tx: ITx, orderId: string): Promise<IOrderRow | undefined> {
+	const id = uuidOf(orderId, 'orderId')
+	const admission = tracker.admit(tx, 'lockOrder')
+	const { rows } = await tx.query<IOrderRow>('SELECT id, status FROM shop.orders WHERE id = $1 FOR UPDATE SKIP LOCKED', [id])
+	const row = rows[0]
+	if (row !== undefined) tracker.record(tx, admission)
+	return lockedRow(tx, row)
+}
+
+// a transaction in the second mode, set before its first lock
+export function startCleanup(tx: ITx): void {
+	tracker.track(tx, { mode: 'cleanup' })
+}
+```
+
+Turn the check off in production, if you want it to be a development tool only, with a value you computed: `tracker.configure({ rankCheck: process.env['APP_ENV'] !== 'production' })`. A transaction can still be forced either way with `track(tx, { rankCheck })`.
+
+### `LockOrderError`, `LOCK_ORDER_REASONS`, `ILockOrderReason`
+
+**Import:**
+```ts
+import { LockOrderError } from '@axiumine/koa-utils/lib/PostgreSQL/error/LockOrderError'
+import { LOCK_ORDER_REASONS } from '@axiumine/koa-utils/lib/PostgreSQL/error/LOCK_ORDER_REASONS'
+import type { ILockOrderReason } from '@axiumine/koa-utils/lib/PostgreSQL/error/ILockOrderReason'
+```
+
+**Signature:**
+```ts
+export const LOCK_ORDER_REASONS = ['RANK_INVERSION', 'MODE_REQUIRED', 'NOT_IN_MODE_ORDER', 'TRACKER_STARTED'] as const
+export type ILockOrderReason = (typeof LOCK_ORDER_REASONS)[number]
+export class LockOrderError extends Error {
+	readonly reason: ILockOrderReason
+	constructor(reason: ILockOrderReason, message: string)
+}
+```
+
+The programming error of the tracker, all four reasons a defect of the calling code. `name` is `'LockOrderError'`. The message names the helper, the ranks and the mode and holds no id and no value; no `cause`.
+
+| Reason | Message | Meaning |
+|---|---|---|
+| `RANK_INVERSION` | `lock order violated: lockOrder takes rank 2 (order) after rank 3 (invoice) in the standard order` | a lock of a lower rank was requested after one of a higher rank |
+| `MODE_REQUIRED` | `<helper> belongs to the <mode> order: set that mode on the transaction before its first lock` | a helper that is not in the default order, in a transaction in the default mode (several modes read `a or b`) |
+| `NOT_IN_MODE_ORDER` | `lockAccount is not one of the locks of the cleanup order (order, invoice)` | a helper that is not in the order of the mode the transaction is in |
+| `TRACKER_STARTED` | `the lock order mode of a transaction is set before its first lock` | `track` after a lock was recorded in the transaction |
+
+The reasons `MODE_REQUIRED` and `NOT_IN_MODE_ORDER` are the mode-generic form of a reason that names one particular second order; code that matched on such a reason matches on these two.
+
+### `uuidOf`, `uuidsOf`, `rowLockModeOf`, `ROW_LOCK_MODES`
+
+**Import:**
+```ts
+import { uuidOf } from '@axiumine/koa-utils/lib/PostgreSQL/lock/uuidOf'
+import { uuidsOf } from '@axiumine/koa-utils/lib/PostgreSQL/lock/uuidsOf'
+import { rowLockModeOf } from '@axiumine/koa-utils/lib/PostgreSQL/lock/rowLockModeOf'
+import { ROW_LOCK_MODES } from '@axiumine/koa-utils/lib/PostgreSQL/lock/ROW_LOCK_MODES'
+import type { IRowLockMode } from '@axiumine/koa-utils/lib/PostgreSQL/lock/IRowLockMode'
+```
+
+**Signature:**
+```ts
+export function uuidOf(value: unknown, label: string): string
+export function uuidsOf(value: unknown, label: string): string[]
+export const ROW_LOCK_MODES = ['update', 'share'] as const
+export type IRowLockMode = (typeof ROW_LOCK_MODES)[number]
+export function rowLockModeOf(value: unknown): IRowLockMode
+```
+
+Argument checks for lock helpers. They throw a `TypeError` that names the argument and never quotes the value.
+
+- `uuidOf(value, label)` answers the id in lower case, or throws `` `${label} must be a UUID` `` for anything that is not the text form of a uuid (36 characters, hex digits and four dashes; no braces, no spaces, no missing dashes).
+- `uuidsOf(value, label)` answers the ids in lower case, without duplicates, ascending (the order of the `uuid` type, so a statement that locks rows in that order and a helper that sorts agree). `` `${label} must be an array of UUIDs` `` for a value that is not an array, `` `each entry of ${label} must be a UUID` `` for a bad entry. An empty array gives an empty array.
+- `rowLockModeOf(value)` answers `'update'` or `'share'`, or throws `mode must be one of update, share`. `ROW_LOCK_MODES` is the list. The kit does not turn a mode into a lock clause: your helper picks its statement from a fixed table by the mode.
+
+### `lockedRow`, `lockedRows`
+
+**Import:**
+```ts
+import { lockedRow } from '@axiumine/koa-utils/lib/PostgreSQL/lock/lockedRow'
+import { lockedRows } from '@axiumine/koa-utils/lib/PostgreSQL/lock/lockedRows'
+```
+
+**Signature:**
+```ts
+export function lockedRow<TRow>(tx: ITx, row: TRow | undefined): Promise<TRow | undefined>
+export function lockedRows<TRow>(tx: ITx, rows: TRow[]): Promise<TRow[]>
+```
+
+Tell the clock that a lock was taken, when the statement locked a row (`lockedRow`: the row is not `undefined`; `lockedRows`: the list is not empty), through [`lockTaken`](#locktaken), and answer what they were given. A statement that locked nothing is not a lock taken, so a write clock stays closed. Call them on the result of the lock statement, as in the helper above.
+
+### `claimRowsSkipLocked`
+
+**Import:**
+```ts
+import { claimRowsSkipLocked } from '@axiumine/koa-utils/lib/PostgreSQL/lock/claimRowsSkipLocked'
+import { CLAIM_LIMIT_MAX } from '@axiumine/koa-utils/lib/PostgreSQL/lock/CLAIM_LIMIT_MAX'
+import type { IClaimRegistry } from '@axiumine/koa-utils/lib/PostgreSQL/lock/IClaimRegistry'
+import type { IClaimRequest } from '@axiumine/koa-utils/lib/PostgreSQL/lock/IClaimRequest'
+```
+
+**Signature:**
+```ts
+export const CLAIM_LIMIT_MAX = 1000
+export type IClaimRegistry = Readonly<Record<string, Readonly<Record<string, string>>>>
+export interface IClaimRequest {
+	readonly table: string
+	readonly predicate: string
+	readonly limit: number
+}
+export function claimRowsSkipLocked<TRow>(tx: ITx, claims: IClaimRegistry, request: IClaimRequest): Promise<TRow[]>
+```
+
+The row-claim primitive for a queue of work: runs the statement that **your registry** holds for a table name and a predicate name, with the number of rows as `$1`, and tells the clock when it claimed any row. The statement is yours; it is expected to take its rows with `FOR UPDATE SKIP LOCKED`, oldest first, so that rows another transaction holds are skipped and never waited for, and several workers claim apart. The kit holds no statement: the registry is a constant in your code, and a name that is not an own key of it is refused, so a table or a predicate cannot come from input. A claim takes no rank in the order of a tracker (it is a queue operation, not a step of a request), and the caller commits the claim before it does anything slow with the rows.
+
+The checks, in order, each a `TypeError` before any statement: the table (`table is not in the closed list of claim tables`), the predicate (`predicate is not in the closed list of <table>`), and the limit, a whole number from 1 to `CLAIM_LIMIT_MAX` (`limit must be a whole number from 1 to 1000`). Names such as `toString` or `__proto__` are not own keys and are refused.
+
+```ts
+import { claimRowsSkipLocked } from '@axiumine/koa-utils/lib/PostgreSQL/lock/claimRowsSkipLocked'
+import type { IClaimRegistry } from '@axiumine/koa-utils/lib/PostgreSQL/lock/IClaimRegistry'
+import type { ITx } from '@axiumine/koa-utils/lib/PostgreSQL/tx/ITx'
+
+const CLAIMS = {
+	jobs: {
+		ready: 'SELECT id, kind FROM queue.jobs WHERE done_at IS NULL ORDER BY created_at, id LIMIT $1 FOR UPDATE SKIP LOCKED'
+	}
+} as const satisfies IClaimRegistry
+
+interface IJobRow {
+	readonly id: string
+	readonly kind: string
+}
+
+export function claimJobs(tx: ITx, limit: number): Promise<IJobRow[]> {
+	return claimRowsSkipLocked<IJobRow>(tx, CLAIMS, { table: 'jobs', predicate: 'ready', limit })
+}
+```
+
+### What the kit does not export
+
+The kit exports **no raw lock clause and no session-level lock**: no constant or function holds statement text with `FOR UPDATE`, `FOR SHARE`, `SKIP LOCKED`, an advisory lock or `LISTEN`, and nothing in the kit issues one. `ROW_LOCK_MODES` is a list of two words to validate against, and `claimRowsSkipLocked` runs a statement from your registry. Every lock clause of your service is therefore in your own helpers, so a grep or a lint rule over your source finds all of them; a check that scans only your tree is complete. The kit takes transaction-scoped locks only through your statements, and `withTx` sets nothing but `SET LOCAL`.
+
+### Clock and lock types
+
+| Subpath | Export | Value or shape |
+|---|---|---|
+| `clock/IClock` | `IClock` | `{ now(): number }` |
+| `clock/IDbClock` | `IDbClock` | `IClock` plus `read(): Promise<number>` |
+| `clock/IDbClockOptions` | `IDbClockOptions` | `{ write: boolean; seam?: IDbClockSeam \| undefined }` |
+| `clock/IDbClockSeam` | `IDbClockSeam` | `{ statement: string; allowed: boolean }` |
+| `error/IDbClockReason` | `IDbClockReason` | one of `DB_CLOCK_REASONS` |
+| `lock/ILockOrderSpec` | `ILockOrderSpec<TMode, THelper>` | the spec above |
+| `lock/ILockOrderTracker` | `ILockOrderTracker<TMode, THelper>` | the six members above |
+| `lock/ILockTrackerConfig` | `ILockTrackerConfig` | `{ rankCheck?: boolean \| undefined }` |
+| `lock/ILockTrackerOptions` | `ILockTrackerOptions<TMode>` | `{ mode?: TMode \| undefined; rankCheck?: boolean \| undefined }` |
+| `lock/ILockAdmission` | `ILockAdmission` | `{ readonly rank: number }` |
+| `lock/IRowLockMode` | `IRowLockMode` | one of `ROW_LOCK_MODES` |
+| `lock/IClaimRegistry` | `IClaimRegistry` | table name to predicate name to statement |
+| `lock/IClaimRequest` | `IClaimRequest` | `{ table: string; predicate: string; limit: number }` |
+| `error/ILockOrderReason` | `ILockOrderReason` | one of `LOCK_ORDER_REASONS` |
+| `error/IDbStateReason` | `IDbStateReason` | one of `DB_STATE_REASONS` |
+
+## Single copy of the package and shared state
 
 The errors are plain classes, so `error instanceof DbConnectError` is true only for errors made by the same installed copy of this package. If two copies end up in one dependency tree (two versions pinned by two of your dependencies), an error from one copy is not an `instanceof` of the other. Keep one version installed.
+
+The clock is the one piece that would be split silently by a second copy: the slot of a transaction, where `lockTaken` records a lock and `createDbClock` binds its read, is state. In one copy it would be a module-level `WeakMap`; with two copies, a `lockTaken` from one would never reach a clock bound by the other, and a write clock would refuse to read for ever. The kit therefore defends in two ways, both on:
+
+1. **The state is shared.** It lives in a frozen registry on `globalThis` under `Symbol.for('@axiumine/koa-utils/postgres-state')` (read-only, not enumerable), made by the first copy that loads and found by every later one. Two copies with the same registry layout share the slots, so `lockTaken` of one copy reaches the clock of the other and a second clock on one handle is `ALREADY_BOUND` whichever copy made the first. The registry holds a flag, an epoch number, a promise and a function per transaction handle; it holds no secret and no driver object.
+2. **A copy that cannot share refuses to load.** The registry carries a layout number. A copy that finds a value under the key that is not its own layout (a copy of another layout, or other code) throws `DbStateError` `LAYOUT_MISMATCH` when its clock module is loaded, so the process stops at start and the state is never split silently. The layout changes only when the shape of the shared state changes in a way an older copy cannot read, and the release notes say so.
+
+The lock tracker is not in the registry: its state belongs to the tracker object you made (a `WeakMap` in its closure), and the only code that reaches it is your helpers, through that object. A second copy of the package cannot split it. It does mean that two trackers, made from two specs or by two copies, are two independent sets of state.
+
+Keep one version installed anyway: sharing the slots does not make two copies of the same code one, and the exact pin of the package in your services remains the rule.
+
+### `DbStateError`, `DB_STATE_REASONS`, `IDbStateReason`
+
+**Import:**
+```ts
+import { DbStateError } from '@axiumine/koa-utils/lib/PostgreSQL/error/DbStateError'
+import { DB_STATE_REASONS } from '@axiumine/koa-utils/lib/PostgreSQL/error/DB_STATE_REASONS'
+import type { IDbStateReason } from '@axiumine/koa-utils/lib/PostgreSQL/error/IDbStateReason'
+```
+
+**Signature:**
+```ts
+export const DB_STATE_REASONS = ['LAYOUT_MISMATCH'] as const
+export type IDbStateReason = (typeof DB_STATE_REASONS)[number]
+export class DbStateError extends Error {
+	readonly reason: IDbStateReason
+	constructor(reason: IDbStateReason)
+}
+```
+
+`name` is `'DbStateError'` and `message` is `` `shared state of the PostgreSQL kit refused: ${reason}: keep one version of @axiumine/koa-utils installed` ``. It is thrown while a module of the clock is being loaded, not by a call, so it surfaces as the failure of an `import`.
