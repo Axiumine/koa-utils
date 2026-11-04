@@ -158,7 +158,7 @@ Source files use `.mts` extension and `.mjs` import specifiers (NodeNext module 
 
 ## 3. Package exports
 
-`package.json` enumerates 150 explicit subpath exports — no barrel, no root entry. Consumers import deep paths:
+`package.json` enumerates 159 explicit subpath exports — no barrel, no root entry. Consumers import deep paths:
 
 ```ts
 import { authenticatedResourceHandler } from '@axiumine/koa-utils/koa/middleware/authenticatedResourceHandler'
@@ -255,7 +255,7 @@ Sentry is reached through the internal `private/lib/sentry` facade (`captureExce
 
 - License: `GPL-3.0-or-later`.
 - Repo: <https://github.com/Axiumine/koa-utils>.
-- Current version: `7.2.0` (`package.json`). Bump version, merge to `main`, then publish a GitHub release `vX.Y.Z`:
+- Current version: `8.0.0` (`package.json`). Bump version, merge to `main`, then publish a GitHub release `vX.Y.Z`:
   `.github/workflows/release.yml` publishes to npm with provenance (no token stored). `yarn upload` is the manual
   fallback and needs the token in `.npmrc`; use one path per version, never both.
 - **Publishing:** `yarn upload` pins `--registry=https://registry.npmjs.org/` on purpose. Yarn 1 exports the registry from

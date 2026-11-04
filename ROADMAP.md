@@ -15,6 +15,10 @@ A TypeScript utility library for Koa + GraphQL backends: authentication flows an
 - **Keep peer ranges current.** Each peer carries an upper bound and no floor (`keygrip` keeps its own `^1.1.0`). Review the bounds against the latest npm release of every peer at least once a quarter. Widen a bound only after the new major has been swapped into `node_modules` and `yarn test:coverage` passes.
 - **TypeScript.** Follow the current stable major, keeping `strict` on.
 
+### Data access
+
+- **A generic PostgreSQL kit under `lib/PostgreSQL`** (8.1.0, [#48](https://github.com/Axiumine/koa-utils/issues/48)): parsers, pool creation with a validated URL, transactions with a bounded retry, error mapping, optimistic-concurrency guards, a role check at boot, and a clock and lock-order tracker. Every piece takes the database driver as a parameter, so the kit never imports `pg` and adds no peer.
+
 ### Security and supply chain
 
 - Earn and keep the OpenSSF Best Practices badge, passing level first and then silver, and keep a published OpenSSF Scorecard result; fix findings those tools report.
