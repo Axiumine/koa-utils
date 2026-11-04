@@ -21,7 +21,7 @@ flowchart LR
       CORE["lib/ tokens, bcrypt, validators, cookies, utilities"]
       DS["dataSources/ MongoDB, Redis, PostgreSQL, MariaDB connectors"]
       FILES["files/ upload pipeline"]
-      MAIL["email/ SocketLabsLib"]
+      MAIL["email/ SocketLabsLib, createSocketLabsSender"]
     end
     PRIV["src/private/** (not exported)"]
   end
@@ -44,7 +44,7 @@ flowchart LR
 | `lib/` | Token generation, bcrypt helpers, cookie options, input validators, redirect allowlist, small utility classes, and `lib/db/` (user registration and lookup, request and error logs) | MongoDB (through `lib/db/` only) |
 | `dataSources/` | Connect and disconnect helpers for the four stores, and the module-level connection objects (`redisClient`, `sequelize`, `pgPool`). `REDIS_TLS` is read here (through `private/dataSources/`) | MongoDB, Redis, PostgreSQL, MariaDB |
 | `files/` | Upload pipeline: stream to a temp file, extension and MIME check, ClamAV scan, image re-encode, move | local disk, ClamAV |
-| `email/` | Transactional email through SocketLabs | SocketLabs HTTPS API |
+| `email/` | Transactional email through SocketLabs: `SocketLabsLib` (the library's own mails) and `createSocketLabsSender` (a sender for a mail you composed, which `SocketLabsLib` also sends through) | SocketLabs HTTPS API |
 | `private/` | Internals the public modules call into. Never exported, never to be imported by a consumer | whatever the caller needs |
 
 ## Key flows

@@ -26,7 +26,7 @@ import { authenticatedResourceHandler } from '@axiumine/koa-utils/koa/middleware
 | Section | Contents |
 |---|---|
 | [Data Sources](./data-sources.md) | Connect/disconnect helpers for MariaDB, MongoDB, PostgreSQL and Redis. |
-| [Email (SocketLabs)](./email.md) | `SocketLabsLib` — transactional email (signup, reset, OTP, moderation) via SocketLabs. |
+| [Email (SocketLabs)](./email.md) | `SocketLabsLib` — transactional email (signup, reset, OTP, moderation) via SocketLabs; `createSocketLabsSender` — a sender for one mail you composed, `{ ok, code }` result, no env, Sentry or dotenv. |
 | [File Upload Pipeline](./files.md) | Temp storage, MIME/virus validation, image re-encode, and the `uploadTempImage`/`uploadTempPdf` orchestrators. |
 | [GraphQL — Mongoose Models](./graphql-models.md) | `UserBase` and the `log/*` collections (stats, errors, throws). |
 | [GraphQL — Context Types](./graphql-context.md) | TypeScript shapes narrowing Koa's `ctx` for auth mutations and middleware. |

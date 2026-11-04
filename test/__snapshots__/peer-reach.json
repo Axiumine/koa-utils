@@ -53,6 +53,7 @@
 	"@socketlabs/email": {
 		"runtime": [
 			"./email/SocketLabsLib",
+			"./email/createSocketLabsSender",
 			"./graphQL/schema/mutations/emailChangeHashVerify",
 			"./graphQL/schema/mutations/login4Ever",
 			"./graphQL/schema/mutations/loginAdmin",

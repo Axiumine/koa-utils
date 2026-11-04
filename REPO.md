@@ -11,7 +11,7 @@ Distributed on npm as ESM-only (`.mjs`) with `.d.mts` declarations. Node `^24.14
 ```
 src/
 ├── dataSources/      # Connect/disconnect helpers for Mongo, MariaDB, PostgreSQL, Redis
-├── email/            # SocketLabsLib — transactional email client (hard-coded copy)
+├── email/            # SocketLabsLib (transactional email client, hard-coded copy); createSocketLabsSender (one-mail sender, peer @socketlabs/email only) + its types ISocketLabsSenderOptions, ISocketLabsMessage, ISocketLabsSendResult, ISocketLabsClient
 ├── files/            # Upload pipeline: store → validate ext+mime → ClamAV scan → re-encode (sharp) → move
 ├── graphQL/
 │   ├── models/MongoDB/   # Mongoose models (UserBase, log/*)
@@ -200,7 +200,7 @@ Static-file move targets: `UPLOAD_IMG_DIRECTORY_URL = ${cwd}/upload/uimg`, `${ST
 
 ### Email (`SocketLabsLib`)
 
-Single class wrapping `@socketlabs/email`. Env-driven: `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`, `DEV_TEAM_EMAIL`. Supplies methods for verify, welcome, account disabled/banned, OTP, password reset confirm, wrong-hash, too-old-link, etc. Copy is hard-coded English (not locale-configurable) and branded with the configured `platformName`. HTML header/footer can be overridden via constructor args. The class is a thin dispatcher: the subject, text and HTML of each mail are built by the modules under `src/private/email/`, and every value placed in the HTML part goes through the single helper `private/email/escapeHtml.mts` (text and attribute context), while the text part and the subject line stay raw. See `docs/code/email.md` and `docs/code/internal.md`.
+Class wrapping `@socketlabs/email`, which sends through `createSocketLabsSender` (`src/email/createSocketLabsSender.mts`, 8.0.0): a factory that takes `serverId`, `apiKey` and optional `requestTimeout` (default 120 s), `numberOfRetries` (default 3, 0 to 5), `client`, `onError`, and returns a function that sends one `ISocketLabsMessage` and resolves `{ ok: true }` or `{ ok: false, code }` (`ISocketLabsSendResult`; `code` = the SDK's `result.name`, else `UnknownError`). It reads no environment, loads no Sentry or dotenv and reaches no peer but `@socketlabs/email` (`PEER_BUDGET` in `test/package/peerReach.spec.mts`); the types are `ISocketLabsSenderOptions`, `ISocketLabsMessage`, `ISocketLabsSendResult`, `ISocketLabsClient`. `SocketLabsLib` is env-driven: `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`, `DEV_TEAM_EMAIL`. Supplies methods for verify, welcome, account disabled/banned, OTP, password reset confirm, wrong-hash, too-old-link, etc. Copy is hard-coded English (not locale-configurable) and branded with the configured `platformName`. HTML header/footer can be overridden via constructor args. The class is a thin dispatcher: the subject, text and HTML of each mail are built by the modules under `src/private/email/`, and every value placed in the HTML part goes through the single helper `private/email/escapeHtml.mts` (text and attribute context), while the text part and the subject line stay raw. See `docs/code/email.md` and `docs/code/internal.md`.
 
 ---
 

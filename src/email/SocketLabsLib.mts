@@ -14,7 +14,10 @@ import { orFalse } from '@private/email/orFalse.mjs'
 import * as reset from '@private/email/resetMessages.mjs'
 import { loadEnv } from '@private/lib/loadEnv.mjs'
 import * as Sentry from '@private/lib/sentry.mjs'
-import { BasicMessage, SocketLabsClient } from '@socketlabs/email'
+import { SocketLabsClient } from '@socketlabs/email'
+
+import { createSocketLabsSender } from './createSocketLabsSender.mjs'
+import type { ISocketLabsSenderOptions } from './ISocketLabsSenderOptions.mjs'
 
 loadEnv()
 
@@ -32,17 +35,18 @@ export class SocketLabsLib {
 	private readonly emailFrom: string
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- @socketlabs/email ships no types (untyped module in src/types/socketlabs-email.d.ts), so the client is untyped
 	private client: any
+	// Only so a send can hand the sender its required options; the sender ignores them because `client` is injected
+	private readonly credentials: Pick<ISocketLabsSenderOptions, 'serverId' | 'apiKey'>
 	private readonly emailHtmlHeader1: string
 	private readonly emailHtmlHeader2: string
 	private readonly emailHtmlFooter: string
 
 	constructor(htmlHeader1: string = '', htmlHeader2: string = '', htmlFooter: string = '') {
-		this.client = new SocketLabsClient(
-			/* c8 ignore next -- env fallback '0' covered only when SOCKETLABS_SERVER_ID is unset */
-			parseInt(process.env['SOCKETLABS_SERVER_ID'] || '0'),
-			`${process.env['SOCKETLABS_SERVER_APIKEY']}`,
-			{ requestTimeout: 120, numberOfRetries: 3 }
-		)
+		/* c8 ignore next -- env fallback '0' covered only when SOCKETLABS_SERVER_ID is unset */
+		const serverId = parseInt(process.env['SOCKETLABS_SERVER_ID'] || '0')
+		const apiKey = `${process.env['SOCKETLABS_SERVER_APIKEY']}`
+		this.client = new SocketLabsClient(serverId, apiKey, { requestTimeout: 120, numberOfRetries: 3 })
+		this.credentials = { serverId, apiKey }
 		this.platformName = `${process.env['PLATFORM_NAME']}`
 		this.linkBase = `${process.env['APP_DOMAIN']}`
 		this.emailFrom = `${process.env['EMAIL_FROM']}`
@@ -294,27 +298,25 @@ SendResponse {
 
 	private async sendTemplate(emailTo: string, content: IEmailContent): Promise<boolean> {
 		const { subject, textBody, htmlBody } = content
-		const basicMessage = new BasicMessage()
-		basicMessage.setFromAddress(this.emailFrom, this.platformName)
-		basicMessage.setSubject(subject)
-		basicMessage.setTextBody(textBody)
-		// The subject is plain text for the subject line and the text part, so only its copy placed in the HTML is escaped.
-		basicMessage.setHtmlBody(
-			this.emailHtmlHeader1 + escapeHtml(subject) + this.emailHtmlHeader2 + htmlBody + this.emailHtmlFooter
-		)
-		basicMessage.setTo(emailTo)
-
-		return this.client.send(basicMessage).then(
-			() => {
-				//Handle successful API call
-				return true
-			},
-			(e: Error) => {
-				Sentry.captureException(e, {
+		// Built per send, not once: the client is read from `this.client` each time, so a replaced client is honoured
+		const send = createSocketLabsSender({
+			...this.credentials,
+			client: this.client,
+			onError: (rejection) => {
+				Sentry.captureException(rejection, {
 					extra: { detail: 'Error in sending the email' }
 				})
-				return false
 			}
-		)
+		})
+		const result = await send({
+			from: this.emailFrom,
+			fromName: this.platformName,
+			to: emailTo,
+			subject,
+			text: textBody,
+			// The subject is plain text for the subject line and the text part, so only its copy placed in the HTML is escaped.
+			html: this.emailHtmlHeader1 + escapeHtml(subject) + this.emailHtmlHeader2 + htmlBody + this.emailHtmlFooter
+		})
+		return result.ok
 	}
 }
