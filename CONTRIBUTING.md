@@ -110,7 +110,7 @@ Documentation is hand-written and is part of the change, not a follow-up. When y
 | `src/graphQL/throw/**`, `src/graphQL/status.mts` | `docs/code/graphql-errors.md` |
 | `src/koa/**` | `docs/code/koa-core.md` or `docs/code/koa-middleware.md` |
 | `src/lib/**` | `docs/code/lib-*.md` |
-| `src/lib/PostgreSQL/{error,parse,pool,url,counter,tx}/**` | `docs/code/lib-postgres.md` |
+| `src/lib/PostgreSQL/{error,parse,pool,url,counter,tx,guard}/**` | `docs/code/lib-postgres.md` |
 | `src/private/**` | `docs/code/internal.md` |
 | A file added, removed or moved under `src/` | `REPO.md` |
 | Public API, install steps, `engines`, usage examples | `README.md` |

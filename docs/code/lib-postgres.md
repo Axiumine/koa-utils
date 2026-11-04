@@ -1,13 +1,13 @@
 # Lib — PostgreSQL Kit
 
-A kit of small, driver-agnostic building blocks for services that talk to PostgreSQL through [node-postgres](https://node-postgres.com) (`pg`): a pool factory that checks the session before it hands a connection out, a transaction wrapper with a bounded retry, string parsers for the date and integer types that would otherwise become a JavaScript `Date` or lose digits, closed-reason errors that never carry a password or a row, and a strict check for a database URL. It is separate from `dataSources/PostgreSQL` (the environment-driven singletons, see [data-sources.md](./data-sources.md)) and from `lib/PostgreSQL/IPostgresError` and `makePostgreSqlLogError` (documented in [lib-datasource-errors.md](./lib-datasource-errors.md)): nothing in this kit reads an environment variable or opens a connection on import.
+A kit of small, driver-agnostic building blocks for services that talk to PostgreSQL through [node-postgres](https://node-postgres.com) (`pg`): a pool factory that checks the session before it hands a connection out, a transaction wrapper with a bounded retry, a mapper from a driver error to your own error family, guards for writes that matched nothing, string parsers for the date and integer types that would otherwise become a JavaScript `Date` or lose digits, closed-reason errors that never carry a password or a row, and a strict check for a database URL. It is separate from `dataSources/PostgreSQL` (the environment-driven singletons, see [data-sources.md](./data-sources.md)) and from `lib/PostgreSQL/IPostgresError` and `makePostgreSqlLogError` (documented in [lib-datasource-errors.md](./lib-datasource-errors.md)): nothing in this kit reads an environment variable or opens a connection on import.
 
-This page covers the leaf pieces (errors, parsers, type registry, pool, database URL check) and the transaction wrapper `withTx`. Later parts are added beside it under the same folder.
+This page covers the leaf pieces (errors, parsers, type registry, pool, database URL check), the transaction wrapper `withTx`, the error mapper `mapDbError` with its constraint helpers, and the write guards `assertAffected` and `guardVersion`. Later parts are added beside it under the same folder.
 
 ## Principles
 
 - **The driver is a parameter.** No file in the kit imports `pg`, and no `.d.mts` names it. `createPool` takes the module you imported (`import pg from 'pg'`) as `driver` and uses three members of it through structural types (`IDbDriver`). Importing any subpath of the kit therefore loads no peer dependency and needs none installed, `pg` included.
-- **Structural seams.** A logger is any object with `warn` and `error` (`IPoolLogger`). A counter is any function of the counter name (`IDbCounter`). An error factory is any object that builds your own error class for a closed reason (`IDbErrorFactory`), so the kit imports no error class of your application. Nothing is a class you must extend.
+- **Structural seams.** A logger is any object with `warn` and `error` (`IPoolLogger`). A counter is any function of the counter name (`IDbCounter`). An error factory is any object that builds your own error class for a code or a closed reason (`IDbErrorFactory`), so the kit imports no error class of your application. A constraint table is plain data that you pass in (`IConstraintTable`); the kit ships none. Nothing is a class you must extend.
 - **Closed reasons, fixed messages.** Every error and every check answers with a word from a closed list. A message is built from the reason and the name of a type, never from a stored value, a URL or the text of the driver, so a password or a row cannot reach a log line through them. No error here has a `cause`.
 - **One export per file.** Each value has its own subpath, and its types live in `I*` files. There is no barrel.
 
@@ -17,12 +17,13 @@ All subpaths are `@axiumine/koa-utils/lib/PostgreSQL/<folder>/<File>`. The file 
 
 | Folder | Holds |
 |---|---|
-| `error/` | `DbParseError`, `DbConnectError`, `DbTxError`, their reason lists and types, `IDbErrorFactory`, the SQLSTATE readers (`sqlstateOf`, `sqlstateField`, `constraintNameOf`, `errorNameOf`) |
+| `error/` | `DbParseError`, `DbConnectError`, `DbTxError`, their reason lists and types, `IDbErrorFactory`, the SQLSTATE readers (`sqlstateOf`, `sqlstateField`, `constraintNameOf`, `errorNameOf`), `mapDbError` and its options and counter types, `DB_INTERNAL_REASONS`, and the constraint helpers (`buildConstraintEntry`, `lookupConstraint`, `IConstraintEntry`, `IConstraintTable`, `IConstraintEntryBuilder`) |
 | `parse/` | the string parsers, `arrayOf`, and the type registry (`TYPE_PARSERS`, `createTypeRegistry`) |
 | `pool/` | `createPool`, its options and constants |
 | `counter/` | `IDbCounter`, the counter callback type |
 | `url/` | `databaseUrlReason` and the host and path checks it uses |
 | `tx/` | `withTx`, `jitteredDelay`, `defaultRetryDelay`, the transaction constants, and the types of the handle, the pool, the client and the options |
+| `guard/` | `assertAffected` and `guardVersion` for a write that matched no row, `VERSION_GUARD_FIELDS`, and their input, code and counter types |
 
 Types are named `I<Name>`. When you move code that used the unprefixed names of a private copy, the mapping is:
 
@@ -39,6 +40,9 @@ Types are named `I<Name>`. When you move code that used the unprefixed names of 
 | `Tx`, `TxResult`, `TxClient`, `TxPool`, `TxOptions` | `ITx`, `ITxResult`, `ITxClient`, `ITxPool`, `ITxOptions` |
 | `TxIsolation`, `TxFailureReason`, `RetryDelay` | `ITxIsolation`, `ITxFailureReason`, `IRetryDelay` |
 | `DbErrorFactory` | `IDbErrorFactory` |
+| `DbInternalReason`, `MapDbErrorOptions` | `IDbInternalReason`, `IMapDbErrorOptions` |
+| `ConstraintEntry`, `ConstraintTable` | `IConstraintEntry`, `IConstraintTable` |
+| `AffectedResult`, `VersionGuardField`, `VersionGuardInput` | `IAffectedResult`, `IVersionGuardField`, `IVersionGuardInput` |
 
 The module `src/lib/PostgreSQL` also holds three older files (`IPostgresError`, `IPostgresErrorCodes`, `makePostgreSqlLogError`). They are unrelated to the kit and unchanged. `makePostgreSqlLogError` logs the `detail` of an error; the kit's readers below never read it. They are two policies, not one to merge.
 
@@ -143,7 +147,7 @@ export interface IDbErrorFactory<TError extends Error = Error> {
 }
 ```
 
-The one error-factory port of the kit. A part of the kit that has to hand its caller an error of the application's own family (an HTTP error with a code and details, say) asks this object for it instead of importing a class, so the kit stays free of your error types. `withTx` reads `internal` only (`ITxOptions['errors']` is `Pick<IDbErrorFactory, 'internal'>`, so an object with just `internal` fits); later parts of the kit that map driver errors read all three members. `reason` is a closed word meant for a log, not for a response body.
+The one error-factory port of the kit. A part of the kit that has to hand its caller an error of the application's own family (an HTTP error with a code and details, say) asks this object for it instead of importing a class, so the kit stays free of your error types. `withTx` reads `internal` only (`ITxOptions['errors']` is `Pick<IDbErrorFactory, 'internal'>`, so an object with just `internal` fits); `guardVersion` reads `make` and `internal`; `mapDbError` reads all three members. `assertAffected` builds no error: it throws the one you pass it. `reason` is a closed word meant for a log, not for a response body.
 
 ### `sqlstateOf`, `sqlstateField`, `constraintNameOf`, `errorNameOf`
 
@@ -466,6 +470,285 @@ await slowest(2) // 50 ms
 | `tx/IRetryDelay` | `IRetryDelay` | `(retry: number) => Promise<void>` |
 
 `TX_FAILURE_REASONS` are the two reasons `withTx` passes to `errors.internal`. As with the pool counter, a counter typed over a wider list of names, such as `(name: ITxCounterName | IPoolCounterName) => void`, is assignable to `ITxCounter`, so one counter function serves `createPool` and `withTx`.
+
+## Mapping driver errors
+
+### `mapDbError`
+
+**Import:**
+```ts
+import { mapDbError } from '@axiumine/koa-utils/lib/PostgreSQL/error/mapDbError'
+import type { IMapDbErrorOptions } from '@axiumine/koa-utils/lib/PostgreSQL/error/IMapDbErrorOptions'
+```
+
+**Signature:**
+```ts
+export function mapDbError<TError extends Error>(error: unknown, options: IMapDbErrorOptions<TError>): TError
+```
+
+The one translation of a database failure into the closed vocabulary of your own error family, so that the catch block of a handler is `throw mapDbError(error, { errors, table, logger })`. It answers an error built by `options.errors` for every input and does not throw. The result type is the family of the factory, so the call site sees `AppError`, not `Error`.
+
+What it does, in order:
+
+| Step | Input | Result |
+|---|---|---|
+| 1 | an error for which `errors.is` is true (what `withTx` throws, or an error of yours) | the same object, with no log line and no count |
+| 2 | `DbParseError` | `errors.internal('DB_VALUE_UNREADABLE')`; logs `database value cannot be read` with `errorReason` and `typeName` |
+| 2 | `DbConnectError` | `errors.internal('DB_CONNECTION')`; logs `database connection refused` with `errorReason` |
+| 2 | `DbTxError` | `errors.internal('DB_TX_MISUSE')`; logs `database transaction misused` with `errorReason` |
+| 3 | SQLSTATE `23505` (unique), `23514` (check) or `23503` (foreign key), constraint found in `options.table` | `errors.make(code, details)` (or `errors.make(code)` when the row has no details), with the details the row fixes and the keys the caller supplied |
+| 3 | one of those SQLSTATEs, and the name is missing, not a plain identifier, or not in the table | `errors.internal('CONSTRAINT_UNMAPPED')`; counts `db_constraint_unmapped_total`; logs `database constraint violation is not in the constraint map` with `sqlstate` and, when it is a plain identifier, `constraint` |
+| 3 | a row whose code is the internal code | `errors.internal('CONSTRAINT_INTERNAL')`; logs `database constraint violation is a defect` |
+| 3 | a row that lists `supplied` keys the caller did not give (a key whose value is `undefined` is missing) | `errors.internal('DETAILS_NOT_SUPPLIED')`; logs `database constraint violation needs details that the caller did not supply` |
+| 4 | any other safe SQLSTATE | `errors.internal('DB_ERROR')`; logs `database error` with `sqlstate` |
+| 4 | anything else (a `TypeError`, an error of another library, a value that is no error) | `errors.internal('UNEXPECTED_ERROR')`; logs `unexpected error at the database boundary` with `errorName` when the class name is a plain identifier |
+
+Every internal error of this function is asked for a reason from `DB_INTERNAL_REASONS` and nothing else. Each one counts `db_error_internal_total` (the unmapped constraint counts `db_constraint_unmapped_total` instead) and logs at `error` level a payload that starts with `reason`. Nothing else of the failure is read: not the message, not the `detail` (it quotes the failing row, so the bound values), not `query`, `values` or `parameters` if a wrapper put them on the error, not the stack. The specs plant a secret in each of those fields and look for it in the result, its serialisations and every log line.
+
+**Options (`IMapDbErrorOptions<TError>`):**
+
+| Name | Type | Description |
+|---|---|---|
+| errors | `IDbErrorFactory<TError>` | Required. `is` recognises an error of your family, `make` and `internal` build one. |
+| table | `IConstraintTable` | Required. Which constraint means which code. The application owns it; the kit holds none. |
+| logger | `Pick<IPoolLogger, 'error'>` | Required. Only `error` is called, so any `{ warn, error }` logger fits. |
+| counter | `IDbErrorCounter` | Optional. Called with `db_constraint_unmapped_total` or `db_error_internal_total`. A counter typed over a wider list of names fits. Default: nowhere. |
+| details | `Readonly<Record<string, unknown>>` | Optional. The details only the caller knows (the value of the duplicate, the ids that keep a row in use). Only the keys a row lists as `supplied` are copied; a key for a row that lists none is ignored. |
+| internalCode | `string` | Optional. The code of a table row that means "this constraint is known, and a violation of it can only be a defect". Default `INTERNAL`, the code `errors.internal` is expected to build. |
+
+```ts
+import type { IConstraintEntryBuilder } from '@axiumine/koa-utils/lib/PostgreSQL/error/IConstraintEntryBuilder'
+import type { IDbErrorFactory } from '@axiumine/koa-utils/lib/PostgreSQL/error/IDbErrorFactory'
+import { buildConstraintEntry } from '@axiumine/koa-utils/lib/PostgreSQL/error/buildConstraintEntry'
+import { mapDbError } from '@axiumine/koa-utils/lib/PostgreSQL/error/mapDbError'
+import type { ITxPool } from '@axiumine/koa-utils/lib/PostgreSQL/tx/ITxPool'
+import { withTx } from '@axiumine/koa-utils/lib/PostgreSQL/tx/withTx'
+
+class AppError extends Error {
+	constructor(
+		readonly code: string,
+		readonly details?: unknown
+	) {
+		super(code)
+	}
+}
+
+const errors: IDbErrorFactory<AppError> = {
+	is: (error): error is AppError => error instanceof AppError,
+	make: (code, details) => new AppError(code, details),
+	internal: (reason) => new AppError('INTERNAL', { reason })
+}
+
+const logger = {
+	warn: (message: string, fields?: Readonly<Record<string, unknown>>) => console.warn(message, fields),
+	error: (message: string, fields?: Readonly<Record<string, unknown>>) => console.error(message, fields)
+}
+
+type ICode = 'DUPLICATE_ITEM' | 'EMAIL_TAKEN' | 'INTERNAL'
+interface IDetails {
+	DUPLICATE_ITEM: { kind: 'sku' | 'slot'; value: string }
+}
+const constraintEntry: IConstraintEntryBuilder<ICode, IDetails> = buildConstraintEntry
+
+// the table is data: the application writes it, next to its schema
+const table = Object.freeze({
+	items_order_id_sku_uq: constraintEntry('DUPLICATE_ITEM', { fixed: { kind: 'sku' }, supplied: ['value'] }),
+	customers_email_uq: constraintEntry('EMAIL_TAKEN')
+})
+
+export async function addItem(pool: ITxPool, orderId: number, sku: string): Promise<void> {
+	try {
+		await withTx(pool, { logger, errors }, async (tx) => {
+			await tx.query('INSERT INTO items (order_id, sku) VALUES ($1, $2)', [orderId, sku])
+		})
+	} catch (error) {
+		// unique violation of items_order_id_sku_uq → AppError('DUPLICATE_ITEM', { kind: 'sku', value: sku })
+		throw mapDbError(error, { errors, table, logger, details: { value: sku } })
+	}
+}
+```
+
+### `DB_INTERNAL_REASONS`, `IDbInternalReason`
+
+**Import:**
+```ts
+import { DB_INTERNAL_REASONS } from '@axiumine/koa-utils/lib/PostgreSQL/error/DB_INTERNAL_REASONS'
+import type { IDbInternalReason } from '@axiumine/koa-utils/lib/PostgreSQL/error/IDbInternalReason'
+```
+
+**Signature:**
+```ts
+export const DB_INTERNAL_REASONS: readonly [
+	'CONSTRAINT_UNMAPPED', 'CONSTRAINT_INTERNAL', 'DETAILS_NOT_SUPPLIED', 'DB_ERROR', 'DB_VALUE_UNREADABLE',
+	'DB_CONNECTION', 'DB_TX_MISUSE', 'UNEXPECTED_ERROR', 'VERSION_UNCHANGED', 'REREAD_UNREADABLE'
+]
+export type IDbInternalReason = (typeof DB_INTERNAL_REASONS)[number]
+```
+
+The closed reasons that `mapDbError` and `guardVersion` pass to `errors.internal(reason)`. They are for the log and the developer; format your responses so that the reason stays out of the body. The two reasons of `withTx` (`TX_FAILURE_REASONS`) are separate.
+
+| Reason | Built when |
+|---|---|
+| `CONSTRAINT_UNMAPPED` | a violation (23505, 23514, 23503) names a constraint the table does not hold, or none |
+| `CONSTRAINT_INTERNAL` | the table maps the constraint to the internal code (a violation that can only be a defect) |
+| `DETAILS_NOT_SUPPLIED` | the row lists `supplied` keys and the call did not give all of them |
+| `DB_ERROR` | any other SQLSTATE (a missing grant, a statement timeout, a server shutting down, ...) |
+| `DB_VALUE_UNREADABLE`, `DB_CONNECTION`, `DB_TX_MISUSE` | a `DbParseError`, a `DbConnectError`, a `DbTxError` |
+| `UNEXPECTED_ERROR` | anything else |
+| `VERSION_UNCHANGED` | `guardVersion` re-read a visible row that still has the expected version |
+| `REREAD_UNREADABLE` | the statement of `guardVersion` answered more than one row, or a row without a readable version |
+
+### Constraint tables: `buildConstraintEntry`, `lookupConstraint`, `IConstraintEntryBuilder`
+
+**Import:**
+```ts
+import { buildConstraintEntry } from '@axiumine/koa-utils/lib/PostgreSQL/error/buildConstraintEntry'
+import { lookupConstraint } from '@axiumine/koa-utils/lib/PostgreSQL/error/lookupConstraint'
+import type { IConstraintEntry } from '@axiumine/koa-utils/lib/PostgreSQL/error/IConstraintEntry'
+import type { IConstraintEntryBuilder } from '@axiumine/koa-utils/lib/PostgreSQL/error/IConstraintEntryBuilder'
+import type { IConstraintTable } from '@axiumine/koa-utils/lib/PostgreSQL/error/IConstraintTable'
+```
+
+**Signature:**
+```ts
+export interface IConstraintEntry<TCode extends string = string> {
+	readonly code: TCode
+	readonly fixed?: Readonly<Record<string, unknown>>
+	readonly supplied?: readonly string[]
+}
+export type IConstraintTable<TCode extends string = string> = Readonly<Record<string, IConstraintEntry<TCode>>>
+export function buildConstraintEntry<TCode extends string>(
+	code: TCode,
+	parts?: { readonly fixed?: object; readonly supplied?: readonly PropertyKey[] }
+): IConstraintEntry<TCode>
+export function lookupConstraint<TCode extends string>(table: IConstraintTable<TCode>, name: string): IConstraintEntry<TCode> | undefined
+```
+
+A constraint table maps the name of a constraint, as the driver reports it in the `constraint` field of the error, to one row. It is data, not logic: a service never writes `if (constraint === ...)`, it hands the failure to `mapDbError` and the table is the one place that says which constraint means which code. A row says:
+
+- `code`: the code `errors.make` is called with. The internal code (see `internalCode`) means "known, and a defect": the name is logged and the response carries nothing of it.
+- `fixed`: the details the constraint itself determines. They are written in the table, so the mapper never guesses them from the driver text.
+- `supplied`: the keys of the details that only the caller knows. `mapDbError` copies these keys from its `details` option and no others, and never reads them from the message or the `detail` of the driver, which quote the failing row. When one is missing the result is `errors.internal('DETAILS_NOT_SUPPLIED')`, because an error without the details its code is typed with would break the contract of the code.
+
+Put in the table only the constraints that follow unambiguously. One that is raised on more than one path with a different code on each, or whose code depends on the state of the row, stays out; a violation of it is then `CONSTRAINT_UNMAPPED` with the name logged.
+
+`buildConstraintEntry` builds and freezes a row. It copies `fixed` and `supplied`, drops an empty `supplied` list, and checks nothing about the code or the details. `IConstraintEntryBuilder<TCode, TDetailsByCode>` is its typed view over your own closed list of codes and a map from each code that has documented details to their shape. Instantiate it once, as in the example above (`const constraintEntry: IConstraintEntryBuilder<ICode, IDetails> = buildConstraintEntry`); it is the same function at run time. The compiler then refuses, per row:
+
+- a code with documented details called without `fixed` or `supplied` (the row must say where the details come from);
+- a code without documented details called with a second argument;
+- a key in `fixed` or `supplied` that the details of the code do not have, a value of the wrong type in `fixed`, and a key that is both fixed and supplied;
+- a code that is not in your list.
+
+`lookupConstraint` answers the row for a name, or `undefined`. Only own entries count, so a name such as `constructor` or `__proto__` (the server accepts any quoted identifier) finds nothing.
+
+### Counters and types of the mapper
+
+| Subpath | Export | Value or shape |
+|---|---|---|
+| `error/IDbErrorCounterName` | `IDbErrorCounterName` | `'db_constraint_unmapped_total' \| 'db_error_internal_total'` |
+| `error/IDbErrorCounter` | `IDbErrorCounter` | `IDbCounter<IDbErrorCounterName>` |
+| `error/IMapDbErrorOptions` | `IMapDbErrorOptions<TError>` | the options above |
+| `error/IConstraintEntry` | `IConstraintEntry<TCode>` | one row |
+| `error/IConstraintTable` | `IConstraintTable<TCode>` | `Readonly<Record<string, IConstraintEntry<TCode>>>`; a table over fewer codes fits where `IConstraintTable` is wanted |
+| `error/IConstraintEntryBuilder` | `IConstraintEntryBuilder<TCode, TDetailsByCode>` | the typed call signatures of `buildConstraintEntry` |
+
+## Write guards
+
+### `assertAffected`
+
+**Import:** `import { assertAffected } from '@axiumine/koa-utils/lib/PostgreSQL/guard/assertAffected'`
+
+**Signature:**
+```ts
+export interface IAffectedResult {
+	readonly rowCount: number | null
+}
+export function assertAffected(result: IAffectedResult, expected: number, onMismatch: Error | (() => Error)): void
+```
+
+Throws `onMismatch` unless the statement affected exactly `expected` rows, so an update that matched nothing is never reported as a success. `onMismatch` is the error, or a function that builds it (so a call that succeeds builds no error); it comes from you, built with your own error family, so `assertAffected` takes no factory. A count the server did not report (`null`, the answer of a statement that is not a `SELECT`, `INSERT`, `UPDATE` or `DELETE`) is not `expected`: nothing was proved. `expected` must be a whole number from 0, otherwise `TypeError('expected must be a whole number of rows from 0')` is thrown before the count is read. An `ITxResult` fits `IAffectedResult`.
+
+### `guardVersion`
+
+**Import:**
+```ts
+import { guardVersion } from '@axiumine/koa-utils/lib/PostgreSQL/guard/guardVersion'
+import type { IVersionGuardInput } from '@axiumine/koa-utils/lib/PostgreSQL/guard/IVersionGuardInput'
+```
+
+**Signature:**
+```ts
+export function guardVersion<TError extends Error>(tx: Pick<ITx, 'query'>, input: IVersionGuardInput<TError>): Promise<TError>
+```
+
+Says why an update guarded by `WHERE id = $1 AND version = $2` (or `rev`) affected no row, and answers the error for the caller to throw. It does not throw it, so `throw await guardVersion(...)` ends the flow for the compiler too. It re-reads the row with the statement you give it, in the transaction of the failed update:
+
+| Re-read | Answer |
+|---|---|
+| no row (absent, or the actor may not see it: the two are one answer on purpose, so a call by id never confirms that a row exists to someone who may not see it) | `errors.make('NOT_FOUND', { entity })` |
+| a row with another version, `field` `version` | `errors.make('STALE_VERSION')` |
+| a row with another version, `field` `rev` | `errors.make('STALE_REV')` |
+| a row that still has the expected version | `errors.internal('VERSION_UNCHANGED')`: the update missed for a reason the guard cannot name |
+| more than one row, or a row without a readable version column | `errors.internal('REREAD_UNREADABLE')` |
+
+The version is read as a safe integer or as a string of 1 to 19 digits (the pool hands a `bigint` over as a decimal string); anything else is unreadable. The internal cases count `db_error_internal_total` and log `version guard cannot decide` with `reason`, `field` and `entity`. A failure of the re-read itself is thrown unchanged, for `mapDbError` or `withTx` to classify. The kit builds no SQL here: the statement runs as you gave it, a literal with parameters written by you, who own the table and the visibility rule; the values go to the server and nowhere else, and neither the text nor the values reach a log line or an error. `TypeError` for a `field`, an `expected` or an `entity` out of shape (checked in that order, before any statement).
+
+**Input (`IVersionGuardInput<TError>`):**
+
+| Name | Type | Description |
+|---|---|---|
+| reread | `{ text: string; values?: readonly unknown[] }` | The statement that reads the row again. It carries the actor's visibility predicate and the id, and answers no row when the row is absent or hidden, and one row with the column named by `field` otherwise. |
+| expected | `number` | The version the failed update was guarded with: the one the client sent. A whole number. |
+| field | `IVersionGuardField` | `'version'` (gives `STALE_VERSION`) or `'rev'` (gives `STALE_REV`). |
+| entity | `string` | The kind of row, non-empty; the details of `NOT_FOUND`. |
+| errors | `Pick<IDbErrorFactory<TError>, 'make' \| 'internal'>` | Builds every answer. The codes it is given for `make` are `IVersionGuardCode`: `'NOT_FOUND'`, `'STALE_VERSION'`, `'STALE_REV'`; map them to the codes of your own family there. |
+| logger | `Pick<IPoolLogger, 'error'>` | Where the internal cases are logged. |
+| counter | `IGuardCounter` | Optional. Called with `db_error_internal_total`. Default: nowhere. |
+
+```ts
+import type { IDbErrorFactory } from '@axiumine/koa-utils/lib/PostgreSQL/error/IDbErrorFactory'
+import { assertAffected } from '@axiumine/koa-utils/lib/PostgreSQL/guard/assertAffected'
+import { guardVersion } from '@axiumine/koa-utils/lib/PostgreSQL/guard/guardVersion'
+import type { ITxPool } from '@axiumine/koa-utils/lib/PostgreSQL/tx/ITxPool'
+import { withTx } from '@axiumine/koa-utils/lib/PostgreSQL/tx/withTx'
+
+declare const errors: IDbErrorFactory
+declare const logger: { warn(message: string): void; error(message: string): void }
+
+export async function renameOrder(pool: ITxPool, id: number, version: number, name: string, actorId: number): Promise<void> {
+	await withTx(pool, { logger, errors }, async (tx) => {
+		const result = await tx.query('UPDATE orders SET name = $1, version = version + 1 WHERE id = $2 AND version = $3', [name, id, version])
+		if (result.rowCount === 0) {
+			throw await guardVersion(tx, {
+				reread: { text: 'SELECT version FROM orders WHERE id = $1 AND owner_id = $2', values: [id, actorId] },
+				expected: version,
+				field: 'version',
+				entity: 'order',
+				errors,
+				logger
+			})
+		}
+	})
+}
+
+export async function deleteItem(pool: ITxPool, id: number): Promise<void> {
+	await withTx(pool, { logger, errors }, async (tx) => {
+		const result = await tx.query('DELETE FROM items WHERE id = $1', [id])
+		assertAffected(result, 1, () => errors.make('NOT_FOUND', { entity: 'item' }))
+	})
+}
+```
+
+### Guard types
+
+| Subpath | Export | Value or shape |
+|---|---|---|
+| `guard/VERSION_GUARD_FIELDS` | `VERSION_GUARD_FIELDS` | `['version', 'rev'] as const` |
+| `guard/IVersionGuardField` | `IVersionGuardField` | one of `VERSION_GUARD_FIELDS` |
+| `guard/IVersionGuardCode` | `IVersionGuardCode` | `'NOT_FOUND' \| 'STALE_VERSION' \| 'STALE_REV'`: the codes `guardVersion` passes to `errors.make` |
+| `guard/IVersionGuardInput` | `IVersionGuardInput<TError>` | the input above |
+| `guard/IGuardCounter` | `IGuardCounter` | `IDbCounter<'db_error_internal_total'>` |
+| `guard/IAffectedResult` | `IAffectedResult` | `{ readonly rowCount: number \| null }` |
 
 ## Database URL check
 
