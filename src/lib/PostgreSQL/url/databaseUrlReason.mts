@@ -39,6 +39,7 @@ function parseUrl(text: string): URL | undefined {
 }
 
 function roleReason(url: URL, expectedRole: string): IDatabaseUrlReason | undefined {
+	// nosemgrep: ajinabraham.njsscan.dos.regex_dos.regex_dos -- IDENTIFIER is anchored with one quantifier per class, so it matches in linear time
 	if (!IDENTIFIER.test(url.username)) return 'url_user'
 	return url.username === expectedRole ? undefined : 'url_role'
 }

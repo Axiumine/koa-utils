@@ -8,7 +8,7 @@ A library, not a service. It has no process, port or scheduler of its own. A con
 
 ## Structure
 
-There is no barrel. Each public symbol lives in its own file and is reachable only through its own `exports` subpath (150 of them). That is a design decision with a consequence: a consumer that never imports a subpath never loads the optional peer behind it.
+There is no barrel. Each public symbol lives in its own file and is reachable only through its own `exports` subpath (159 of them). That is a design decision with a consequence: a consumer that never imports a subpath never loads the optional peer behind it.
 
 ```mermaid
 flowchart LR
