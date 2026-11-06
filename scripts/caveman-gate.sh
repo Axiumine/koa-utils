@@ -23,7 +23,7 @@
 #   SKIP_CAVEMAN_GATE=1
 #
 # Copyright (C) 2026 Giovanni Manzoni
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 
 set -uo pipefail
 

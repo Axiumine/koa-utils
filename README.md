@@ -8,7 +8,7 @@ TypeScript utility library for Koa + GraphQL backends. Ships authentication midd
 - **Module format:** ESM only (`.mjs` + `.d.mts`)
 - **Node:** `^24.14.0 || ^26.13.0` (24 and 26 are the LTS lines; the suite runs on both)
 - **TypeScript:** `6.0`
-- **License:** GPL-3.0-or-later
+- **License:** AGPL-3.0-or-later (versions up to 8.1.0: GPL-3.0-or-later)
 - **Maintainers:** [Giovanni Manzoni](https://www.giovannimanzoni.com) and [Vincenzo Favara](https://github.com/vivi7)
 - **Project:** [Contributing](https://github.com/Axiumine/koa-utils/blob/main/CONTRIBUTING.md) · [Contributor License Agreement](https://github.com/Axiumine/koa-utils/blob/main/CLA.md) · [Governance](https://github.com/Axiumine/koa-utils/blob/main/GOVERNANCE.md) · [Roadmap](https://github.com/Axiumine/koa-utils/blob/main/ROADMAP.md) · [Security policy](https://github.com/Axiumine/koa-utils/blob/main/SECURITY.md) · [Code of Conduct](https://github.com/Axiumine/koa-utils/blob/main/CODE_OF_CONDUCT.md) · [Changelog](https://github.com/Axiumine/koa-utils/blob/main/CHANGELOG.md)
 
@@ -350,7 +350,7 @@ yarn registry:check       # exit 1 if yarn.lock names any other host
 ## Feedback, contributing and security
 
 - **Bugs and feature requests:** open an issue at <https://github.com/Axiumine/koa-utils/issues/new/choose>. Issues are public and searchable.
-- **Contributing code:** fork, branch from `main` and open a pull request; larger changes start with an issue. [CONTRIBUTING.md](https://github.com/Axiumine/koa-utils/blob/main/CONTRIBUTING.md) lists the requirements (tests at 100% coverage, docs in the same change, Conventional Commits, acceptance of the [CLA](https://github.com/Axiumine/koa-utils/blob/main/CLA.md), GPL-3.0-or-later). How decisions are made is in [GOVERNANCE.md](https://github.com/Axiumine/koa-utils/blob/main/GOVERNANCE.md); the direction is in [ROADMAP.md](https://github.com/Axiumine/koa-utils/blob/main/ROADMAP.md).
+- **Contributing code:** fork, branch from `main` and open a pull request; larger changes start with an issue. [CONTRIBUTING.md](https://github.com/Axiumine/koa-utils/blob/main/CONTRIBUTING.md) lists the requirements (tests at 100% coverage, docs in the same change, Conventional Commits, acceptance of the [CLA](https://github.com/Axiumine/koa-utils/blob/main/CLA.md), AGPL-3.0-or-later). How decisions are made is in [GOVERNANCE.md](https://github.com/Axiumine/koa-utils/blob/main/GOVERNANCE.md); the direction is in [ROADMAP.md](https://github.com/Axiumine/koa-utils/blob/main/ROADMAP.md).
 - **Security vulnerabilities:** never in a public issue. Use GitHub private vulnerability reporting or the email in [SECURITY.md](https://github.com/Axiumine/koa-utils/blob/main/SECURITY.md), which also states the supported versions and response times.
 - **Security model and design:** what the library does and does not protect against is in [docs/security.md](https://github.com/Axiumine/koa-utils/blob/main/docs/security.md); the structure is in [docs/architecture.md](https://github.com/Axiumine/koa-utils/blob/main/docs/architecture.md). How to check a release (signed tag, rebuild, attestation) is in [docs/verify-release.md](https://github.com/Axiumine/koa-utils/blob/main/docs/verify-release.md).
 - **Release notes:** [CHANGELOG.md](https://github.com/Axiumine/koa-utils/blob/main/CHANGELOG.md), one entry per release, with a `Security` section whenever a release fixes a vulnerability.
@@ -361,4 +361,6 @@ yarn registry:check       # exit 1 if yarn.lock names any other host
 
 ## License
 
-GPL-3.0-or-later © Giovanni Manzoni
+AGPL-3.0-or-later © Giovanni Manzoni
+
+Versions up to 8.1.0 were published under GPL-3.0-or-later and stay available under it. From 9.0.0 the package is under the GNU Affero General Public License: if you modify it and let users interact with your modified version over a network, you must offer them its source, and your own application may count as a combined work that the license covers. Read `LICENSE` against how you use the package before you upgrade. For other licensing terms, write to dev@giovannimanzoni.com.

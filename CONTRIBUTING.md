@@ -135,4 +135,4 @@ Only the maintainer bumps `version`, tags and publishes. Do not change `version`
 
 ## License
 
-By contributing you agree that your contribution is licensed under GPL-3.0-or-later, the project's license (`LICENSE`).
+The project's license is AGPL-3.0-or-later (`LICENSE`). By contributing you accept the [Contributor License Agreement](CLA.md) and agree that your contribution is licensed under it. You keep your copyright; the CLA also lets the maintainer license the project, your contribution included, under other terms, including a commercial license. Versions up to 8.1.0 were published under GPL-3.0-or-later and stay available under it.
