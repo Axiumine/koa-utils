@@ -11,6 +11,7 @@
 - [ ] No new `dependencies`; no peer-range change without a linked discussion
 - [ ] A new public symbol has its `exports` entry in `package.json`
 - [ ] Commit messages follow `<type>(<scope>): <subject>`, whole message at most 150 characters
+- [ ] First pull request: I commented that I accept the [CLA](https://github.com/Axiumine/koa-utils/blob/main/CLA.md) (the sentence is in section 7 of that file)
 - [ ] This is not a security fix for an undisclosed vulnerability (those go through [SECURITY.md](https://github.com/Axiumine/koa-utils/blob/main/SECURITY.md))
 
 ## Breaking change?

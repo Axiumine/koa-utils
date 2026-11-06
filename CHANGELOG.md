@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 9.0.0 — 2026-11-06
+
+The license changes from GPL-3.0-or-later to AGPL-3.0-or-later, and a Contributor License Agreement is added. No source file, `exports` entry, peer range or behaviour changes, so no code in your project needs to change.
+
+### Breaking
+
+- **License: GPL-3.0-or-later to AGPL-3.0-or-later.** The GNU Affero General Public License adds section 13: if you modify the package and users interact with your modified version through a network, you must offer them its source. Your own application may count as a combined work that the license covers. Read `LICENSE` against how you use the package (a server-side service is the normal case here) before you upgrade. Versions up to 8.1.0 stay published under GPL-3.0-or-later; for other terms, write to dev@giovannimanzoni.com.
+- **Security fixes ship only in 9.x.** The supported-versions table in `SECURITY.md` now lists 9.x alone, so staying on 8.x keeps the GPL terms and gives up fixes.
+
+### Added
+
+- `CLA.md`: the Contributor License Agreement. Contributors keep their copyright and license it to the maintainer, who may license the project under other terms. A new contributor accepts it once, in a comment on the first pull request; `CONTRIBUTING.md` and the pull request template say how.
+
+### Changed
+
+- `LICENSE` is the AGPL-3.0 text and the `license` field of `package.json` is `AGPL-3.0-or-later`. `README.md`, `CONTRIBUTING.md`, `GOVERNANCE.md`, `SECURITY.md` and `REPO.md` follow.
+
 ## 8.1.0 — 2026-11-04
 
 A generic PostgreSQL kit under `lib/PostgreSQL/`: 125 new subpaths (284 `exports` keys in all, up from 159), no new peer dependency and no change to any existing export. Nothing in your code changes.

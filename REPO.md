@@ -255,9 +255,9 @@ Sentry is reached through the internal `private/lib/sentry` facade (`captureExce
 
 ## 7. Versioning & release
 
-- License: `GPL-3.0-or-later`.
+- License: `AGPL-3.0-or-later` from 9.0.0 (`GPL-3.0-or-later` up to 8.1.0). Contributors accept `CLA.md`.
 - Repo: <https://github.com/Axiumine/koa-utils>.
-- Current version: `8.1.0` (`package.json`). Bump version, merge to `main`, then publish a GitHub release `vX.Y.Z`:
+- Current version: `9.0.0` (`package.json`). Bump version, merge to `main`, then publish a GitHub release `vX.Y.Z`:
   `.github/workflows/release.yml` publishes to npm with provenance (no token stored). `yarn upload` is the manual
   fallback and needs the token in `.npmrc`; use one path per version, never both.
 - **Publishing:** `yarn upload` pins `--registry=https://registry.npmjs.org/` on purpose. Yarn 1 exports the registry from
@@ -333,9 +333,9 @@ Sentry is reached through the internal `private/lib/sentry` facade (`captureExce
 - `scripts/registry-rewrite.mjs` — behind `yarn registry:mirror|canonical|check`. Rewrites the host of the registry tarball `resolved` URLs in `yarn.lock` between `https://registry.npmjs.org` and the mirror in `REGISTRY_MIRROR`, so a maintainer behind a private mirror never commits its host. Nothing runs automatically; a plain clone is untouched. Replaced the git clean/smudge filter, whose hardcoded default host `prepare` installed on every clone.
 - `scripts/migrate-account-disabled-to-boolean.mjs` — one-shot data migration for consumers. Rewrites `account.disabled`/`account.deleted` from string to boolean in the `user` and `userAdmin` collections. Dry run unless `--apply`; needs `MONGO_URI`. Required once when upgrading from **5.0.3 or earlier** — see the "Migration required" section in `CHANGELOG.md`.
 - `CODEOWNERS` — owners `@giovannimanzoni` and `@vivi7` (backup owner).
-- `LICENSE` — the canonical GPL-3.0 text with nothing prepended, so GitHub's license detection reports `GPL-3.0`. The copyright holder is named in `README.md` and `package.json` (`author`). Shipped in the npm tarball.
+- `LICENSE` — the canonical GNU AGPL-3.0 text (`agpl-3.0.txt` from gnu.org) with nothing prepended, so GitHub's license detection reports `AGPL-3.0`. The copyright holder is named in `README.md` and `package.json` (`author`). Shipped in the npm tarball.
 - `SECURITY.md` — vulnerability reporting policy and supported-versions table (private advisory or email, response targets). Update the table on every major `version` bump.
-- `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `GOVERNANCE.md`, `ROADMAP.md` — community files. Not published to npm. `GOVERNANCE.md` names the backup owner and the npm publishing gap, so update it when either changes.
+- `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `GOVERNANCE.md`, `ROADMAP.md`, `CLA.md` (contributor license agreement, accepted once per contributor in a comment on the first pull request; it lets the maintainer license the project under other terms) — community files. Not published to npm. `GOVERNANCE.md` names the backup owner and the npm publishing gap, so update it when either changes.
 - `.github/ISSUE_TEMPLATE/` (bug report and feature request forms, blank issues off, links to the private advisory form and to `docs/code`), `.github/PULL_REQUEST_TEMPLATE.md` — the checklist mirrors the gates in `CONTRIBUTING.md`.
 - `docs/architecture.md` — design overview and key flows. `docs/security.md` — security requirements (R1 to R20), documented limits (L1 to L16), threat model, trust boundaries and known gaps; update it when a trust boundary, a crypto choice or a validation rule changes. `docs/verify-release.md` — how to check a signed tag, rebuild the tarball and verify a build attestation; it holds the signing-key fingerprint.
 - `.github/workflows/` — GitHub Actions, all with top-level `permissions: contents: read` and every third-party action pinned by commit SHA with a `# vX.Y.Z` comment. `ci.yml`, `qodana.yml`, `semgrep.yml` and `mutation.yml` run on the self-hosted pool (`runs-on: [self-hosted, Linux, X64]`); `release.yml` and `scorecard.yml` stay on `ubuntu-24.04`. The runner rules are in the agent rule file.
