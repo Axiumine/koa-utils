@@ -203,7 +203,7 @@ Ordered. Do not reorder.
 
 ## Owner / style
 
-- Maintainer: Giovanni Manzoni (`@giovannimanzoni`). CODEOWNERS = him + backup owner `@vivi7` (`CODEOWNERS` file). License GPL-3.0-or-later → any added file must be compatible.
+- Maintainer: Giovanni Manzoni (`@giovannimanzoni`). CODEOWNERS = him + backup owner `@vivi7` (`CODEOWNERS` file). License GPL-3.0-or-later → any added file must be compatible. New contributor PR → CLA comment (`CLA.md` §7) before merge, owner verify.
 - Conventional commits, enforced by `.githooks/commit-msg`.
 - **Whole message ≤ 150 chars** (`MAX_LEN=150`), subject + body counted together. Hook hard-reject above. 1 number, 1 check — no separate subject cap, no body line count, no wrap width.
 - **Allowed types exactly `feat|fix|chore|docs|refactor|ci`.** `test:`, `build:`, `perf:`, `style:` rejected, even though older commits used them. Scope optional (`feat(auth): ...`). Never widen hook to fit a message — pick a type that fit.

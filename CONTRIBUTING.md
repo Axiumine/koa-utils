@@ -50,6 +50,7 @@ A pull request is acceptable when all of these hold.
    - The security invariants in [docs/security.md](docs/security.md) hold. In particular, `account.email.hash` and `account.resetHash` are never interchangeable.
 6. **Its commits are well formed.** See [Commit messages](#commit-messages).
 7. **It is one logical change.** Do not reformat lines you did not change.
+8. **Its author has accepted the [CLA](CLA.md).** Post the sentence given in [How to accept](CLA.md#7-how-to-accept) as a comment on your first pull request; once is enough for every later one. A pull request without it is not merged.
 
 ### Coding standards
 
