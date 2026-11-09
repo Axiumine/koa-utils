@@ -9,7 +9,7 @@ The project uses a maintainer-led model: the maintainer makes the final call on 
 - Day-to-day changes are decided in the pull request or issue where they are proposed. The maintainer merges when the [contribution requirements](CONTRIBUTING.md#requirements-for-acceptable-contributions) are met.
 - Larger or breaking changes start as an issue. Breaking changes ship only in a major version and are recorded in [CHANGELOG.md](CHANGELOG.md) (a `### Breaking` section).
 - The direction for the next year is in [ROADMAP.md](ROADMAP.md). Items there are intentions, not promises.
-- A disagreement is settled by the maintainer after the discussion on the issue. The reasoning is written on that issue. The license (GPL-3.0-or-later) lets anyone fork the project, so a disagreement the maintainer settles against you never locks you out.
+- A disagreement is settled by the maintainer after the discussion on the issue. The reasoning is written on that issue. The license (AGPL-3.0-or-later) lets anyone fork the project, so a disagreement the maintainer settles against you never locks you out.
 - Conduct problems follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Roles and responsibilities
@@ -33,7 +33,7 @@ The project must be able to continue, with minimal interruption, if the maintain
 | Publish to npm as `@axiumine/koa-utils` | The maintainer's npm account, and the GitHub Actions release workflow (`.github/workflows/release.yml`, npm trusted publishing with provenance, no stored token), which a repository admin starts by publishing a GitHub release | Publish a GitHub release for a signed tag on `main`, then approve the `npm-publish` deployment. The required reviewers of that environment are the maintainer and the backup owner, so either can approve. `npm publish` from a tagged checkout (`yarn upload`) stays available to the maintainer's npm account. |
 | Sign release tags | Maintainer's SSH signing key | A successor signs with their own key and records its fingerprint in [docs/verify-release.md](docs/verify-release.md) in the same commit as the first tag they sign. Old tags stay verifiable with the old key. |
 | Quality gates | Repository files and GitHub Actions | Tests, 100% coverage, ESLint, Prettier and Semgrep run in CI from files in the repository, on the maintainer's self-hosted runners (see the known gap below). The release and Scorecard workflows run on GitHub-hosted runners. The local pre-commit Qodana step needs a Qodana token (`QODANA_TOKEN` in `.env`, see `.env.example`); a successor creates their own in their Qodana Cloud account. |
-| Legal rights | License | GPL-3.0-or-later. Copyright stays with the contributors. Anyone may continue the project as a fork under the same license, with no assignment needed. |
+| Legal rights | License and CLA | AGPL-3.0-or-later from 9.0.0 (GPL-3.0-or-later up to 8.1.0). Copyright stays with the contributors, who license it to the maintainer under the [CLA](CLA.md); a successor maintainer receives those licenses with the role. Anyone may continue the project as a fork under the same license, with no assignment needed. |
 
 **Known gap.** The npm package settings (the trusted publisher binding and the list of package maintainers) are changed on npmjs.com by the npm account that holds that right, today the maintainer's. A successor can still release through the workflow without touching npm, because the trusted publisher is bound to this repository's workflow, not to a person. A second npm maintainer would close the rest of the gap.
 

@@ -1,6 +1,6 @@
 {
 	"name": "@axiumine/koa-utils",
-	"version": "8.1.0",
+	"version": "9.0.0",
 	"description": "Koa Utils",
 	"type": "module",
 	"repository": {
@@ -11,7 +11,7 @@
 		"url": "https://github.com/Axiumine/koa-utils/issues"
 	},
 	"homepage": "https://github.com/Axiumine/koa-utils/tree/main/docs/code",
-	"license": "GPL-3.0-or-later",
+	"license": "AGPL-3.0-or-later",
 	"author": "Giovanni Manzoni <dev@giovannimanzoni.com> (https://www.giovannimanzoni.com)",
 	"private": false,
 	"publishConfig": {

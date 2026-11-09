@@ -10,10 +10,11 @@ Only the latest major line receives fixes. A fix ships as a new release; it is n
 
 | Version | Supported |
 | --- | --- |
-| 8.x | Yes. Upgrade to the newest 8.x release. |
-| 7.x | No. Upgrade to 8.x; the breaking changes in 8.0.0 are the optional peers and the move of `OBJECTID_0_OBJ` (see [CHANGELOG.md](CHANGELOG.md)). |
-| 6.x | No. Upgrade to 8.x; the only breaking change in 7.0.0 is the `uploadTempImage` export rename. |
-| 5.9.x and older | No. Known vulnerable and marked deprecated on npm. Upgrade to 8.x. |
+| 9.x | Yes. Upgrade to the newest 9.x release. 9.0.0 changes only the license, from GPL-3.0-or-later to AGPL-3.0-or-later (see [CHANGELOG.md](CHANGELOG.md)). |
+| 8.x | No. Fixes ship only in 9.x, which is under AGPL-3.0-or-later; staying on 8.x keeps the GPL terms and gives up security fixes. |
+| 7.x | No. Upgrade to 9.x; the breaking changes in 8.0.0 are the optional peers and the move of `OBJECTID_0_OBJ`, and 9.0.0 changes the license (see [CHANGELOG.md](CHANGELOG.md)). |
+| 6.x | No. Upgrade to 9.x; the only breaking change in 7.0.0 is the `uploadTempImage` export rename, and 9.0.0 changes the license. |
+| 5.9.x and older | No. Known vulnerable and marked deprecated on npm. Upgrade to 9.x. |
 
 Every published version that carried a real defect is marked deprecated on npm with a message that names the defect
 and the version that fixes it. [CHANGELOG.md](CHANGELOG.md) is the record: look for the `### Security` and `### Fixed`
