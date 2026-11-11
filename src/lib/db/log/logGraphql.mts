@@ -1,28 +1,14 @@
-import { LogStatsGraphql } from '@models/MongoDB/log/LogStatsGraphql.mjs'
-import { Types } from 'mongoose'
+import type { Types } from 'mongoose'
 
 /**
- * Logs operations performed by users
- * @param owner
- * @param nome
- * @param status
- * @param msTot
+ * Kept for backwards compatibility only: this function writes nothing.
+ *
+ * It used to build a `LogStatsGraphql` document and discard it. The `.save()` call was commented out, so
+ * nothing reached MongoDB. The arguments are still accepted, and ignored, so that existing call sites keep
+ * compiling.
+ *
+ * @deprecated No-op. Nothing is logged: remove the call, or write the document yourself through the `LogStatsGraphql` model.
  */
-export const logGraphql = function (owner: Types.ObjectId, nome: string, status: number, msTot: number) {
-	new LogStatsGraphql({
-		owner,
-		nome,
-		status,
-		msTot
-	})
-	/*
-  return new Promise((resolve, reject) => {
-    newStatsGraphql.save((err: any, res: any) => {
-      if (err) {
-        reject('Log error.' + err)
-      } else {
-        resolve(res)
-      }
-    })
-  }) */
+export const logGraphql: (owner: Types.ObjectId, nome: string, status: number, msTot: number) => void = function () {
+	// Deliberately empty, see the doc above.
 }

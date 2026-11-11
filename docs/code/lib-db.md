@@ -1,6 +1,6 @@
 # Lib — DB Operations & Logging
 
-This section covers the package's direct MongoDB write helpers: fire-and-forget usage/error logging (`hitStat`, `logGlobalError`, `logGraphql`, `logThrow`), the typed shapes used when building `$set` / `$unset` updates against a user's `login` sub-document (`ILoginSet`, `ILoginUnset`), and the two building blocks of the sign-up flow (`registerNewUser`, `userExist`). All of these sit directly on Mongoose models from `@models/MongoDB/**` and are the lowest-level DB layer consumed by GraphQL mutations and Koa middleware higher up the stack.
+This section covers the package's direct MongoDB write helpers: fire-and-forget usage/error logging (`hitStat`, `logGlobalError`, and the deprecated no-ops `logGraphql` and `logThrow`), the typed shapes used when building `$set` / `$unset` updates against a user's `login` sub-document (`ILoginSet`, `ILoginUnset`), and the two building blocks of the sign-up flow (`registerNewUser`, `userExist`). All of these sit directly on Mongoose models from `@models/MongoDB/**` and are the lowest-level DB layer consumed by GraphQL mutations and Koa middleware higher up the stack.
 
 ## `hitStat`
 
@@ -55,10 +55,10 @@ Builds (but does **not** persist) a `LogGlobalError` document from a message/sta
 
 **Signature:**
 ```ts
-const logGraphql = function (owner: Types.ObjectId, nome: string, status: number, msTot: number)
+const logGraphql: (owner: Types.ObjectId, nome: string, status: number, msTot: number) => void
 ```
 
-Logga operazioni fatte da utenti (logs operations performed by users). Constructs a `new LogStatsGraphql({ owner, nome, status, msTot })` document but never calls `.save()` (the save/Promise logic is commented out below it).
+**Deprecated no-op**, kept for backwards compatibility only. It accepts the four arguments, ignores them and returns. It used to build a `new LogStatsGraphql({ owner, nome, status, msTot })` document and discard it — the `.save()` call was commented out — so nothing was ever written; the dead construction has been removed and the export is marked `@deprecated`.
 
 **Parameters:**
 
@@ -69,9 +69,9 @@ Logga operazioni fatte da utenti (logs operations performed by users). Construct
 | status | number | HTTP/GraphQL status code of the call |
 | msTot | number | Total duration of the call, in milliseconds |
 
-**Returns:** `void` — no document is persisted; the constructed instance is discarded. Collection touched (when eventually enabled): `logStatsGraphql` (fields `u` = user, `n` = query name, `s` = status, `m` = msTot, `i` = inserted date, backing model `LogStatsGraphql`).
+**Returns:** `void` — nothing is built and nothing is persisted. No collection is touched.
 
-**Notes:** Currently a stub, same as `logGlobalError` — constructing the model does not write to MongoDB. Referenced (commented out) from `src/koa/logRequestToDb.mts` as the intended call site for per-request GraphQL logging.
+**Notes:** The module no longer imports the `LogStatsGraphql` model, so importing this subpath no longer loads `mongoose` at runtime (its `.d.mts` still names `Types.ObjectId`). To record a call, write the document yourself through the `LogStatsGraphql` model (collection `logStatsGraphql`; see `docs/code/graphql-models.md`). The function is still referenced, commented out, from `src/koa/logRequestToDb.mts`.
 
 ## `logThrow`
 
@@ -79,10 +79,10 @@ Logga operazioni fatte da utenti (logs operations performed by users). Construct
 
 **Signature:**
 ```ts
-const logThrow = function (log: string, errLevel: number)
+const logThrow: (log: string, errLevel: number) => void
 ```
 
-Constructs a `new LogThrow({ _id: new Types.ObjectId(), message: log, errLevel, inserted: new Date() })` document. As with the other two logging helpers, the `.save()` call is commented out, so nothing is persisted.
+**Deprecated no-op**, kept for backwards compatibility only. It accepts the two arguments, ignores them and returns. It used to build a `new LogThrow({ _id: new Types.ObjectId(), message: log, errLevel, inserted: new Date() })` document and discard it — the `.save()` call was commented out — so nothing was ever written; the dead construction has been removed and the export is marked `@deprecated`.
 
 **Parameters:**
 
@@ -91,9 +91,9 @@ Constructs a `new LogThrow({ _id: new Types.ObjectId(), message: log, errLevel, 
 | log | string | The error/throw message to record |
 | errLevel | number | Numeric severity/level of the error |
 
-**Returns:** `void` — no document is persisted. Collection touched (when eventually enabled): `logThrow` (fields `u` = user, `m` = message, `el` = error level, `i` = inserted date, backing model `LogThrow`).
+**Returns:** `void` — nothing is built and nothing is persisted. No collection is touched.
 
-**Notes:** Source comments indicate the intended future behavior: send an email on log, with a flood-guard against the last sent email (possibly via a TTL-indexed collection or an admin-configurable kill switch) — none of that is implemented yet. Treat as a stub, not yet wired to persistence or email.
+**Notes:** The module no longer imports the `LogThrow` model or `mongoose`, so importing this subpath loads neither. To record an error, write the document yourself through the `LogThrow` model (collection `logThrow`; see `docs/code/graphql-models.md`). Source comments keep the original, never implemented intent: send an email on log, with a flood-guard against the last sent email (possibly via a TTL-indexed collection or an admin-configurable kill switch).
 
 ## `ILoginSet`
 

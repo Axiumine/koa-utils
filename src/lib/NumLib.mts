@@ -1,6 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- public API: consumers import the class and call `NumLib.parseFloatFixed()`; replacing it with plain functions is a breaking change
 export class NumLib {
-	constructor() {}
-
 	/************
 	 * parseFloat wants '.' as the decimal separator !!
 	 *

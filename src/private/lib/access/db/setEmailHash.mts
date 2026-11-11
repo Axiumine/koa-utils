@@ -24,7 +24,9 @@ export const createSetEmailHash = (model: TAccessModel, paths: IVerifyEmailPaths
 			{ session, runValidators: true }
 		)
 
-		return hash // else it goes into exception @fixme check
+		// `updateOne` rejects on a driver or validator error, so reaching this line means the write was accepted.
+		// A `userId` that matches no document is not an error: the hash is still returned.
+		return hash
 	}
 
 /** Signature of the bound writer, for the modules that take it as a dependency. */

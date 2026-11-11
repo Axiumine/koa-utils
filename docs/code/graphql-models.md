@@ -402,7 +402,7 @@ const LogThrowGraphqlSchema = new Schema<ILogThrowGraphqlSchema>(
 const LogThrow = model<ILogThrowGraphqlSchema>('LogThrow', LogThrowGraphqlSchema)
 ```
 
-A thrown-error logging model — records deliberate `throwGraphQLError`-style errors (via `logThrow` in `@lib/db/log/logThrow`) against a user id, with a message and severity level. Backed by collection **`logThrow`**.
+A thrown-error logging model — records deliberate `throwGraphQLError`-style errors against a user id, with a message and severity level. Backed by collection **`logThrow`**.
 
 **Returns:** `Model<ILogThrowGraphqlSchema>` — the compiled Mongoose model.
 

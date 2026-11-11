@@ -51,7 +51,8 @@ export const createEmailChangeHashVerifyMutation = (deps: IEmailChangeHashVerify
 
 			// if email not found, return (do not tell the user the real problem !)
 			if (ctx === null) {
-				return false // @fixme throw
+				// `false` is deliberate, not a missing throw: an error here would tell the caller the address is unknown.
+				return false
 			}
 
 			if (safeEqualSecret(args.hash, readPath(ctx.user, deps.paths.hash))) {

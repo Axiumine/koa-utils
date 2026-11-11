@@ -60,5 +60,5 @@ export const authenticatedResourceHandler = () => async (ctx: IContextAuthentica
 		throw throwAccessTokenExpiredOrDeleted()
 	} // else return next
 
-	return next()
+	return next() as Promise<unknown>
 }

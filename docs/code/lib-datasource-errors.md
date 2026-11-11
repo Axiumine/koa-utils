@@ -65,18 +65,18 @@ Maps a MariaDB driver error to a `GraphQLError`. If `e.parent.code === MariaDBEr
 ```ts
 export interface IMongoDBError {
 	errorResponse?: {
-		code: MongoDBErrType
+		code: number
 	}
 	parent?: {
 		errorResponse?: {
-			code: MongoDBErrType
+			code: number
 		}
 	}
 	message: string
 }
 ```
 
-Shape of a MongoDB/Mongoose driver error. The error code can appear either directly on `errorResponse.code` (raw MongoDB driver error) or nested under `parent.errorResponse.code` (Mongoose-wrapped error) — `throwIfMongoErr` checks both locations. `message` is always required and is used to detect Mongoose validator errors via the `[Validator]` prefix convention.
+Shape of a MongoDB/Mongoose driver error. `code` is an open `number`, because the driver can report any code; `MongoDBErrType` lists only the ones this package maps. The error code can appear either directly on `errorResponse.code` (raw MongoDB driver error) or nested under `parent.errorResponse.code` (Mongoose-wrapped error) — `throwIfMongoErr` checks both locations. `message` is always required and is used to detect Mongoose validator errors via the `[Validator]` prefix convention.
 
 ## `MongoDBErrType`
 

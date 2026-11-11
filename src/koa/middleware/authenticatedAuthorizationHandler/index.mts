@@ -38,5 +38,5 @@ export const authenticatedAuthorizationHandler = (keys: Keygrip) => async (ctx: 
 		throw throwRefreshTokenExpiredOrDeleted()
 	} // else return next()
 
-	return next()
+	return next() as Promise<unknown>
 }

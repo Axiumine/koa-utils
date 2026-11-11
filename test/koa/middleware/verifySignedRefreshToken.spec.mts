@@ -18,6 +18,19 @@ describe('verifySignedRefreshToken', () => {
 		expect(verifySignedRefreshToken(ctx, keys)).to.equal(`refresh:${token}`)
 	})
 
+	it('ignores an unrelated cookie after the signed pair', () => {
+		// trailing cookie → kill `else if (true)`: mutant write 'val' over signature → 401
+		const ctx = makeCtx(`refresh_token=${token}; refresh_token.sig=${sig}; other=val`)
+		expect(verifySignedRefreshToken(ctx, keys)).to.equal(`refresh:${token}`)
+	})
+
+	it('ignores cookies named after Object.prototype members before the signed pair', () => {
+		// Regression guard: the parser once copied every pair into one object under its client-chosen name.
+		// Only `refresh_token` and `refresh_token.sig` may be read; any other name must change nothing.
+		const ctx = makeCtx(`__proto__=x; constructor=y; toString=z; refresh_token=${token}; refresh_token.sig=${sig}`)
+		expect(verifySignedRefreshToken(ctx, keys)).to.equal(`refresh:${token}`)
+	})
+
 	it('throws 412 Precondition Failed when no cookie header at all', () => {
 		expectGraphQLError(
 			() => verifySignedRefreshToken(makeCtx(), keys),

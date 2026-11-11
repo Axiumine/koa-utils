@@ -22,6 +22,7 @@ export async function storeUploadAsTemp(upload: Promise<IFileUpload>, maxFileSiz
 	// Store the file in the filesystem.
 	await new Promise((resolve, reject) => {
 		// Create a stream to which the upload will be written.
+		// eslint-disable-next-line security/detect-non-literal-fs-filename -- the name is a server-side UUID inside UPLOAD_TEMP_DIRECTORY_URL; only the extension comes from the client, and path.extname never returns a path separator
 		const writeStream = createWriteStream(storedFileUrl)
 
 		// Check file size during streaming.
@@ -42,6 +43,7 @@ export async function storeUploadAsTemp(upload: Promise<IFileUpload>, maxFileSiz
 		// Best-effort cleanup, then reject. Cleanup is fire-and-forget by design: the
 		// upload has already failed, and an unlink error must not mask the real cause.
 		const removeThenReject = (reason: Error) => {
+			// eslint-disable-next-line security/detect-non-literal-fs-filename -- same server-built path as the write stream above
 			unlink(storedFileUrl, () => {
 				reject(reason)
 			})

@@ -167,7 +167,7 @@ Hashes a clear-text password with bcrypt (`@node-rs/bcrypt`) using a fixed cost 
 export async function compareHashAsync(clear: string, hash: string): Promise<boolean>
 ```
 
-Verifies a clear-text password against a bcrypt hash (`@node-rs/bcrypt.compare`). Always use this to verify a password during login — never call `@node-rs/bcrypt` directly. Any error thrown by the underlying `bcrypt.compare` call is caught and immediately re-thrown unchanged.
+Verifies a clear-text password against a bcrypt hash (`@node-rs/bcrypt.compare`). Always use this to verify a password during login — never call `@node-rs/bcrypt` directly. Any error thrown by the underlying `bcrypt.compare` call is not caught here: it propagates unchanged.
 
 **Parameters:**
 
@@ -178,7 +178,7 @@ Verifies a clear-text password against a bcrypt hash (`@node-rs/bcrypt.compare`)
 
 **Returns:** `Promise<boolean>` — `true` if `clear` matches `hash`.
 
-**Throws:** rethrows whatever `bcrypt.compare` throws (e.g. malformed hash) — not normalized to a GraphQL error by this function itself.
+**Throws:** whatever `bcrypt.compare` throws (e.g. malformed hash) — not normalized to a GraphQL error by this function itself.
 
 ## `emailHash`
 

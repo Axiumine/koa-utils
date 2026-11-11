@@ -13,6 +13,7 @@ export function readPath(source: unknown, path: string): unknown {
 		if (current === null || typeof current !== 'object') {
 			return undefined
 		}
+		// eslint-disable-next-line security/detect-object-injection -- `key` is a segment of a path from the `paths` map fixed when the flow is built, never request data
 		current = (current as Record<string, unknown>)[key]
 	}
 
@@ -27,13 +28,7 @@ export function readPath(source: unknown, path: string): unknown {
  * container, not its members. See `IResetPwdPaths.resetClear`.
  */
 export function buildUnset(paths: readonly string[]): Record<string, ''> {
-	const unset: Record<string, ''> = {}
-
-	for (const path of paths) {
-		unset[path] = ''
-	}
-
-	return unset
+	return Object.fromEntries(paths.map((path): [string, ''] => [path, '']))
 }
 
 /**

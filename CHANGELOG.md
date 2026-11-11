@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 9.1.0 — 2026-11-11
+
+Lint-debt release: every finding that the ESLint suppression baseline used to hide is fixed, and the baseline is now empty. Most changes touch no runtime behaviour. The ones that do, and the type-level changes a TypeScript consumer can see, are listed below.
+
+### Deprecated
+
+- `logGraphql` and `logThrow` are `@deprecated` no-ops. They built a Mongoose document and threw it away, because the `.save()` call was commented out, so nothing ever reached MongoDB. The arguments are still accepted and ignored, so existing call sites keep compiling. Importing either one no longer loads its Mongoose model, and `Function.length` is now `0`. Remove the calls, or write the document through the `LogStatsGraphql` / `LogThrow` model yourself.
+
+### Fixed
+
+- `verifySignedRefreshToken` reads only the `refresh_token` and `refresh_token.sig` cookies, each into its own variable. It used to copy every cookie of the request into one object under the name the client chose, so a request could pick the property that was written, `constructor` included. Valid requests behave as before.
+- The PostgreSQL Sentry messages for a notification and a notice now carry the channel and the notice text. They used to print `[object Object]`, so Sentry issues for these messages regroup after the upgrade. Connect and disconnect failures stringify the error explicitly.
+- `compareHashAsync` no longer wraps `bcrypt.compare` in a `try` that only rethrew. Behaviour is the same.
+
+### Changed
+
+- Type changes visible to a TypeScript consumer:
+  - `IMongoDBError.code` is `number` (it was `MongoDBErrType`). Comparing it with a `MongoDBErrType` member still works.
+  - `authenticatedResourceHandler`, `authenticatedAuthorizationHandler`, `authenticatedLogoutHandler` and `debugHandler` return `Promise<unknown>` (the result was `any`).
+  - `isSessionBlocked` accepts `null` and `undefined` and returns `false` for them.
+- `DateLib` and `NumLib` keep their class shape. Turning them into plain modules would be a breaking change, so the lint rule is disabled inline with the reason.
+- The email-change flow keeps returning `false` where the address is not found. A throw there would tell the caller the address is unknown, so the `@fixme` tag is gone and the reason is written down in `src/graphQL/CLAUDE.md`.
+- `SocketLabsLib` types its client instead of using `any`. A timed-out send is reported as failed and not retried by this class.
+- Twelve inline `eslint-disable` comments, each with a reason, cover the rules that are wrong for the code they sit on. `eslint-suppressions.json` is empty.
+
 ## 9.0.0 — 2026-11-06
 
 The license changes from GPL-3.0-or-later to AGPL-3.0-or-later, and a Contributor License Agreement is added. No source file, `exports` entry, peer range or behaviour changes, so no code in your project needs to change.
