@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Lint-debt release: every finding that the ESLint suppression baseline used to hide is fixed, and the baseline is now empty. Most changes touch no runtime behaviour. The ones that do, and the type-level changes a TypeScript consumer can see, are listed below.
 
+**9.0.0 was never published to npm.** Its release run stopped at the Qodana gate, because the 57 findings fixed here were still open on that commit. Everything in the 9.0.0 section below, the move to AGPL-3.0-or-later and `CLA.md` included, ships in 9.1.0. A consumer goes from 8.1.0 straight to 9.1.0 and should read both sections.
+
 ### Deprecated
 
 - `logGraphql` and `logThrow` are `@deprecated` no-ops. They built a Mongoose document and threw it away, because the `.save()` call was commented out, so nothing ever reached MongoDB. The arguments are still accepted and ignored, so existing call sites keep compiling. Importing either one no longer loads its Mongoose model, and `Function.length` is now `0`. Remove the calls, or write the document through the `LogStatsGraphql` / `LogThrow` model yourself.
