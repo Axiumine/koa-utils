@@ -95,7 +95,10 @@ describe('createAbandonUser', () => {
 			const { model, updateOne, deleteOne } = makeModel()
 			const abandon = createAbandonUser({ model, paths: PATHS, mode: 'keep' })
 
-			const result = await abandon('kept@test.com')
+			// `keepUser` not `async` → must hand back a Promise itself; empty-body mutant → undefined
+			const pending = abandon('kept@test.com')
+			expect(pending).to.be.instanceOf(Promise)
+			const result = await pending
 
 			expect(result).to.equal(undefined)
 			expect(deleteOne.called).to.equal(false)

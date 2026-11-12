@@ -58,7 +58,7 @@ export const PostgreSQLClientConnect = async () => {
 			pgClient.on('notification', (msg) => {
 				console.info('[PostgreSQL Client]', msg.channel)
 				console.info('[PostgreSQL Client]', msg.payload)
-				Sentry.captureMessage(`[PostgreSQL Client] notification: ${msg}`, {
+				Sentry.captureMessage(`[PostgreSQL Client] notification: ${msg.channel}`, {
 					level: 'warning',
 					extra: {
 						channel: msg.channel,
@@ -70,13 +70,13 @@ export const PostgreSQLClientConnect = async () => {
 		// https://www.postgresql.org/docs/9.6/static/plpgsql-errors-and-messages.html
 		if (!pgClient.listenerCount('notice')) {
 			pgClient.on('notice', (msg) => {
-				Sentry.captureMessage(`[PostgreSQL Client] notice: ${msg}`, 'warning')
+				Sentry.captureMessage(`[PostgreSQL Client] notice: ${msg.message}`, 'warning')
 			})
 		}
 		console.info('[PostgreSQL Client] OK: PostgreSQL connection has been established successfully.')
 	} catch (error) {
 		throw {
-			message: '[PostgreSQL Client] FAIL: Unable to connect to the database: ' + error,
+			message: '[PostgreSQL Client] FAIL: Unable to connect to the database: ' + String(error),
 			shutdown: true
 		}
 	}
@@ -89,7 +89,7 @@ export const PostgreSQLClientDisconnect = async () => {
 		console.info('[PostgreSQL Client] OK: PostgreSQL connection has been closed successfully.')
 	} catch (error) {
 		throw {
-			message: '[PostgreSQL Client] FAIL: Unable to close the database connection: ' + error,
+			message: '[PostgreSQL Client] FAIL: Unable to close the database connection: ' + String(error),
 			shutdown: true
 		}
 	}
@@ -112,7 +112,7 @@ export const PostgreSQLPoolDisconnect = async () => {
 		console.info('[PostgreSQL Pool] OK: PostgreSQL connection has been closed successfully.')
 	} catch (error) {
 		throw {
-			message: '[PostgreSQL Pool] FAIL: Unable to close the database connection: ' + error,
+			message: '[PostgreSQL Pool] FAIL: Unable to close the database connection: ' + String(error),
 			shutdown: true
 		}
 	}

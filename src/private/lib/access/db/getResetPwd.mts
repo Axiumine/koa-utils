@@ -15,13 +15,15 @@ export const createGetResetPwd = (model: TAccessModel, paths: IResetPwdPaths) =>
 	async function getResetPwd(session: ClientSession, email: string): Promise<IResetPwdRecord | null> {
 		let ret: IResetPwdRecord | null = null
 
+		// `TAccessModel` is `Model<any>`, so the query result is `any`. Only `_id` is read by name; every other field goes
+		// through `readPath`.
 		// Field name comes from the factory `paths` argument the consuming developer supplies at startup, never from request data.
 		// nosemgrep: koa-utils.nosql-injection.dynamic-filter-key
-		const queryRet = await model
+		const queryRet = (await model
 			.findOne({ [paths.email]: email })
 			.select(buildProjection([paths.name, paths.resetDateReq, paths.resetHash, paths.deleted, paths.disabled]))
 			.session(session)
-			.lean()
+			.lean()) as { _id: Types.ObjectId } | null
 
 		// if a reset request is found
 		if (queryRet !== null) {
@@ -58,7 +60,7 @@ export const createGetResetPwd = (model: TAccessModel, paths: IResetPwdPaths) =>
 			}
 
 			ret = {
-				_id: queryRet._id as Types.ObjectId,
+				_id: queryRet._id,
 				resetDateReq,
 				resetHash,
 				name: (readPath(queryRet, paths.name) as string | undefined) || ''

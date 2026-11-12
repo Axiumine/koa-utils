@@ -21,7 +21,7 @@ export const logout = {
 
 			await redisClient.del(`${process.env['REDIS_KEY']}${buildPrefixedRedisKey('refresh:', ctx.state.user.refreshToken)}`)
 
-			const accessToken = ctx.state.user?.accessToken || ''
+			const accessToken = ctx.state.user.accessToken || ''
 			if (accessToken !== '') {
 				await redisClient.del(`${process.env['REDIS_KEY']}${buildPrefixedRedisKey('access:', accessToken)}`)
 			}

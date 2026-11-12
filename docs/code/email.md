@@ -12,7 +12,7 @@ export class SocketLabsLib {
 	private readonly platformName: string
 	private readonly linkBase: string
 	private readonly emailFrom: string
-	private client: any
+	private client: ISocketLabsClient
 	private readonly emailHtmlHeader1: string
 	private readonly emailHtmlHeader2: string
 	private readonly emailHtmlFooter: string
@@ -398,7 +398,7 @@ Sends an internal notification that a post has been reported/flagged to `process
 
 **Returns:** `Promise<boolean>` — send success/failure.
 
-**Notes:** `IUserInfo` is declared in this file but not exported and has no `package.json` export entry — it is internal to `SocketLabsLib`. An earlier, near-identical implementation of this method is preserved as a commented-out block above `sendEmailChangeVerify` in the source, along with a `@fixme` note about handling `ECONNABORTED` timeout retries from SocketLabs.
+**Notes:** `IUserInfo` is declared in this file but not exported and has no `package.json` export entry — it is internal to `SocketLabsLib`. An earlier, near-identical implementation of this method is preserved as a commented-out block above `sendEmailChangeVerify` in the source, along with a note on `ECONNABORTED` timeouts from SocketLabs: a timed-out send is reported as failed and is not retried by this class; the client is built with `numberOfRetries: 3`, and whether the SDK retries a timeout has not been verified.
 
 ### `getHtmlHeader(title)`
 

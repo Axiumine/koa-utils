@@ -17,6 +17,7 @@ export async function reEncode(filePath: string, ext: keyof FormatEnum | Availab
 	try {
 		// Read the bytes up front: sharp refuses to use one file as both input and output, which is
 		// exactly what happens when the source already carries the target extension.
+		// eslint-disable-next-line security/detect-non-literal-fs-filename -- the path is this helper's input by design: the caller names a file it stored itself, nothing here builds it from request data
 		const input = await fs.readFile(filePath)
 
 		if (ext === 'jpeg') {
@@ -37,6 +38,7 @@ export async function reEncode(filePath: string, ext: keyof FormatEnum | Availab
 	// extensions instead would delete the file just written whenever the two paths coincide
 	if (finalFilepath !== filePath) {
 		try {
+			// eslint-disable-next-line security/detect-non-literal-fs-filename -- same caller-supplied path as the read above
 			await fs.unlink(filePath)
 		} catch (e) {
 			Sentry.captureException(e)

@@ -8,12 +8,12 @@ This section covers the Koa-level authentication surface: the two Redis-backed s
 
 **Signature:**
 ```ts
-export const authenticatedResourceHandler: () => (ctx: IContextAuthenticatedResource, next: Next) => Promise<void>
+export const authenticatedResourceHandler: () => (ctx: IContextAuthenticatedResource, next: Next) => Promise<unknown>
 ```
 
 General-purpose resource guard. Reads `ctx.request.header.authorization`, expects the literal prefix `Bearer access:`. Strips `Bearer ` (keeping the `access:` prefix) to get the key, then validates that the UUID portion (`key.slice('access:'.length)`) is a well-formed v4 UUID via `isValidUuidV4` — if not, throws `throwMissingMalformedInvalidToken()` before ever building the Redis key or calling `redisClient.hGetAll`. Otherwise builds the Redis key `${process.env.REDIS_KEY}access:<uuid>` and reads it with `redisClient.hGetAll`. If the hash exists, the raw Redis object is shallow-copied (`{ ...redSession }`, since node-redis hashes come back without `Object.prototype` in their chain) and checked for `redData?.disabled` / `redData?.deleted` — both are truthy for the *strings* `'true'`/`'false'` alike, so storage code must only ever set them when actually blocking. If clear, `ctx.state.user` is set to `{ ...redData, id: new Types.ObjectId(redData.id) }` (all other hash fields pass through as strings). If the hash is empty (expired/deleted token), the handler still allows the request through when `ctx.request.header['x-introspectioncode']` passes `verifyIntrospectionCode` (internal service-to-service bypass) — otherwise it throws. Since 6.0.0 that check is environment-gated: it returns `false` unless `process.env.NODE_ENV` is `'development'` or `'test'`, so under any other value — production, staging, or an unset variable — the header is ignored and the request is refused even with `INTROSPECTION_CODE` correctly set. Ends by calling `next()`.
 
-**Returns:** `(ctx, next) => Promise<void>` — the Koa middleware; resolves via `next()` when authorized (or introspection-bypassed).
+**Returns:** `(ctx, next) => Promise<unknown>` — the Koa middleware; resolves with whatever `next()` resolves with when authorized (or introspection-bypassed).
 
 **Throws:**
 - `412 Precondition Failed` (`throwPreconditionFailedNoAuthHeader`) — `authorization` header absent.
@@ -30,7 +30,7 @@ General-purpose resource guard. Reads `ctx.request.header.authorization`, expect
 
 **Signature:**
 ```ts
-export const authenticatedAuthorizationHandler: (keys: Keygrip) => (ctx: IContextRefresh, next: Next) => Promise<void>
+export const authenticatedAuthorizationHandler: (keys: Keygrip) => (ctx: IContextRefresh, next: Next) => Promise<unknown>
 ```
 
 Guard for the **refresh endpoint only** — not a general resource handler. The client sends the refresh token as a signed cookie (no `Authorization` header involved here). Delegates cookie parsing + signature verification to `verifySignedRefreshToken(ctx, keys)`, which returns an already-prefixed Redis key (`refresh:<uuid>`). Looks that key up with `redisClient.hGetAll`; if present, applies the same `disabled`/`deleted` → 403 check as `authenticatedResourceHandler`, then sets `ctx.state.user = { ...redData, id: new Types.ObjectId(redData.id), refreshToken: refreshTokenRedis }`. If the Redis hash is empty, falls back to the `x-introspectioncode` bypass exactly like the resource handler — including the 6.0.0 `NODE_ENV` gate, so the header is inert outside `'development'` and `'test'` — else throws. Ends with `next()`.
@@ -41,7 +41,7 @@ Guard for the **refresh endpoint only** — not a general resource handler. The 
 |---|---|---|
 | keys | Keygrip | Keygrip instance (secret keys) used to verify the `refresh_token`/`refresh_token.sig` cookie pair. |
 
-**Returns:** `(ctx, next) => Promise<void>` — the Koa middleware.
+**Returns:** `(ctx, next) => Promise<unknown>` — the Koa middleware; resolves with whatever `next()` resolves with.
 
 **Throws:** everything `verifySignedRefreshToken` can throw (`412`, `499` ×2, `401` — see below), plus:
 - `403 Forbidden` (`throwForbiddenError`) — session marked `disabled`/`deleted`.
@@ -58,7 +58,7 @@ Guard for the **refresh endpoint only** — not a general resource handler. The 
 export function verifySignedRefreshToken(ctx: IContextRefresh, keys: Keygrip): string
 ```
 
-Parses the raw `Cookie` header (`ctx.request.header.cookie`) by hand — splitting on `;` then `=` per pair — into a `TCookieRefreshToken` map, rather than relying on `ctx.cookies`. Extracts `refresh_token` and `refresh_token.sig`, then verifies the signature with `keys.index(\`refresh_token=${refreshToken}\`, signature)` (Keygrip). Returns the Redis-ready key.
+Parses the raw `Cookie` header (`ctx.request.header.cookie`) by hand — splitting on `;` then `=` per pair — rather than relying on `ctx.cookies`. Only the `refresh_token` and `refresh_token.sig` pairs are kept, each in its own local variable; every other cookie is ignored, so a cookie name chosen by the client is never used as a property key. It then verifies the signature with `keys.index(\`refresh_token=${refreshToken}\`, signature)` (Keygrip). Returns the Redis-ready key.
 
 **Parameters:**
 
@@ -89,7 +89,7 @@ export type TCookieRefreshToken = {
 }
 ```
 
-Shape of the hand-parsed `Cookie` header map produced inside `verifySignedRefreshToken`. Both fields are optional because either may be absent from the raw header before the corresponding `throwRefreshTokenRequired` / `throwRefreshTokenSignatureRequired` checks run.
+Shape of the two refresh cookies as a map. Both fields are optional because either may be absent from the raw `Cookie` header. `verifySignedRefreshToken` no longer builds this map — it reads the two values into local variables — so the type is kept only for consumers that already import it.
 
 ## `authenticatedLogoutHandler`
 
@@ -97,7 +97,7 @@ Shape of the hand-parsed `Cookie` header map produced inside `verifySignedRefres
 
 **Signature:**
 ```ts
-export const authenticatedLogoutHandler: (keys: Keygrip) => (ctx: IContextLogout, next: Next) => Promise<void>
+export const authenticatedLogoutHandler: (keys: Keygrip) => (ctx: IContextLogout, next: Next) => Promise<unknown>
 ```
 
 Middleware for the logout endpoint. Reads both credentials: the signed refresh cookie (`ctx.request.header.cookie`) and the `Authorization` header (`Bearer ACCESS_TOKEN`, optional at logout). If either is missing, it is tolerated **only** when `ctx.request.header['x-introspectioncode']` passes `verifyIntrospectionCode`, which sets an internal `introspection = true` flag and skips all further checks; otherwise the corresponding precondition error is thrown. Since 6.0.0 that check is environment-gated the same way as in the other two middlewares: outside `NODE_ENV` `'development'` / `'test'` it always returns `false`, so a missing cookie or a missing `Authorization` header is never tolerated in production, whatever the header carries. When not in introspection mode: calls `verifySignedRefreshToken(ctx as unknown as IContextRefresh, keys)` to get the `refresh:<uuid>` key, then `redisClient.hGet(key, 'id')` — if `null` (already logged out / expired), throws `throwAlreadyDone()`; otherwise sets `ctx.state = { user: { refreshToken } }`. It then optionally checks the access token: strips `Bearer `, and if non-empty, looks up `${REDIS_KEY}<access-key>` via `hGet(..., 'id')` — if found, adds `accessToken` to `ctx.state.user`; if not found, this is **not** an error (the access session may simply have already expired, which is fine during logout). Ends with `next()`.
@@ -108,7 +108,7 @@ Middleware for the logout endpoint. Reads both credentials: the signed refresh c
 |---|---|---|
 | keys | Keygrip | Keygrip instance used by `verifySignedRefreshToken` to verify the refresh cookie signature. |
 
-**Returns:** `(ctx, next) => Promise<void>` — the Koa middleware.
+**Returns:** `(ctx, next) => Promise<unknown>` — the Koa middleware; resolves with whatever `next()` resolves with.
 
 **Throws:**
 - `412 Precondition Failed` (`throwPreconditionFailedNoAuthCookie`) — cookie header missing and no valid `x-introspectioncode` (a matching header does not count outside `NODE_ENV` `'development'` / `'test'`).
@@ -124,12 +124,12 @@ Middleware for the logout endpoint. Reads both credentials: the signed refresh c
 
 **Signature:**
 ```ts
-export const debugHandler: () => (ctx: IContextRefresh, next: Next) => Promise<void>
+export const debugHandler: () => (ctx: IContextRefresh, next: Next) => Promise<unknown>
 ```
 
 Pure pass-through — performs no validation, populates nothing and produces no output; it immediately calls `next()`. Since 5.6.0 the four `console.debug` calls it used to emit (current timestamp, the full `ctx.request.header` object, `ctx.request.header?.cookie` and `ctx.cookies.get('refresh_token')`) are gone, so the middleware is now inert. The export and its signature are kept for compatibility with consumers that already wire it in; add your own logging inside it if you need the old cookie/header trace back.
 
-**Returns:** `(ctx, next) => Promise<void>` — always resolves via `next()`; never throws.
+**Returns:** `(ctx, next) => Promise<unknown>` — always resolves with whatever `next()` resolves with; never throws.
 
 **Notes:** `ctx` is accepted but unused. Wiring this middleware in has no observable effect.
 

@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-redundant-optional -- under exactOptionalPropertyTypes `?: T` rejects an explicit `undefined`, so `| undefined` is what lets a caller pass `{ mailer: maybeMailer }` */
 import { IResetPwdMailer, socketLabsResetPwdMailer } from '@lib/access/resetPwdMailer.mjs'
 import { checkEmailLen } from '@lib/checkEmailLen.mjs'
 import { EMAIL_HASH_LEN } from '@lib/Constants.mjs'
@@ -76,7 +77,7 @@ export const createResetPwdMutation = (deps: IResetPwdDeps) => ({
 				// -> wait 10 minutes from the last password reset request
 
 				// if a password request already exists, read the date in seconds.
-				const lastReq = typeof resetPwdVal.resetDateReq !== 'undefined' ? new Date('' + resetPwdVal.resetDateReq) : null
+				const lastReq = typeof resetPwdVal.resetDateReq !== 'undefined' ? new Date(String(resetPwdVal.resetDateReq)) : null
 
 				// request already made previously?
 				//  send a new email with the recovery link only if the last one is at least 10 minutes old
@@ -129,6 +130,7 @@ export const createResetPwdMutation = (deps: IResetPwdDeps) => ({
 		// SocketLabs accepted the message would kill a link already sitting in the user's inbox.
 		const mail = pendingMail as IPendingMail | null
 		if (mail !== null) {
+			// eslint-disable-next-line sonarjs/no-try-promise -- the try is for a synchronous throw: `deps.mailer` is consumer code and can throw before it returns a promise, which `.catch()` never sees
 			try {
 				const mailer = deps.mailer ?? socketLabsResetPwdMailer
 				void mailer.sendEmailReset(uEmail, mail.hash, mail.name).catch((e: unknown) => {

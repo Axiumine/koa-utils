@@ -264,8 +264,6 @@
 			"./lib/access/createVerifyEmailFlow",
 			"./lib/db/log/hitStat",
 			"./lib/db/log/logGlobalError",
-			"./lib/db/log/logGraphql",
-			"./lib/db/log/logThrow",
 			"./lib/db/registerNewUser",
 			"./lib/db/userExist"
 		],
@@ -277,7 +275,8 @@
 			"./graphQL/schema/mutations/refresh",
 			"./koa/middleware/authenticatedAuthorizationHandler/verifySignedRefreshToken",
 			"./koa/middleware/debug",
-			"./lib/access/accessPaths"
+			"./lib/access/accessPaths",
+			"./lib/db/log/logGraphql"
 		]
 	},
 	"pg": {

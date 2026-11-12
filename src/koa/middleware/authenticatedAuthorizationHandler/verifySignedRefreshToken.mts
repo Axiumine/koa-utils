@@ -5,8 +5,6 @@ import { throwRefreshTokenSignatureRequired } from '@throw/throwRefreshTokenSign
 import { throwUnauthorizedError } from '@throw/throwUnauthorizedError.mjs'
 import Keygrip from 'keygrip'
 
-import { TCookieRefreshToken } from './TCookieRefreshToken.mjs'
-
 export function verifySignedRefreshToken(ctx: IContextRefresh, keys: Keygrip): string {
 	// @todo must check the cookie or the header or both, and what to do if one of the two is missing ??
 
@@ -16,22 +14,24 @@ export function verifySignedRefreshToken(ctx: IContextRefresh, keys: Keygrip): s
 		throw throwPreconditionFailedNoAuthCookie()
 	}
 
-	const cookies: TCookieRefreshToken = {}
-	cookieHeader.split(';').forEach((cookie) => {
+	// Only the two cookies this check needs are read, each into its own variable. Copying every pair into one
+	// object under its client-chosen name let the request pick the property written, `constructor` included.
+	let refreshToken: string | undefined
+	let signature: string | undefined
+	for (const cookie of cookieHeader.split(';')) {
 		const [key, value] = cookie.trim().split('=')
-		// @ts-expect-error ignore wrong keys
-		cookies[key] = value
-	})
+		if (key === 'refresh_token') {
+			refreshToken = value
+		} else if (key === 'refresh_token.sig') {
+			signature = value
+		}
+	}
 	/**
 	 * 'refresh_token=27119032-9043-4a9f-bd4c-9d06fd576290; refresh_token.sig=P1gZO6-49xVEMkiMqkOjJ2Cxaf3mQb18GaflDsjibuv4fFWYIOzcW26didnVJ1aridyY40CFzDtufzI6zI8jkQ'
 	 */
-	// Stryker disable next-line OptionalChaining: cookies is a local object literal assigned above and never null, so ?. never short-circuits
-	const refreshToken = cookies?.refresh_token
 	if (!refreshToken) {
 		throw throwRefreshTokenRequired()
 	}
-	// Stryker disable next-line OptionalChaining: cookies is a local object literal assigned above and never null, so ?. never short-circuits
-	const signature = cookies?.['refresh_token.sig']
 	if (!signature) {
 		throw throwRefreshTokenSignatureRequired()
 	}

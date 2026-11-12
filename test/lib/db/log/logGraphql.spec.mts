@@ -5,7 +5,7 @@ import mongoose from 'mongoose'
 import sinon from 'sinon'
 
 describe('logGraphql', () => {
-	it('returns undefined (fire-and-forget constructor, no save)', () => {
+	it('returns undefined (deprecated no-op)', () => {
 		const owner = new Types.ObjectId()
 		const result = logGraphql(owner, 'testQuery', 200, 42)
 		expect(result).to.be.undefined
@@ -21,14 +21,13 @@ describe('logGraphql', () => {
 		expect(() => logGraphql(owner, 'query', 201, 0)).to.not.throw()
 	})
 
-	it('builds one stats document carrying owner, nome, status and msTot', () => {
-		// Doc never saved → ctor Document.$set(obj) = only observable trace
+	it('builds no document', () => {
+		// no-op pin: old impl built `LogStatsGraphql` doc → ctor `Document.$set(obj)`. 0 calls → nothing built
 		const setSpy = sinon.spy(mongoose.Document.prototype, '$set')
 		try {
 			const owner = new Types.ObjectId()
 			logGraphql(owner, 'probeQuery', 418, 77)
-			expect(setSpy.callCount).to.equal(1)
-			expect(setSpy.firstCall.args[0]).to.deep.equal({ owner, nome: 'probeQuery', status: 418, msTot: 77 })
+			expect(setSpy.callCount).to.equal(0)
 		} finally {
 			setSpy.restore()
 		}

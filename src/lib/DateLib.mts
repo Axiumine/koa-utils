@@ -1,6 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- public API: consumers import the class and call `DateLib.getDate()`; replacing it with plain functions is a breaking change
 export const DateLib = class DateLib {
-	constructor() {}
-
 	static getDate(dateNum: Date) {
 		const dateStr = dateNum.toString()
 		const year = parseInt(dateStr.substring(0, 4))

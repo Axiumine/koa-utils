@@ -4,6 +4,6 @@
  * 'true' and 'false' alike — any non-empty value blocks.
  * Use this instead of deleting the token to block user access; set the flag from the control panel.
  */
-export function isSessionBlocked(redData: Record<string, string>): boolean {
+export function isSessionBlocked(redData: Record<string, string> | null | undefined): boolean {
 	return !!(redData?.['disabled'] || redData?.['deleted'])
 }

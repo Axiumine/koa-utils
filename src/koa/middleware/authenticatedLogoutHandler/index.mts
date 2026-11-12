@@ -72,5 +72,5 @@ export const authenticatedLogoutHandler = (keys: Keygrip) => async (ctx: IContex
 			} // else no problem, session could be expired
 		}
 	} // else introspection
-	return next()
+	return next() as Promise<unknown>
 }

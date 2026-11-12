@@ -10,9 +10,11 @@ export function tryCatchRethrow(e: GraphQLError | Error) {
 
 	// else throw here
 	if (e instanceof GraphQLError) {
-		// @ts-expect-error status do not exist
-		const status = e.extensions?.http?.status || 500
-		const desc = (e.extensions?.['description'] as string) || ''
+		// The installed graphql types declare `extensions` as always present. Older majors left it undefined and the
+		// peer range has no floor, so it is read as optional, through the shape this function relies on.
+		const extensions = e.extensions as { http?: { status?: number }; description?: string } | undefined
+		const status = extensions?.http?.status || 500
+		const desc = extensions?.description || ''
 		throw throwGraphQLError(status, e.message, desc)
 	} else {
 		Sentry.captureException(e)

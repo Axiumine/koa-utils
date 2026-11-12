@@ -263,7 +263,7 @@ describe('PostgreSQL', () => {
 			])
 			expect(capture.events).to.have.length(1)
 			expect(capture.events[0]).to.deep.include({
-				message: '[PostgreSQL Client] notification: [object Object]',
+				message: '[PostgreSQL Client] notification: chan1',
 				level: 'warning'
 			})
 			expect(capture.events[0]?.extra).to.deep.include({ channel: 'chan1', payload: 'pay1' })
@@ -275,7 +275,8 @@ describe('PostgreSQL', () => {
 			await PostgreSQLClientConnect()
 			const capture = startSentryCapture()
 			try {
-				pgClient.emit('notice', 'some notice')
+				// pg emit `NoticeMessage` obj, no `toString` → text live in `.message`
+				pgClient.emit('notice', { name: 'notice', length: 0, message: 'some notice' })
 			} finally {
 				await capture.stop()
 			}

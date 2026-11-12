@@ -1,12 +1,10 @@
-import { MongoDBErrType } from '@lib/MongoDB/MongoDBErrType.mjs'
-
 export interface IMongoDBError {
 	errorResponse?: {
-		code: MongoDBErrType
+		code: number
 	}
 	parent?: {
 		errorResponse?: {
-			code: MongoDBErrType
+			code: number
 		}
 	}
 	message: string

@@ -9,7 +9,6 @@ This section documents the small, dependency-free helper classes in `src/lib/`: 
 **Signature:**
 ```ts
 export class ArrayLib {
-	constructor()
 	arrDiff(arr1: string[], arr2: string[]): string[]
 }
 ```
@@ -41,7 +40,6 @@ Sorts the two input arrays by length (ascending), builds a `Set` from the shorte
 **Signature:**
 ```ts
 export const DateLib = class DateLib {
-	constructor()
 	static getDate(dateNum: Date): { year: number; date: Date }
 	static minElapsed(dt: Date): number
 	static timeDiffMin(lastReq: number, now: number): number
@@ -111,7 +109,6 @@ Returns the absolute difference between two epoch-millisecond timestamps, floore
 **Signature:**
 ```ts
 export class NumLib {
-	constructor()
 	static parseFloatFixed(val: string): number
 }
 ```
@@ -142,7 +139,6 @@ Replaces every comma (`,`) in the input with a period (`.`) — since native `pa
 **Signature:**
 ```ts
 export class StringLib {
-	constructor()
 	cleanHtml(str: string): string
 	cleanHtmlUndefined(str: string | undefined): string | undefined
 	randomString(length: number): string

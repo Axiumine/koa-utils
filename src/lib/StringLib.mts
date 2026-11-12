@@ -58,8 +58,6 @@ function stripTags(input: unknown): string {
 
 export class StringLib {
 	// implements IStringLib
-	constructor() {}
-
 	cleanHtml(str: string): string {
 		return stripTags(str)
 	}

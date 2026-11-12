@@ -17,6 +17,7 @@ import * as Sentry from '@private/lib/sentry.mjs'
 import { SocketLabsClient } from '@socketlabs/email'
 
 import { createSocketLabsSender } from './createSocketLabsSender.mjs'
+import type { ISocketLabsClient } from './ISocketLabsClient.mjs'
 import type { ISocketLabsSenderOptions } from './ISocketLabsSenderOptions.mjs'
 
 loadEnv()
@@ -33,8 +34,7 @@ export class SocketLabsLib {
 	private readonly platformName: string
 	private readonly linkBase: string
 	private readonly emailFrom: string
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- @socketlabs/email ships no types (untyped module in src/types/socketlabs-email.d.ts), so the client is untyped
-	private client: any
+	private client: ISocketLabsClient
 	// Only so a send can hand the sender its required options; the sender ignores them because `client` is injected
 	private readonly credentials: Pick<ISocketLabsSenderOptions, 'serverId' | 'apiKey'>
 	private readonly emailHtmlHeader1: string
@@ -45,7 +45,9 @@ export class SocketLabsLib {
 		/* c8 ignore next -- env fallback '0' covered only when SOCKETLABS_SERVER_ID is unset */
 		const serverId = parseInt(process.env['SOCKETLABS_SERVER_ID'] || '0')
 		const apiKey = `${process.env['SOCKETLABS_SERVER_APIKEY']}`
-		this.client = new SocketLabsClient(serverId, apiKey, { requestTimeout: 120, numberOfRetries: 3 })
+		// The import is `any` (src/types/socketlabs-email.d.ts): one assertion gives the constructor the shape used here
+		const Client = SocketLabsClient as new (...args: [number, string, object]) => ISocketLabsClient
+		this.client = new Client(serverId, apiKey, { requestTimeout: 120, numberOfRetries: 3 })
 		this.credentials = { serverId, apiKey }
 		this.platformName = `${process.env['PLATFORM_NAME']}`
 		this.linkBase = `${process.env['APP_DOMAIN']}`
@@ -133,7 +135,8 @@ export class SocketLabsLib {
   }
 */
 	/**
-	 * @fixme handle retry
+	 * A timed-out send is reported as failed and is not retried by this class. The client is built with
+	 * `numberOfRetries: 3`; whether the SDK retries a timeout has not been verified.
 	 *
 statusCode: ECONNABORTED
 Error in sending the email

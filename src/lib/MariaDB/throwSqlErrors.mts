@@ -4,8 +4,11 @@ import { throwInternalError } from '@throw/throwInternalError.mjs'
 
 import { MariaDBErrType } from './MariaDBErrType.mjs'
 
+// The driver reports `code` as an open string: widening the catalogue entry keeps this a string-to-string comparison.
+const DATA_TOO_LONG: string = MariaDBErrType.ER_DATA_TOO_LONG
+
 export function throwSqlErrors(e: IMariaDbErr) {
-	if (e.parent && e.parent.sqlMessage && e.parent.code === MariaDBErrType.ER_DATA_TOO_LONG) {
+	if (e.parent && e.parent.sqlMessage && e.parent.code === DATA_TOO_LONG) {
 		const err = e.parent.sqlMessage.replace(' column', '')
 
 		// Find the index of the first occurrence of the single quote
