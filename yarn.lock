@@ -494,7 +494,7 @@
 
 "@humanfs/node@^0.16.8":
   version "0.16.8"
-  resolved "https://registry.yarnpkg.com/@humanfs/node/-/node-0.16.8.tgz#8f800cccc13f4f8cd3116e2d9c0a94939da3e3ed"
+  resolved "https://registry.npmjs.org/@humanfs/node/-/node-0.16.8.tgz#8f800cccc13f4f8cd3116e2d9c0a94939da3e3ed"
   integrity sha512-gE1eQNZ3R++kTzFUpdGlpmy8kDZD/MLyHqDwqjkVQI0JMdI1D51sy1H958PNXYkM2rAac7e5/CnIKZrHtPh3BQ==
   dependencies:
     "@humanfs/core" "^0.19.2"
@@ -1052,102 +1052,102 @@
 
 "@oxc-parser/binding-android-arm-eabi@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-android-arm-eabi/-/binding-android-arm-eabi-0.156.0.tgz#16c69d14b48d8ad290e5113e609796b373a567e3"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-android-arm-eabi/-/binding-android-arm-eabi-0.156.0.tgz#16c69d14b48d8ad290e5113e609796b373a567e3"
   integrity sha512-RMq7DKNzEp1T51QKNLTn0NryNEt2IYfh7mZBlIdi2Ju52ltOEDMeIXv0XBpA6dL7j7ChjlcovtGcc1Jv4qMipg==
 
 "@oxc-parser/binding-android-arm64@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-android-arm64/-/binding-android-arm64-0.156.0.tgz#fdd31b010d635b4bc106fedfba51dce4d02b71d1"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-android-arm64/-/binding-android-arm64-0.156.0.tgz#fdd31b010d635b4bc106fedfba51dce4d02b71d1"
   integrity sha512-mwkWKhOBpmh8fWc3m4MiLsmEAtx0YuHmvyo9ff557cnb3QZ2kt2eauSz75wCGIpiZG3gUsJ4WwzEjm4R4/BHig==
 
 "@oxc-parser/binding-darwin-arm64@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-darwin-arm64/-/binding-darwin-arm64-0.156.0.tgz#7d3130fa1d4e795c3b74cf8579b6f77d46bd2a3d"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-darwin-arm64/-/binding-darwin-arm64-0.156.0.tgz#7d3130fa1d4e795c3b74cf8579b6f77d46bd2a3d"
   integrity sha512-6pGR5fUszM9M4eBBapqpGjCRJolFwuCldx8bRQjqXyM09cQysBTWVF2Ttg4UNJVxYSaw5RRINbveCOOCrsuGvA==
 
 "@oxc-parser/binding-darwin-x64@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-darwin-x64/-/binding-darwin-x64-0.156.0.tgz#2e0a7687f94e6d38d5e4754c5a261d1406fad52b"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-darwin-x64/-/binding-darwin-x64-0.156.0.tgz#2e0a7687f94e6d38d5e4754c5a261d1406fad52b"
   integrity sha512-M9QghL7uCAqMKjYJv1rDGblfEvkeQu3QzTPd7Uwo16gG3uO7m9ikVQ9OL8FZTnKzU4vbCEby6kTlEkqN+JeEMA==
 
 "@oxc-parser/binding-freebsd-x64@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-freebsd-x64/-/binding-freebsd-x64-0.156.0.tgz#02c085b4483c4022046e0008e3fdbcd2b2d355e6"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-freebsd-x64/-/binding-freebsd-x64-0.156.0.tgz#02c085b4483c4022046e0008e3fdbcd2b2d355e6"
   integrity sha512-lX0ANxSwAOrpOT7NHB+YsrBqDJ8sOVon5m7GS9eQtkuUeNzQMMGpFsJLsStawTbrdwOF5KDVxgPWcKmt/DIZUQ==
 
 "@oxc-parser/binding-linux-arm-gnueabihf@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-0.156.0.tgz#ebe594e197c8825c82176979a4d2fb06a04d85cc"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-linux-arm-gnueabihf/-/binding-linux-arm-gnueabihf-0.156.0.tgz#ebe594e197c8825c82176979a4d2fb06a04d85cc"
   integrity sha512-iPgYpasRcqk7X3TGncQg7B+6RotDvG8weug0UrgF+FXLf4KmaNDyT91BKONlqbHcNgK9Nryp7AEZGuQn32fP6g==
 
 "@oxc-parser/binding-linux-arm-musleabihf@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-linux-arm-musleabihf/-/binding-linux-arm-musleabihf-0.156.0.tgz#754bd631cf24058e60fbfb33e86b6f8010d00d55"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-linux-arm-musleabihf/-/binding-linux-arm-musleabihf-0.156.0.tgz#754bd631cf24058e60fbfb33e86b6f8010d00d55"
   integrity sha512-sJqJDEZevtkEfoxrXfaRTkSt6Itckr549cIfBbs11UgXv8bFyqQsXTQa6iKm8mTiWYmCDDFJf7TLnqxcbqzPOw==
 
 "@oxc-parser/binding-linux-arm64-gnu@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-0.156.0.tgz#08dd20982cbd09b786b9a155ca507d0c353e5976"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-linux-arm64-gnu/-/binding-linux-arm64-gnu-0.156.0.tgz#08dd20982cbd09b786b9a155ca507d0c353e5976"
   integrity sha512-mrQs5OdRiqKskRuWEORPKT6YGIFhrpVvCvL9hqVaIh60EzgR4qjPvSsV6hWZcOfyWHBTbdEvfnDJPh/eQlxPRQ==
 
 "@oxc-parser/binding-linux-arm64-musl@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-linux-arm64-musl/-/binding-linux-arm64-musl-0.156.0.tgz#67304813ca392d7512f3fe90263882a04e33623a"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-linux-arm64-musl/-/binding-linux-arm64-musl-0.156.0.tgz#67304813ca392d7512f3fe90263882a04e33623a"
   integrity sha512-ZtPqgCU3+wpU7dvX7YbaEiw71r0UdguzuPhcx4PIEZSs4XFqc6F5wXCtNdb6M7m3DMErlxrwosryoXrzYOY/Gg==
 
 "@oxc-parser/binding-linux-ppc64-gnu@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-linux-ppc64-gnu/-/binding-linux-ppc64-gnu-0.156.0.tgz#a52324e1bed6ba444cfbb6e14aa7c19044b83483"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-linux-ppc64-gnu/-/binding-linux-ppc64-gnu-0.156.0.tgz#a52324e1bed6ba444cfbb6e14aa7c19044b83483"
   integrity sha512-ZuGRT/adReZZJn3PYNneb1HQIOH0iIZ2fzFgC1/XJYpMQ5KsRKmWIEzy3wEFsUwIOTomCmnmTZ/zbFYo9z9VeA==
 
 "@oxc-parser/binding-linux-riscv64-gnu@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-linux-riscv64-gnu/-/binding-linux-riscv64-gnu-0.156.0.tgz#76664d5caa16df482ec4f2521b2a90731ab98055"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-linux-riscv64-gnu/-/binding-linux-riscv64-gnu-0.156.0.tgz#76664d5caa16df482ec4f2521b2a90731ab98055"
   integrity sha512-T+iWCeAOoEAJpHqr6/pogHIv98g9p8Ctccysm/h962hG4ayX5OL2c0Ih4oYe+JuFndLXy/OASvwMlTPe76sIiw==
 
 "@oxc-parser/binding-linux-riscv64-musl@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-linux-riscv64-musl/-/binding-linux-riscv64-musl-0.156.0.tgz#3fb127d6742f045c336a7cf6f1044c7f19104b5a"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-linux-riscv64-musl/-/binding-linux-riscv64-musl-0.156.0.tgz#3fb127d6742f045c336a7cf6f1044c7f19104b5a"
   integrity sha512-wL55bI2kVKfwdxScbw60zVgzAqbQbmE5zpSPWPZoZ9RSG8egm6ITE/UWE5mDWlglxz1QElJCcUbpaJCtHD11BQ==
 
 "@oxc-parser/binding-linux-s390x-gnu@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-linux-s390x-gnu/-/binding-linux-s390x-gnu-0.156.0.tgz#5599543de8e232c2c6e39b1eb1ab4459392e7214"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-linux-s390x-gnu/-/binding-linux-s390x-gnu-0.156.0.tgz#5599543de8e232c2c6e39b1eb1ab4459392e7214"
   integrity sha512-+D+JilhLqwrDLODYEl4qtovVwgxKALb23FkAWBiPvgmUWYgjCV83KKuwwxZJM8GCdKlNA1vt3iKtow8HUFjXtg==
 
 "@oxc-parser/binding-linux-x64-gnu@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-linux-x64-gnu/-/binding-linux-x64-gnu-0.156.0.tgz#8125af6b776b64e968fd2e3fe5a0d1729cba87d8"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-linux-x64-gnu/-/binding-linux-x64-gnu-0.156.0.tgz#8125af6b776b64e968fd2e3fe5a0d1729cba87d8"
   integrity sha512-jRfwpN4xKrsEpC+SgrUPY5k0mINYZn7aLrt22I3uQFoumiSgHgsLYgS9f84ntbkvSydH4HiwGuDa2b1XCHaJzw==
 
 "@oxc-parser/binding-linux-x64-musl@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-linux-x64-musl/-/binding-linux-x64-musl-0.156.0.tgz#72b1c9c7d9268caab3c49b7a3308264fc4462660"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-linux-x64-musl/-/binding-linux-x64-musl-0.156.0.tgz#72b1c9c7d9268caab3c49b7a3308264fc4462660"
   integrity sha512-P/ajnypgLmxmuRRyCIZcp2o4lOwmCaXYH5+eqDTcCW+MCTI+csKSw/Zc6GB67jZoVa4ey3q1jXEt7S60adBEMQ==
 
 "@oxc-parser/binding-openharmony-arm64@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-openharmony-arm64/-/binding-openharmony-arm64-0.156.0.tgz#8e3ebeed0775841cb4f5572a91f52a586e592342"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-openharmony-arm64/-/binding-openharmony-arm64-0.156.0.tgz#8e3ebeed0775841cb4f5572a91f52a586e592342"
   integrity sha512-WSN6rQZZc9KqgZ4lMfjVDvqKhVOCjey/YEZIPisGXmwBqwgWOzru207dyiH50LHcf1n9LO2oceGk/id6RL9v0g==
 
 "@oxc-parser/binding-win32-arm64-msvc@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-0.156.0.tgz#0ec97c146c762e3f81bb10d53fea4586c891f144"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-win32-arm64-msvc/-/binding-win32-arm64-msvc-0.156.0.tgz#0ec97c146c762e3f81bb10d53fea4586c891f144"
   integrity sha512-l21Tz6tjraGBC3JefVeJZ9pojD0fCiB62PydAv+i9nrqJX7z/pDmyDNYLamDr/PRcQ4UQbFwkSnz7NKBB9UMLw==
 
 "@oxc-parser/binding-win32-ia32-msvc@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-win32-ia32-msvc/-/binding-win32-ia32-msvc-0.156.0.tgz#3476a56ff18cf46594eb1d7384b47cca152f3dff"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-win32-ia32-msvc/-/binding-win32-ia32-msvc-0.156.0.tgz#3476a56ff18cf46594eb1d7384b47cca152f3dff"
   integrity sha512-CUq0ZFl/RODqPiIgfNNSamkpTj5x8AjBTkR/y1DNVIQiTGnmWqjHcn3o08ZW3q/LgkI4g9G9g6UirmmQFvuOZw==
 
 "@oxc-parser/binding-win32-x64-msvc@0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-parser/binding-win32-x64-msvc/-/binding-win32-x64-msvc-0.156.0.tgz#2203888668f128a66f4c7234a3e21b8ed2de2f9f"
+  resolved "https://registry.npmjs.org/@oxc-parser/binding-win32-x64-msvc/-/binding-win32-x64-msvc-0.156.0.tgz#2203888668f128a66f4c7234a3e21b8ed2de2f9f"
   integrity sha512-dcpx5Y1x2v/cs7U/q3SZMvmxfyXjVvqC86jMuw2ZZUbHDd7W2cW7uSMQfg3GLVaE68Su3H9xd/Pc4v6QNyeSRg==
 
 "@oxc-project/types@^0.156.0":
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/@oxc-project/types/-/types-0.156.0.tgz#00e35b1ead490d81b4c7fe1dbfe35fc55e89c5e6"
+  resolved "https://registry.npmjs.org/@oxc-project/types/-/types-0.156.0.tgz#00e35b1ead490d81b4c7fe1dbfe35fc55e89c5e6"
   integrity sha512-1Duyg48TdJNdyhEB8Xn1L36bT9Pv6GUtlKjHxOys8xkaF/rQq3XJE+bAurSK/AgIz5mGFsb77cn9Pb20+WCScw==
 
 "@oxc-resolver/binding-android-arm-eabi@11.24.2":
@@ -1464,7 +1464,7 @@
 
 "@tokenizer/inflate@^0.6.0":
   version "0.6.0"
-  resolved "https://registry.yarnpkg.com/@tokenizer/inflate/-/inflate-0.6.0.tgz#e249321793cb6c4e5fd58b8fc79cb23465f3d0c5"
+  resolved "https://registry.npmjs.org/@tokenizer/inflate/-/inflate-0.6.0.tgz#e249321793cb6c4e5fd58b8fc79cb23465f3d0c5"
   integrity sha512-+0RDxhBkyT9xMnGdJAwmats9yxRLR8ypJrQgrnLqOu4Gv/aHlnxYgdGVy2QTwvBl6IF/w2Hr+ZNirH+iMUbVZA==
   dependencies:
     debug "^4.4.3"
@@ -2718,7 +2718,7 @@ eslint-visitor-keys@^5.0.0, eslint-visitor-keys@^5.0.1:
 
 eslint@^10.14.0:
   version "10.14.0"
-  resolved "https://registry.yarnpkg.com/eslint/-/eslint-10.14.0.tgz#b7574df08d11d9eaa04222f09606674a0ea51db9"
+  resolved "https://registry.npmjs.org/eslint/-/eslint-10.14.0.tgz#b7574df08d11d9eaa04222f09606674a0ea51db9"
   integrity sha512-T0pNsxkb9IKmtQjhpK3d7nWOpFv+YHuMbTJnSVMoQblF0onvXfErrtp4V1jHtsQPan7dKaGVD0q1WCXnzMF31A==
   dependencies:
     "@eslint-community/eslint-utils" "^4.8.0"
@@ -2898,7 +2898,7 @@ figures@^6.1.0:
 
 file-type@^22.3.0:
   version "22.3.0"
-  resolved "https://registry.yarnpkg.com/file-type/-/file-type-22.3.0.tgz#cb5ad3c202d48e0973f4f5e3c60b180045321f52"
+  resolved "https://registry.npmjs.org/file-type/-/file-type-22.3.0.tgz#cb5ad3c202d48e0973f4f5e3c60b180045321f52"
   integrity sha512-PrPedgnnWl5bWz3JHgar0QSzRvzeyFh7dZ9JpYOgcPZu4KALS9zw4MMa6qXRYyjeBsAlpaWB2boLuG991+0HIQ==
   dependencies:
     "@tokenizer/inflate" "^0.6.0"
@@ -3150,7 +3150,7 @@ graceful-fs@^4.1.11, graceful-fs@^4.1.6, graceful-fs@^4.2.0, graceful-fs@^4.2.4:
 
 graphql@^16.15.0:
   version "16.15.0"
-  resolved "https://registry.yarnpkg.com/graphql/-/graphql-16.15.0.tgz#9e87af2e3adb6808cf3bde1c4f0bbfa675b4bac1"
+  resolved "https://registry.npmjs.org/graphql/-/graphql-16.15.0.tgz#9e87af2e3adb6808cf3bde1c4f0bbfa675b4bac1"
   integrity sha512-32kz9FecohDiC/tgcViwnRXM7HFBVTPiW7pHO+DikKOI5KjhU/jNULOReXsrFqt2WAYbE9xFXsTffJw6iTO8qw==
 
 has-flag@^4.0.0:
@@ -3556,7 +3556,7 @@ klaw-sync@^6.0.0:
 
 knip@^6.44.2:
   version "6.44.2"
-  resolved "https://registry.yarnpkg.com/knip/-/knip-6.44.2.tgz#3d4e9ebf7c729e155244f5a4155000d5c98a121d"
+  resolved "https://registry.npmjs.org/knip/-/knip-6.44.2.tgz#3d4e9ebf7c729e155244f5a4155000d5c98a121d"
   integrity sha512-6URO7pnqtOnyvSsXfW6+8C9j1lfcicxUCysXO0RgMtHTZ96HqCXh29op8iabeQW5JeIc8dJWwzSdJVWDokeScQ==
   dependencies:
     formatly "^0.11.4"
@@ -3579,7 +3579,7 @@ koa-compose@^4.1.0:
 
 koa@^3.3.0:
   version "3.3.0"
-  resolved "https://registry.yarnpkg.com/koa/-/koa-3.3.0.tgz#1ea6b8000a93afef30afefaa1401f821fc85e02a"
+  resolved "https://registry.npmjs.org/koa/-/koa-3.3.0.tgz#1ea6b8000a93afef30afefaa1401f821fc85e02a"
   integrity sha512-NdsWJYxVzUuYt718DtEQRhUXqqsAPA4VlaUGrlidjh/T2TP/4OQXqQg4ouUHfHD9f+tgmwLZWPm+JQLgqM9YbA==
   dependencies:
     accepts "^1.3.8"
@@ -3664,7 +3664,7 @@ make-error@^1.1.1:
 
 mariadb@^3.5.5:
   version "3.5.5"
-  resolved "https://registry.yarnpkg.com/mariadb/-/mariadb-3.5.5.tgz#8eb1c9971419c2b8a53090bc26d560c509e6b551"
+  resolved "https://registry.npmjs.org/mariadb/-/mariadb-3.5.5.tgz#8eb1c9971419c2b8a53090bc26d560c509e6b551"
   integrity sha512-xvR622+h/ANbFvbi5SCkGnJWAFG2pGCUdSyISXXU3ObJ+P2X8KqdF8goCXquCD/lKnmqDeWfgTt1YY7dDI5i2Q==
   dependencies:
     "@types/geojson" "^7946.0.16"
@@ -3827,7 +3827,7 @@ mongodb@~7.5.0:
 
 mongodb@~7.8:
   version "7.8.0"
-  resolved "https://registry.yarnpkg.com/mongodb/-/mongodb-7.8.0.tgz#d9f7a9d40caecbdaef9a34ed6806c39c4571615a"
+  resolved "https://registry.npmjs.org/mongodb/-/mongodb-7.8.0.tgz#d9f7a9d40caecbdaef9a34ed6806c39c4571615a"
   integrity sha512-p2NKagbQ41+daACG/ZSvhTzeAo+DoEyWE9Cmpf/SyP3pTC43+X0mwKE/44PpKtCxp5wOxnXz+t2pXEZRSkt9Yg==
   dependencies:
     "@mongodb-js/saslprep" "^1.5.0"
@@ -3836,7 +3836,7 @@ mongodb@~7.8:
 
 mongoose@^9.12.0:
   version "9.12.0"
-  resolved "https://registry.yarnpkg.com/mongoose/-/mongoose-9.12.0.tgz#4cb1bafb245a2ce4ebd1a871ca1ff0a5e4c2d2c1"
+  resolved "https://registry.npmjs.org/mongoose/-/mongoose-9.12.0.tgz#4cb1bafb245a2ce4ebd1a871ca1ff0a5e4c2d2c1"
   integrity sha512-nM8yl6hPcXuT+LbJYV7aFk1PmBF+0xR159pHHlaDzrovT89yQ5k+ty38Vcnd5elLYixndveBFtHJaWS9b80cKg==
   dependencies:
     "@standard-schema/spec" "^1.1.0"
@@ -3975,7 +3975,7 @@ optionator@^0.9.3:
 
 oxc-parser@^0.156.0:
   version "0.156.0"
-  resolved "https://registry.yarnpkg.com/oxc-parser/-/oxc-parser-0.156.0.tgz#8ec9ff7b5bf894eeb8ef8b9a2de9329b2dd1aa95"
+  resolved "https://registry.npmjs.org/oxc-parser/-/oxc-parser-0.156.0.tgz#8ec9ff7b5bf894eeb8ef8b9a2de9329b2dd1aa95"
   integrity sha512-7JhjgOfZjrIFJH5TlHrpRua864Si5GvwrPr5+eIRCY2sszhKXo6pyhP0HQKOGTtfO4UowwZ72XTGba0+lZphOQ==
   dependencies:
     "@oxc-project/types" "^0.156.0"
@@ -4560,7 +4560,7 @@ side-channel@^1.1.1:
 
 sift@17.1.4:
   version "17.1.4"
-  resolved "https://registry.yarnpkg.com/sift/-/sift-17.1.4.tgz#636cfbc06abb549ebf0f51459071a0afb5de7630"
+  resolved "https://registry.npmjs.org/sift/-/sift-17.1.4.tgz#636cfbc06abb549ebf0f51459071a0afb5de7630"
   integrity sha512-/OIVvj9Ts1mFwTYzW09YODMPeIOnDoigMOvKSIN44OmaCyhuCH/05UPF45XW7Ax0snmzDzCzdlSYqvqsn8+sIg==
 
 signal-exit@^4.0.1, signal-exit@^4.1.0:
@@ -4686,7 +4686,7 @@ strip-json-comments@^3.1.1:
 
 strtok3@^10.6.2, strtok3@^10.6.3:
   version "10.7.0"
-  resolved "https://registry.yarnpkg.com/strtok3/-/strtok3-10.7.0.tgz#ac787dce30c69b5ff972f36b704eeb561b1c22e4"
+  resolved "https://registry.npmjs.org/strtok3/-/strtok3-10.7.0.tgz#ac787dce30c69b5ff972f36b704eeb561b1c22e4"
   integrity sha512-iAqrCpp7UXD2FZiHWhLXqdJ6CmNeVzRkkHAyyhhKMVtbVm2KtPX3D/bJNonvtcyLTHS4rwqP2pz9fsjK1K4z0Q==
   dependencies:
     "@tokenizer/token" "^0.3.0"
@@ -4871,7 +4871,7 @@ type-check@^0.4.0, type-check@~0.4.0:
 
 type-coverage-core@^2.31.2:
   version "2.31.2"
-  resolved "https://registry.yarnpkg.com/type-coverage-core/-/type-coverage-core-2.31.2.tgz#d3b8bc349ec4c54abaddc763f9ffbbcccd510154"
+  resolved "https://registry.npmjs.org/type-coverage-core/-/type-coverage-core-2.31.2.tgz#d3b8bc349ec4c54abaddc763f9ffbbcccd510154"
   integrity sha512-g6Pw+96CkXiW1H3iffNLDvCQxQEGpOqLJPEETHRPW3Gf377C10S2gxkS0U39xYosGoxcUOTGS1M5UfRbaPEvhg==
   dependencies:
     minimatch "6 || 7 || 8 || 9 || 10"
@@ -4881,7 +4881,7 @@ type-coverage-core@^2.31.2:
 
 type-coverage@^2.31.2:
   version "2.31.2"
-  resolved "https://registry.yarnpkg.com/type-coverage/-/type-coverage-2.31.2.tgz#8091d2f1d37034f6219643c0a96973bc35d9ae46"
+  resolved "https://registry.npmjs.org/type-coverage/-/type-coverage-2.31.2.tgz#8091d2f1d37034f6219643c0a96973bc35d9ae46"
   integrity sha512-eroIGjjfPJacik99YiFL/yXYRfiLKpymY7Pjrdm1cVA1H11XUPeDDfaf2GZgU4uS/o3RVSaA+xAwLDFqocsdQw==
   dependencies:
     chalk "4.1.2"
