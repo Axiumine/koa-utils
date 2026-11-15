@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+Maintainer tooling only. Nothing under `dist/` changes and the public API, `exports` and `peerDependencies` are untouched, so no consumer action is needed.
+
+### Removed
+
+- GitNexus code-intelligence tooling is gone from the repository: the `yarn reindex` script, `.gitnexusrc`, the generated `AGENTS.md`, the six `gitnexus-*` skills under `.claude/skills/` and `.agents/skills/`, the `.gitnexus/` entry in `.gitignore` and the `.gitnexus` entry in the Stryker `ignorePatterns`. The agent rules that only existed for it are removed too: the generated block and the "reindex after every commit" rule in the root agent rule file, and the matching line in `REPO.md`. Older entries below that mention GitNexus are history and stay as written.
+
 ## 9.1.0 — 2026-11-11
 
 Lint-debt release: every finding that the ESLint suppression baseline used to hide is fixed, and the baseline is now empty. Most changes touch no runtime behaviour. The ones that do, and the type-level changes a TypeScript consumer can see, are listed below.

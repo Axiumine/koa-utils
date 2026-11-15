@@ -18,7 +18,7 @@
 	"coverageAnalysis": "perTest",
 	"incremental": true,
 	"incrementalFile": "reports/stryker-incremental.json",
-	"ignorePatterns": [".claude", ".agents", ".gitnexus", ".qodana", "reports", "coverage", "dist", "dist-test"],
+	"ignorePatterns": [".claude", ".agents", ".qodana", "reports", "coverage", "dist", "dist-test"],
 	"reporters": ["clear-text", "html", "json"],
 	"htmlReporter": { "fileName": "reports/mutation/index.html" },
 	"jsonReporter": { "fileName": "reports/mutation/mutation.json" },
