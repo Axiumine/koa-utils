@@ -38,8 +38,6 @@ Before you create or edit **any** `CLAUDE.md` in this repo, root or nested:
 - **New or modified `.mts` in `src/` → tests AND doc, same change.** Uncovered line or stale doc = incomplete, not "later".
 - Cover every branch, incl unreachable-feeling: each `if`/`else`, every `??` / `?.` / `||` fallback, every `catch`, every early return. `per-file: true` → 1 uncovered ternary arm fail whole run.
 - Done = `yarn test:coverage` read 100% on 4 metrics. `yarn test` skip coverage check → passing there not enough.
-- **Reindex after every commit + merge:** `yarn reindex`, last step before report done. Stale index → `impact` / `detect_changes` / `query` answer pre-change graph → understate blast radius. `.gitnexus/` gitignored, reindex never dirty tree.
-- `yarn reindex` carry `--no-stats`, `.gitnexusrc` set `"noStats": true` → bare `gitnexus analyze` match. Counts = only volatile part of generated block. No flag → every reindex rewrite numbers nothing read → each release drag `chore: refresh counts` commit. Block carry no counts by design. Live numbers → `mcp__gitnexus__*` tools or `gitnexus status`, never pasted back by hand. Rule live here not in block: `analyze` drop any hand-added line between markers.
 
 ## Security invariants — violable from anywhere, never compressed, never broken
 
@@ -61,7 +59,7 @@ Full prose by Rule 0 §4. Both of these shipped as real defects.
 
 ## Docs — sync same commit
 
-Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify them → drift silent → consumers read stale version on npm. Doc = part of code change, never follow-up.
+Docs hand-written. Nothing verify them → drift silent → consumers read stale version on npm. Doc = part of code change, never follow-up.
 
 | You changed | Update |
 |---|---|
@@ -90,7 +88,6 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 | New `docs/code/*.md` page, or `version` in `package.json` | `docs/code/README.md` (index table + "Current version") |
 | Repo-wide agent rule: scripts, thresholds, aliases, gates, publish policy | `CLAUDE.md` (this file) |
 | Agent rule scoped to 1 area: local convention or pitfall | nested `CLAUDE.md` in that dir, not this file |
-| Nothing by hand — `yarn reindex` regen | `AGENTS.md`, `<!-- gitnexus:start -->` block here |
 
 **Doc change, not just code change:** rename/remove exported symbol, or change signature / param names / param types / return type; change HTTP status, error `title` or `description` in a `throwXxx` (`docs/code/graphql-errors.md` quote verbatim); add/remove Mongoose or GraphQL field; change Redis key format, cookie name, env var name, TTL; change observable behaviour a doc describe in prose. New export → `docs/code/README.md` + area doc + `REPO.md` + `package.json` `exports` move together.
 
@@ -99,8 +96,6 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 ## Never
 
 - No `src/` change without mapped doc, same commit. No "docs to follow" TODO. Affect no documented claim → say so in summary, not silence.
-- No hand-edit of `AGENTS.md`, nor anything between `<!-- gitnexus:start -->` / `<!-- gitnexus:end -->` — `analyze` overwrite both.
-- No dropping `--no-stats` from `yarn reindex` or `"noStats": true` from `.gitnexusrc` to "show graph size".
 - No editing `dist/`, `node_modules/`, `yarn.lock`, `skills-lock.json`, `.npmrc`, `.yarnrc` unasked. `.npmrc` hold publish token.
 - No committing `yarn.lock` with `resolved` host ≠ `registry.npmjs.org`. No hand-fixing a mirror-flavoured copy — `REGISTRY_MIRROR=<mirror> yarn registry:canonical` handle it. No deleting or weakening the `.githooks/pre-commit` lockfile host check to silence it.
 - No git clean/smudge filter on `yarn.lock`, no default mirror host in any script, no rewrite wired into `prepare` / `hooks:install`. The old `yarnlock-registry` filter hardcoded `yarnproxy.gio.lan` and `prepare` installed it on every clone → contributor `yarn.lock` smudged to a host they cannot reach. Mirror = opt-in via `REGISTRY_MIRROR` only.
@@ -152,7 +147,6 @@ Docs hand-written (1 exception: `<!-- gitnexus:start -->` block). Nothing verify
 - `yarn test:coverage` — same via c8, **fail below 100%** on any file. This command decide change finished. Feed Qodana coverage gate too.
 - `yarn hooks:install` — set `core.hooksPath .githooks`. Idempotent, no-op outside git repo, run from `prepare`. Touch no `yarn.lock`.
 - `yarn registry:mirror` / `registry:canonical` / `registry:check` — `node scripts/registry-rewrite.mjs mirror|canonical|check`. Need `REGISTRY_MIRROR=http://host:4873` except `check`. See *npm mirror* in `.githooks/CLAUDE.md`.
-- `yarn reindex` — `node .gitnexus/run.cjs analyze --no-stats`.
 - `yarn qodana` / `yarn qodana:cli` — `test:coverage` → Qodana scan → open report.
 - `yarn upload` — `npm publish --registry=https://registry.npmjs.org/`. Flag load-bearing, see *npm mirror* in `.githooks/CLAUDE.md`. Owner ask only. Manual fallback path: no provenance, no release assets. Per version ONE path: `yarn upload` XOR `release.yml`. 2nd fail, version already on npm.
 
@@ -211,49 +205,3 @@ Ordered. Do not reorder.
 - **Banned words anywhere in message: `Co-Authored-By`, `Claude`, `anthropic`, `Sonnet`, `Opus`** (case-insensitive). Hook reject. Never append AI attribution trailer in this repo, whatever default elsewhere.
 - Match is substring, case-insensitive → a commit message can never name `CLAUDE.md`, `.claude/settings.json`, `scripts/caveman-claudemd-gate.sh`, nor a branch whose name carry those. Say "agent rule file" / "project settings file" / "gate script" instead, and rename the branch before merging — `Merge branch '...'` carry the branch name into the subject. Never widen hook to fit. Rule live here: a blocked message is a rewrite, not a hook edit.
 - Merge + revert commits skip format check, still hit banned-word check.
-
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
-
-This project is indexed by GitNexus as **koa-utils**.
-
-> Index stale? Run `node .gitnexus/run.cjs analyze --index-only` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? Bootstrap with `npx`, `bunx`, or `pnpm dlx` — e.g. `bunx gitnexus@latest analyze` (npm 11 npx crash; #1939).
-
-## Always Do
-
-- **MUST run impact before editing.** Use `impact({target: "symbolName", direction: "upstream"})` or `node .gitnexus/run.cjs impact "symbolName" --direction upstream --repo .`; report callers, processes, and risk. Never substitute grep for graph analysis. For unified PDG impact, add `mode: "pdg"` with optional `line: <N>` — it returns statement-level `affectedStatements` over CDG + REACHING_DEF and inter-procedural symbols in `interproceduralByDepth`/`byDepth`; no-layer/degraded PDG results are UNKNOWN-risk notes (`--pdg` layer). CLI equivalent: `node .gitnexus/run.cjs impact "symbolName" --direction upstream --mode pdg --line <N> --repo .`.
-- **MUST analyze graph changes before committing.** Use `detect_changes({scope: "all"})` (MCP) or `node .gitnexus/run.cjs detect-changes --scope all --repo .` (CLI fallback). `partial: true` or `truncated: true` is not a clean check — a zero means unseen, not unaffected; re-run it. For regression review: `detect_changes({scope: "compare", base_ref: "main"})` or `node .gitnexus/run.cjs detect-changes --scope compare --base-ref "main" --repo .`.
-- MUST warn on HIGH/CRITICAL `risk` pre-edit; never use `riskSharedAxes` to waive a HIGH/CRITICAL `risk` warning. Compare File/symbol: MCP File omits axes; Graph-RAG expands File.
-- **MUST treat `risk: UNKNOWN` as unresolved, not as low.** An empty caller set is not evidence the symbol is unused — it can also mean the callers are not resolvable by the index (plain-object property access, dynamic dispatch, cross-language calls). `impact` pairs `UNKNOWN` with a `riskNote` saying so. Confirm with a text search before treating the symbol as safe to change or delete; do not proceed on the strength of a zero.
-- **MUST use `query({search_query: "concept"})` for concepts/flows, `context({name: "symbolName"})` for a named symbol, or `impact` for blast radius, on read-only callers, dependencies, imports, or execution flow.** Graph first; text search only for empty/`UNKNOWN`/literals.
-- For security review, `explain({target: "fileOrSymbol"})` lists taint findings (source→sink flows; needs `analyze --pdg`).
-- For control/data dependence, `pdg_query({mode: "controls", target: "fileOrSymbol"})` answers "under what condition does X run?" (CDG, incl. guard clauses) and `pdg_query({mode: "flows", target, variable})` traces "where does variable Y flow?" (REACHING_DEF). `--pdg` layer.
-
-## Never Do
-
-- NEVER edit a function, class, or method before MCP/CLI impact analysis.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis, and never read `UNKNOWN` as an all-clear — it means the walk could not answer, which is the one verdict that requires confirming by other means.
-- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
-- NEVER commit before MCP/CLI graph change analysis.
-
-## Resources
-
-| Resource | Use for |
-| --- | --- |
-| `gitnexus://repo/koa-utils/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/koa-utils/clusters` | All functional areas |
-| `gitnexus://repo/koa-utils/processes` | All execution flows |
-| `gitnexus://repo/koa-utils/process/{name}` | Step-by-step execution trace |
-
-## CLI
-
-| Task | Read this skill file |
-| --- | --- |
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus-cli/SKILL.md` |
-
-<!-- gitnexus:end -->
