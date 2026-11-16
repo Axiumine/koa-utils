@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Maintainer tooling only. Nothing under `dist/` changes and the public API, `exports` and `peerDependencies` are untouched, so no consumer action is needed.
 
+### Changed
+
+- Node 26.13.1, a security release (HTTP/2 headers are released when a stream is removed), is the toolchain Node. `.nvmrc` asked for Node 24 and now asks for `26.13.1`. Every CI job outside the two test jobs moves from a floating Node 24 to the exact pin `26.13.1`: `Dependency audit`, `Leak check`, `qodana.yml`, `mutation.yml` and both `release.yml` jobs. Node 26 ships no Corepack, so the pool jobs take Yarn from a Node 24.14.0 first and check the resulting Node version, as the Node 26 test job already did. `engines` stays `^24.14.0 || ^26.13.0`, and `Test coverage` (Node 24.14.0) and `Test coverage (Node 26.13.0)` keep testing both floors.
+
 ### Removed
 
 - GitNexus code-intelligence tooling is gone from the repository: the `yarn reindex` script, `.gitnexusrc`, the generated `AGENTS.md`, the six `gitnexus-*` skills under `.claude/skills/` and `.agents/skills/`, the `.gitnexus/` entry in `.gitignore` and the `.gitnexus` entry in the Stryker `ignorePatterns`. The agent rules that only existed for it are removed too: the generated block and the "reindex after every commit" rule in the root agent rule file, and the matching line in `REPO.md`. Older entries below that mention GitNexus are history and stay as written.

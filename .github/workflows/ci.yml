@@ -202,14 +202,28 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node
+      # Node 26.13.1 is a security release. Exact pin, not a floating `26`: setup-node reuses a cached 26.x
+      # that satisfies the range, and the pool's tool cache can still hold 26.13.0. Node 26 ships no Corepack,
+      # so Yarn comes from a Node 24 first, as in the `test-node-26` job.
+      - name: Setup Node (Corepack source)
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: 24.14.0
           package-manager-cache: false
 
       - name: Enable Yarn
         run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26.13.1
+          package-manager-cache: false
+
+      - name: Check the toolchain
+        run: |
+          test "$(node -v)" = "v26.13.1"
+          test "$(yarn -s node -v)" = "v26.13.1"
 
       # Gate: what the package ships to consumers. It declares no runtime dependencies, so this must stay clean.
       - name: Audit shipped dependencies
@@ -258,14 +272,28 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node
+      # Node 26.13.1 is a security release. Exact pin, not a floating `26`: setup-node reuses a cached 26.x
+      # that satisfies the range, and the pool's tool cache can still hold 26.13.0. Node 26 ships no Corepack,
+      # so Yarn comes from a Node 24 first, as in the `test-node-26` job.
+      - name: Setup Node (Corepack source)
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: 24.14.0
           package-manager-cache: false
 
       - name: Enable Yarn
         run: corepack enable
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26.13.1
+          package-manager-cache: false
+
+      - name: Check the toolchain
+        run: |
+          test "$(node -v)" = "v26.13.1"
+          test "$(yarn -s node -v)" = "v26.13.1"
 
       - name: Isolate the Yarn cache to this job
         run: echo "YARN_CACHE_FOLDER=$RUNNER_TEMP/yarn-cache" >> "$GITHUB_ENV"
