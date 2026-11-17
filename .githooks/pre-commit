@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# koa-utils — pre-commit gates: yarn.lock registry, static gates, 100% coverage,
+# koa-utils — pre-commit gates: lockfile and Yarn config, static gates, 100% coverage,
 # Qodana.
 #
 # Enforces the same bars as CI, before the commit rather than after the push.
@@ -12,7 +12,7 @@
 # truth: CI runs the same script, and .githooks/pre-push runs it again.
 #
 # Wired via `git config core.hooksPath .githooks`, done by `yarn hooks:install`
-# (also run automatically by the `prepare` script on `yarn install`).
+# (run it once after a clone: Yarn 4 does not run the `prepare` script on `yarn install`).
 #
 # Bypass: `git commit --no-verify` (CI still gates — the bypass is local only).
 # Qodana only: `SKIP_QODANA=1 git commit`.
@@ -31,48 +31,49 @@ RELEVANT_PATHS='^(src/|test/|scripts/|package\.json$|\.c8rc\.json$|\.mocharc\.js
 # untested code, so D stays in the filter.
 STAGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
 
-# Guard for the yarn.lock registry convention (scripts/registry-rewrite.mjs).
-# A developer behind a private mirror runs `yarn registry:mirror` before
-# installing and `yarn registry:canonical` before committing; if the second step
-# is forgotten, the committed lockfile carries a LAN-only registry that breaks
-# `yarn install` for every other clone.
+# Guard for the lockfile and registry convention (Yarn 4).
+# A Yarn 4 lockfile is hostless (`resolution: "pkg@npm:1.2.3"`), so a private mirror can no longer leak
+# into git through it, and the old `yarn registry:*` rewrite scripts are gone. What can still go wrong:
+#   - a Yarn 1 lockfile comes back (it records absolute tarball URLs, one host per package);
+#   - a package resolves from a URL or git source instead of the registry;
+#   - a tracked .yarnrc.yml names another registry, or carries credentials.
+# A mirror is opt-in through the YARN_NPM_REGISTRY_SERVER environment variable, tokens live in ~/.yarnrc.yml.
 #
-# Inspect the index (`:yarn.lock`), not the working tree — the working tree
-# may keep mirror URLs by design. Checked unconditionally rather than only when
-# yarn.lock is staged: a proxy-tainted blob that happens to match HEAD produces
-# no staged diff, so a $STAGED-gated check would wave through exactly the state
-# it exists to catch. Absent from the index, `git show` fails and LOCK_INDEX is
-# empty.
+# Inspect the index, not the working tree. Checked unconditionally rather than only when the files are
+# staged: a tainted blob that happens to match HEAD produces no staged diff, so a $STAGED-gated check
+# would wave through exactly the state it exists to catch. Absent from the index, `git show` fails and
+# the variable is empty.
 #
-# Read into a variable instead of piping `git show` into `grep -q`: -q exits on
-# the first match, `git show` then dies of SIGPIPE, and `set -o pipefail` turns
-# that into a falsy pipeline — the check would silently never fire.
+# Read into variables and match with here-strings instead of piping `git show` into `grep -q`: -q exits
+# on the first match, `git show` then dies of SIGPIPE, and `set -o pipefail` turns that into a falsy
+# pipeline — the check would silently never fire.
 LOCK_INDEX="$(git show :yarn.lock 2> /dev/null || true)"
+RC_INDEX="$(git show :.yarnrc.yml 2> /dev/null || true)"
 
-# Match on "not the public registry" rather than one hard-coded proxy host, so
-# any mirror, VPN-only cache or rewritten uplink is caught too.
-FOREIGN_HOSTS="$(
-	printf '%s\n' "$LOCK_INDEX" \
-		| grep -oE '^[[:space:]]*resolved "https?://[^/"]+' \
-		| grep -oE 'https?://[^/"]+' \
-		| grep -vxF 'https://registry.npmjs.org' \
-		| sort -u \
-		|| true
-)"
+PROBLEMS=""
+if [ -n "$LOCK_INDEX" ] && ! grep -q '^__metadata:' <<< "$LOCK_INDEX"; then
+	PROBLEMS+="    yarn.lock in the index is not a Yarn 4 lockfile (no __metadata block); Yarn 1 wrote absolute tarball URLs."$'\n'
+fi
+if [ -n "$LOCK_INDEX" ] && grep -qE '^[[:space:]]+resolution: "[^"]*@(https?|git[+a-z]*)://' <<< "$LOCK_INDEX"; then
+	PROBLEMS+="    yarn.lock in the index resolves a package from a URL or git source instead of the registry."$'\n'
+fi
+if [ -n "$RC_INDEX" ] && grep -qE '^[[:space:]]*(npmAuthToken|npmAuthIdent|npmPublishRegistry):' <<< "$RC_INDEX"; then
+	PROBLEMS+="    .yarnrc.yml in the index sets npmAuthToken, npmAuthIdent or npmPublishRegistry: credentials never go in git."$'\n'
+fi
+RC_REGISTRY="$(grep -E '^[[:space:]]*npmRegistryServer:' <<< "$RC_INDEX" | grep -vE '"?https://registry\.npmjs\.org/?"?[[:space:]]*$' || true)"
+if [ -n "$RC_REGISTRY" ]; then
+	PROBLEMS+="    .yarnrc.yml in the index sets npmRegistryServer to something other than https://registry.npmjs.org."$'\n'
+fi
 
-if [ -n "$FOREIGN_HOSTS" ]; then
+if [ -n "$PROBLEMS" ]; then
 	cat >&2 << EOF
 
-pre-commit: BLOCKED — yarn.lock in the index resolves against a non-public registry:
+pre-commit: BLOCKED — lockfile or Yarn config in the index breaks the public-registry convention:
 
-$(printf '%s\n' "$FOREIGN_HOSTS" | sed 's/^/    /')
-
-Every \`resolved\` URL must use https://registry.npmjs.org/ in git, or clones
-without access to that host cannot install. Rewrite the working copy back to
-the public registry, then stage it again:
-
-    REGISTRY_MIRROR=<mirror base URL> yarn registry:canonical
-    git add yarn.lock
+${PROBLEMS}
+Regenerate the lockfile with the Yarn the repo pins (\`corepack enable\`, then \`yarn install\`) and
+stage it again. Keep machine-local registry settings out of git: a mirror goes through the
+YARN_NPM_REGISTRY_SERVER environment variable, credentials through ~/.yarnrc.yml.
 
 EOF
 	exit 1
@@ -95,10 +96,10 @@ fi
 
 # Static gates first: seconds, not a minute. A failure here stops the commit
 # before the slow build + suite. Same script CI runs ("Static gates" step), so
-# the two cannot drift; `yarn -s` keeps yarn's own banner out of the output.
+# the two cannot drift.
 echo "pre-commit: running static gates (yarn check:static)…"
 
-if ! yarn -s check:static; then
+if ! yarn check:static; then
 	cat >&2 << 'EOF'
 
 pre-commit: BLOCKED — a static gate failed (yarn check:static).

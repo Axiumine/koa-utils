@@ -63,7 +63,7 @@ update before the target date.
 
 ## Dependencies
 
-The package ships no runtime `dependencies`; every library it uses is a peer dependency that the consumer installs and keeps up to date. The development tree is monitored by Dependabot (`.github/dependabot.yml`), a weekly `yarn audit` run in CI and the Semgrep and Qodana scans. A finding is fixed by upgrading, or is recorded in an issue with the reason it cannot be exploited through this package.
+The package ships no runtime `dependencies`; every library it uses is a peer dependency that the consumer installs and keeps up to date. The development tree is monitored by Dependabot (`.github/dependabot.yml`), a weekly `yarn npm audit` run in CI and the Semgrep and Qodana scans. A finding is fixed by upgrading, or is recorded in an issue with the reason it cannot be exploited through this package.
 
 ## Verifying a release
 

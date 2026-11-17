@@ -58,13 +58,30 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # Node 26 does not ship Corepack (Node 25 dropped it) and package.json pins Yarn 4 through
+      # `packageManager`, which the preinstalled Yarn 1 refuses. Enable the shims from a Node 24 first;
+      # they stay on PATH and run under whichever `node` comes first, which is Node 26 after the next step.
+      - name: Setup Node (Corepack source)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.14.0
+          package-manager-cache: false
+
+      - name: Enable Yarn
+        run: corepack enable
+
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          # Node 26.13.1 is a security release. The GitHub-hosted runner ships Yarn 1, so no Corepack step.
+          # Node 26.13.1 is a security release.
           node-version: 26.13.1
           # Release builds never restore a cache: a poisoned cache would end up in the tarball.
           package-manager-cache: false
+
+      - name: Check the toolchain
+        run: |
+          test "$(node -v)" = "v26.13.1"
+          test "$(yarn node -v)" = "v26.13.1"
 
       - name: Check the release matches package.json and main
         if: github.event_name == 'release'
@@ -108,11 +125,11 @@ jobs:
             exit 1
           fi
 
-      # --ignore-scripts: no dependency lifecycle script runs in the job that builds the
-      # published bytes, and the repo prepare script (hooks:install plus a second build)
-      # stays out of CI. yarn test:coverage and the pack step below build explicitly.
+      # --mode=skip-build: no dependency lifecycle script runs in the job that builds the
+      # published bytes. Yarn 4 never runs the root prepare script on install, so nothing of
+      # the repo itself runs either. yarn test:coverage and the pack step below build explicitly.
       - name: Install dependencies
-        run: yarn install --frozen-lockfile --ignore-scripts
+        run: yarn install --immutable --mode=skip-build
 
       - name: Run tests with coverage
         run: yarn test:coverage

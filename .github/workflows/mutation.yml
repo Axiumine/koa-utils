@@ -51,19 +51,14 @@ jobs:
       - name: Check the toolchain
         run: |
           test "$(node -v)" = "v26.13.1"
-          test "$(yarn -s node -v)" = "v26.13.1"
+          test "$(yarn node -v)" = "v26.13.1"
 
       # Persistent shared runner pool: per-job Yarn cache, see the header of ci.yml.
       - name: Isolate the Yarn cache to this job
-        run: echo "YARN_CACHE_FOLDER=$RUNNER_TEMP/yarn-cache" >> "$GITHUB_ENV"
-
-      # A persistent pool runner can hold a yarn.lock smudged to the LAN proxy, which the Hetzner runner cannot resolve.
-      # See .github/actions/public-lockfile.
-      - name: Use the public yarn.lock
-        uses: ./.github/actions/public-lockfile
+        run: echo "YARN_GLOBAL_FOLDER=$RUNNER_TEMP/yarn-global" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       # Incremental mode: Stryker stores every mutant result keyed by source and test
       # hashes and re-runs only the mutants whose inputs changed. The newest cache wins

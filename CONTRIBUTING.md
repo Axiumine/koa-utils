@@ -10,12 +10,13 @@ Thanks for helping. This page tells you how to report a problem, set up a workin
 
 ## Set up a working copy
 
-You need Node.js `^24.14.0 || ^26.13.0` and Yarn 1.
+You need Node.js `^24.14.0 || ^26.13.0` and Yarn 4 through Corepack (`corepack enable`; the version is pinned in `package.json`).
 
 ```bash
 git clone https://github.com/Axiumine/koa-utils.git
 cd koa-utils
-yarn install --ignore-scripts   # dev dependencies only; maintainers run plain `yarn install` (wires the git hooks, builds dist/)
+yarn install
+yarn hooks:install    # maintainers only: points git at .githooks (Yarn 4 does not run the prepare script)
 yarn test             # build + tests, no coverage gate
 yarn test:coverage    # the gate a pull request must pass: 100% on every file
 yarn lint:check       # ESLint (zero warnings allowed) + Prettier, no changes written
@@ -24,13 +25,13 @@ yarn check:static     # every static gate: caps, lint, typecheck (src, scripts, 
 
 `yarn lint` runs the same tools and rewrites files to fix what they can. [REPO.md](REPO.md) is the map of the source tree and the build scripts.
 
-`yarn install` points `core.hooksPath` at `.githooks`. Three hooks run there:
+`yarn hooks:install` points `core.hooksPath` at `.githooks` (run it once after cloning). Three hooks run there:
 
 - **`commit-msg`** checks the commit message format (see [Commit messages](#commit-messages)).
-- **`pre-commit`** blocks a commit that touches code, tests, scripts or build config (`src/`, `test/`, `scripts/`, `package.json`, `.c8rc.json`, `.mocharc.json`, `tsconfig*.json`, `eslint.config.js`, `eslint-suppressions.json`, `knip.config.js`, `fta.json`, `.code-caps-baseline.json`). In order: the `yarn.lock` registry check, `yarn check:static`, `yarn test:coverage`, then a Qodana scan that needs Docker and a token only the maintainer holds. A docs-only commit skips all of it except the lockfile check.
+- **`pre-commit`** blocks a commit that touches code, tests, scripts or build config (`src/`, `test/`, `scripts/`, `package.json`, `.c8rc.json`, `.mocharc.json`, `tsconfig*.json`, `eslint.config.js`, `eslint-suppressions.json`, `knip.config.js`, `fta.json`, `.code-caps-baseline.json`). In order: the lockfile and Yarn config check (no Yarn 1 lockfile, no credentials or foreign registry in `.yarnrc.yml`), `yarn check:static`, `yarn test:coverage`, then a Qodana scan that needs Docker and a token only the maintainer holds. A docs-only commit skips all of it except the lockfile check.
 - **`pre-push`** runs `yarn check:static` again (it catches commits made with `--no-verify`), then `yarn ratchet:against` on the merge base with `origin/main`, then the Semgrep scan and the Semgrep canaries (`scripts/semgrep.sh`, `scripts/semgrep-canary.sh`) in Docker. Last it mutation-tests the `src` files the push changes (see *Mutation testing*). It skips branch deletes and pushes that only change docs; a change to `.semgrep/` or `.github/workflows/semgrep.yml` counts as code here. It never pulls an image and needs no network (the Semgrep scripts pass `--disable-version-check`, and the registry packs are CI only): if the Semgrep image pinned in `.github/workflows/semgrep.yml` is not local, it stops and prints the `docker pull` command.
 
-Outside contributors do not need the hooks: install with `yarn install --ignore-scripts`, then run `yarn check:static` and `yarn test:coverage` yourself before you push. On your pull request CI runs the `Test coverage` job (the `Static gates` step, the 100% coverage gate, a deterministic-build check) and the Semgrep scan, plus the advisory Trivy and weekly leak-check jobs. The Qodana job needs a repository secret that pull requests from forks do not receive, so it may fail on a fork; the maintainer runs the full local gate, Qodana included, before merging.
+Outside contributors do not need the hooks: install with `yarn install`, then run `yarn check:static` and `yarn test:coverage` yourself before you push. On your pull request CI runs the `Test coverage` job (the `Static gates` step, the 100% coverage gate, a deterministic-build check) and the Semgrep scan, plus the advisory Trivy and weekly leak-check jobs. The Qodana job needs a repository secret that pull requests from forks do not receive, so it may fail on a fork; the maintainer runs the full local gate, Qodana included, before merging.
 
 ## Requirements for acceptable contributions
 

@@ -46,14 +46,15 @@ The build is deterministic. From a clean checkout of the tag, with the dependenc
 ```bash
 git clone https://github.com/Axiumine/koa-utils.git && cd koa-utils
 git checkout v7.1.0
-yarn install --frozen-lockfile --ignore-scripts
+corepack enable
+yarn install --immutable --mode=skip-build
 yarn build
 npm pack --ignore-scripts          # writes axiumine-koa-utils-7.1.0.tgz
 shasum axiumine-koa-utils-7.1.0.tgz
 npm view @axiumine/koa-utils@7.1.0 dist.shasum --registry=https://registry.npmjs.org/
 ```
 
-The two hashes must be equal. For `7.1.0` both are `929095345ef34839854802bed6b17c8040c99d7d`; this was checked on 2026-10-30 with Node.js 24.18, Yarn 1.22 and npm 12. Node.js 24 and Yarn 1 are what `package.json` and [CONTRIBUTING.md](../CONTRIBUTING.md) ask for; other toolchains are not covered by the promise. Only 7.1.0 has been checked this way, and CI checks on every change that two clean builds are byte-identical.
+The two hashes must be equal. For `7.1.0` both are `929095345ef34839854802bed6b17c8040c99d7d`; this was checked on 2026-10-30 with Node.js 24.18, Yarn 1.22 and npm 12. Node.js 24 or 26 and Yarn 4 (through Corepack) are what `package.json` and [CONTRIBUTING.md](../CONTRIBUTING.md) ask for. The `7.1.0` check above used Yarn 1 because that release's lockfile was a Yarn 1 lockfile: on a checkout from before the Yarn 4 migration use Yarn 1.22 and `yarn install --frozen-lockfile --ignore-scripts` instead; other toolchains are not covered by the promise. Only 7.1.0 has been checked this way, and CI checks on every change that two clean builds are byte-identical.
 
 ## 3. Registry signatures
 

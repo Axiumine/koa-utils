@@ -1,6 +1,15 @@
 # Dependencies
 node_modules/
 
+# Yarn 4 state (the cache is global, install-state is per checkout; patches, plugins and releases would stay tracked)
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+
 # Build output
 dist/
 dist-test/

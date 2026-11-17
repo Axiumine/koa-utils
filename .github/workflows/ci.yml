@@ -25,9 +25,9 @@ on:
 # and bind any listener to 127.0.0.1 on an OS-assigned port. The one listener in CI is the
 # in-memory mongod of the test suite: it binds 127.0.0.1 on a port the OS picks (stock Linux
 # range 32768-60999); only the free-port probe of mongodb-memory-server is a brief wildcard bind
-# before mongod starts. Jobs that install dependencies keep their Yarn cache inside RUNNER_TEMP
-# and run the public-lockfile action first: a yarn.lock left in the persistent checkout by an
-# earlier run is replaced by the committed one, which may name only registry.npmjs.org.
+# before mongod starts. Jobs that install dependencies keep their Yarn global folder (cache and
+# metadata) inside RUNNER_TEMP. The Yarn 4 lockfile names no registry host, so there is nothing
+# left in a persistent checkout that could redirect an install to another host.
 permissions:
   contents: read
 
@@ -85,15 +85,10 @@ jobs:
       # The pool is persistent and shared: a Yarn cache under the runner user's home would carry
       # one job's downloads into the next, including a job of another repository.
       - name: Isolate the Yarn cache to this job
-        run: echo "YARN_CACHE_FOLDER=$RUNNER_TEMP/yarn-cache" >> "$GITHUB_ENV"
-
-      # A persistent pool runner can hold a yarn.lock smudged to the LAN proxy, which the Hetzner runner cannot resolve.
-      # See .github/actions/public-lockfile.
-      - name: Use the public yarn.lock
-        uses: ./.github/actions/public-lockfile
+        run: echo "YARN_GLOBAL_FOLDER=$RUNNER_TEMP/yarn-global" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       # One script, one definition (package.json check:static): code caps, ESLint + Prettier read-only
       # (the former "Coding standard" step), typecheck, knip, type-coverage and FTA. Runs before the
@@ -110,7 +105,7 @@ jobs:
 
       - name: Ratchets are no looser than main
         if: github.event_name == 'pull_request'
-        run: yarn -s ratchet:against origin/main
+        run: yarn ratchet:against origin/main
 
       # Mocha report in the log; fails below 100% on lines, statements, functions or branches.
       - name: Tests and coverage gate
@@ -135,7 +130,7 @@ jobs:
           echo "tarball sha1: $(sha1sum "$RUNNER_TEMP"/axiumine-koa-utils-*.tgz | cut -d' ' -f1)" >> "$GITHUB_STEP_SUMMARY"
 
   # Second engines range of package.json (^26.13.0, the Node 26 LTS line), exact floor again. Install
-  # runs here too: Yarn 1 checks engines, and the install builds through `prepare`. Static gates, the
+  # runs here too, so the dev tree is linked and its dependency scripts run on this Node. Static gates, the
   # ratchets and the pack checks are not repeated; they do not depend on the Node version.
   # Not a required check until the ruleset names it; `Test coverage` above stays the required context.
   test-node-26:
@@ -168,25 +163,20 @@ jobs:
           node-version: 26.13.0
           package-manager-cache: false
 
-      # Fail here, not later, if the Yarn shim ever runs on the wrong Node. `-s` silences Yarn's own
-      # banner ("yarn node v1.x", "Done in ...") so only the Node version is compared.
+      # Fail here, not later, if the Yarn shim ever runs on the wrong Node. `yarn node -v` prints the
+      # bare version under Yarn 4 (Yarn 1 printed a banner and needed `-s`), and `-s` is an error now.
       - name: Check the toolchain
         run: |
           test "$(node -v)" = "v26.13.0"
-          test "$(yarn -s node -v)" = "v26.13.0"
+          test "$(yarn node -v)" = "v26.13.0"
 
       # The pool is persistent and shared: a Yarn cache under the runner user's home would carry
       # one job's downloads into the next, including a job of another repository.
       - name: Isolate the Yarn cache to this job
-        run: echo "YARN_CACHE_FOLDER=$RUNNER_TEMP/yarn-cache" >> "$GITHUB_ENV"
-
-      # A persistent pool runner can hold a yarn.lock smudged to the LAN proxy, which the Hetzner runner cannot resolve.
-      # See .github/actions/public-lockfile.
-      - name: Use the public yarn.lock
-        uses: ./.github/actions/public-lockfile
+        run: echo "YARN_GLOBAL_FOLDER=$RUNNER_TEMP/yarn-global" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       # Same gate as the job above: fails below 100% on lines, statements, functions or branches.
       - name: Tests and coverage gate
@@ -223,24 +213,24 @@ jobs:
       - name: Check the toolchain
         run: |
           test "$(node -v)" = "v26.13.1"
-          test "$(yarn -s node -v)" = "v26.13.1"
+          test "$(yarn node -v)" = "v26.13.1"
 
       # Gate: what the package ships to consumers. It declares no runtime dependencies, so this must stay clean.
       - name: Audit shipped dependencies
-        run: yarn audit --groups dependencies
+        run: yarn npm audit --environment production
 
       # Monitor: the development tree is not shipped. Findings are listed for triage, they do not fail the run.
       - name: Audit development tree
         run: |
           {
-            echo '### yarn audit (devDependencies, high and above)'
+            echo '### yarn npm audit (development environment, high and above)'
             echo '```'
-            yarn audit --groups devDependencies --level high || true
+            yarn npm audit --environment development --severity high || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
   # Advisory: not a required check. The Trivy DB comes from ghcr.io, which rate-limits, so a red run
-  # is a rerun first and a finding second. yarn audit (job above) stays the dependency gate.
+  # is a rerun first and a finding second. yarn npm audit (job above) stays the dependency gate.
   trivy:
     name: Trivy
     runs-on: [self-hosted, Linux, X64]
@@ -293,18 +283,13 @@ jobs:
       - name: Check the toolchain
         run: |
           test "$(node -v)" = "v26.13.1"
-          test "$(yarn -s node -v)" = "v26.13.1"
+          test "$(yarn node -v)" = "v26.13.1"
 
       - name: Isolate the Yarn cache to this job
-        run: echo "YARN_CACHE_FOLDER=$RUNNER_TEMP/yarn-cache" >> "$GITHUB_ENV"
-
-      # A persistent pool runner can hold a yarn.lock smudged to the LAN proxy, which the Hetzner runner cannot resolve.
-      # See .github/actions/public-lockfile.
-      - name: Use the public yarn.lock
-        uses: ./.github/actions/public-lockfile
+        run: echo "YARN_GLOBAL_FOLDER=$RUNNER_TEMP/yarn-global" >> "$GITHUB_ENV"
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Build
         run: yarn build

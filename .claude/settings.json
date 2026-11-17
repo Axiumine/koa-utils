@@ -1,8 +1,6 @@
 {
 	"permissions": {
 		"deny": [
-			"Read(./z-ram.sh)",
-			"Edit(./z-ram.sh)",
 			"Read(./.npmrc)",
 			"Edit(./.npmrc)",
 			"Read(./.yarnrc)",
