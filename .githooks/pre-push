@@ -120,7 +120,7 @@ check_prereqs() {
 
 	if ! command -v yarn > /dev/null 2>&1; then
 		push_block "yarn not found in PATH." \
-			"# install yarn 1.x (npm install -g yarn), then re-run the push"
+			"# corepack enable (Yarn 4 comes from the packageManager field), then re-run the push"
 	fi
 
 	if [ ! -d "$root/node_modules" ]; then
@@ -215,7 +215,7 @@ cd "$ROOT"
 check_prereqs "$ROOT"
 
 echo "pre-push: running static gates (yarn check:static)…"
-if ! yarn -s check:static; then
+if ! yarn check:static; then
 	cat >&2 << 'EOF'
 
 pre-push: BLOCKED — a static gate failed (yarn check:static).
@@ -232,7 +232,7 @@ fi
 # (no new key, no higher value). Compared with the merge base, so a branch that is behind main is not punished
 # for values main lowered since. Not part of check:static, which has no ref to compare with.
 echo "pre-push: checking the ratchet files against origin/main (yarn ratchet:against)…"
-if ! yarn -s ratchet:against "$RATCHET_BASE"; then
+if ! yarn ratchet:against "$RATCHET_BASE"; then
 	cat >&2 << 'EOF'
 
 pre-push: BLOCKED — .code-caps-baseline.json or eslint-suppressions.json is looser than main.
@@ -271,7 +271,7 @@ fi
 
 for base in "${MUTATION_BASES[@]+"${MUTATION_BASES[@]}"}"; do
 	echo "pre-push: mutation-testing the src files changed since ${base:-the default base} (yarn mutation:changed)…"
-	if ! yarn -s mutation:changed ${base:+"$base"}; then
+	if ! yarn mutation:changed ${base:+"$base"}; then
 		cat >&2 << 'HOOKEOF'
 
 pre-push: BLOCKED — mutation testing failed on the changed files.

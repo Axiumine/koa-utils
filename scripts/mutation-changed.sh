@@ -51,7 +51,7 @@ printf '  %s\n' "${files[@]}"
 
 mutate="$(IFS=,; echo "${files[*]}")"
 
-exec yarn -s mutation \
+exec yarn mutation \
 	--mutate "$mutate" \
 	--incrementalFile reports/stryker-incremental-changed.json \
 	--reporters clear-text \

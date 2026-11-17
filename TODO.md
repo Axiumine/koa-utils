@@ -26,7 +26,7 @@ Then read the release notes and open issues at https://github.com/stryker-mutato
 
 ### Removal steps, once a fixed release exists
 
-1. Bump the three `@stryker-mutator/*` devDependencies to the fixed version, all the same exact version: `yarn add -D --exact --registry https://registry.npmjs.org/ @stryker-mutator/core@<v> @stryker-mutator/mocha-runner@<v> @stryker-mutator/typescript-checker@<v>`. Normalise any new `resolved` host in `yarn.lock` to `registry.npmjs.org`.
+1. Bump the three `@stryker-mutator/*` devDependencies to the fixed version, all the same exact version: `yarn add -D --exact @stryker-mutator/core@<v> @stryker-mutator/mocha-runner@<v> @stryker-mutator/typescript-checker@<v>`.
 2. Delete `patches/` and run `yarn remove patch-package`.
 3. In `package.json` set `"mutation": "stryker run"`.
 4. In `.github/workflows/mutation.yml` update the comment above the `Mutation testing` step (the step itself already calls `yarn mutation`).

@@ -312,7 +312,9 @@ For the cluster path the `rediss://` scheme on `rootNodes` is not enough on its 
 ## Build (contributors only)
 
 ```bash
+corepack enable      # once: Yarn 4 comes from the packageManager field
 yarn install
+yarn hooks:install   # maintainers: points git at .githooks (Yarn 4 does not run the prepare script)
 yarn build        # ESM only — production output
 yarn build:all    # not usable today: the CJS half emits nothing, the package is ESM-only (use yarn build)
 yarn test         # build + build:tests + mocha, no coverage gate
@@ -333,19 +335,16 @@ There is no barrel and no `main` / `module` field.
 
 ### Registry
 
-`yarn.lock` always resolves against `https://registry.npmjs.org/`, so a plain clone installs with no extra setup.
+`yarn.lock` is in the Yarn 4 format, which records no registry host, so a plain clone installs with no extra setup (`corepack enable`, then `yarn install`). `.yarnrc.yml` points Yarn at `https://registry.npmjs.org`.
 
-If you install through a private npm mirror, do not commit its host. Yarn 1 downloads tarballs from the absolute `resolved` URL in the lockfile and ignores the configured registry for them, so a lockfile written through a mirror breaks every clone that cannot reach it. Nothing is rewritten unless you ask for it:
+If you install through a private npm mirror, set an environment variable instead of editing any file. It overrides `.yarnrc.yml` for your shell only:
 
 ```sh
-export REGISTRY_MIRROR=http://host:4873
-yarn registry:mirror      # public registry -> mirror, before install
+export YARN_NPM_REGISTRY_SERVER=http://host:4873
 yarn install
-yarn registry:canonical   # mirror -> public registry, before commit
-yarn registry:check       # exit 1 if yarn.lock names any other host
 ```
 
-`registry:check` needs no `REGISTRY_MIRROR`. A pre-commit check also rejects any staged lockfile that names a non-public host.
+Credentials belong in `~/.yarnrc.yml`, never in the repository. A pre-commit check rejects a Yarn 1 lockfile, a lockfile that resolves a package from a URL or git source, and a tracked `.yarnrc.yml` that sets credentials or another registry.
 
 ## Feedback, contributing and security
 

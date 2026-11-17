@@ -6,9 +6,16 @@
 . ~/.profile
 . ~/.bashrc
 
-# set node
-nvm use v24.14.0
+# Node 26 per lo sviluppo (.nvmrc); il software supporta anche Node 24. Node 26 non include Corepack:
+# lo attivo con Node 24 (shim in una cartella temporanea nel PATH), poi passo alla versione di .nvmrc.
+nvm use 24
+COREPACK_SHIMS=$(mktemp -d)
+trap 'rm -rf "$COREPACK_SHIMS"' EXIT
+corepack enable --install-directory "$COREPACK_SHIMS"
+export PATH="$COREPACK_SHIMS:$PATH"
+nvm use
 node --version
+yarn --version
 
 if [ -f /var/ram/koa-utils/started ];
 then
@@ -24,12 +31,12 @@ sync
 mkdir node_modules
 sudo mount --bind /var/ram/koa-utils/node_modules node_modules
 
-# yarn.lock nel repo punta sempre al registry pubblico (registry.yarnpkg.com), cosi' chi non ha
-# il proxy puo' lavorare. yarn v1 scarica dagli URL "resolved" del lockfile ignorando il registry
-# configurato: quindi qui li riscriviamo verso il proxy e, a fine install, li rimettiamo canonici.
-export REGISTRY_MIRROR=http://yarnproxy.gio.lan:4873
-node scripts/registry-rewrite.mjs mirror
-trap 'node scripts/registry-rewrite.mjs canonical' EXIT
+# Yarn 4 (Corepack, versione fissata in package.json "packageManager"): il lockfile non contiene host
+# (resolution "pkg@npm:x.y.z"), quindi non c'e' piu' nulla da riscrivere. Il proxy si usa solo per
+# questa shell, via env: .yarnrc.yml resta su registry.npmjs.org. Yarn 4 rifiuta http:// se l'host
+# non e' in unsafeHttpWhitelist.
+export YARN_NPM_REGISTRY_SERVER=http://yarnproxy.gio.lan:4873
+export YARN_UNSAFE_HTTP_WHITELIST=yarnproxy.gio.lan
 
 
 yarn install

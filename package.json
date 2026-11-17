@@ -13,16 +13,13 @@
 	"homepage": "https://github.com/Axiumine/koa-utils/tree/main/docs/code",
 	"license": "AGPL-3.0-or-later",
 	"author": "Giovanni Manzoni <dev@giovannimanzoni.com> (https://www.giovannimanzoni.com)",
-	"private": false,
+	"packageManager": "yarn@4.18.1+sha512.b2e1e7524f654f2749d32b4ebcb4622473cb5bcbc485df2007e12a154e50162a4d795526768bc5f5b8f81717bfd79deb2472813d86fb5ae2eb551fa9c872b08f",
 	"publishConfig": {
 		"access": "public"
 	},
 	"scripts": {
 		"prepare": "yarn run hooks:install && rm -rf dist && yarn run build",
 		"hooks:install": "git rev-parse --git-dir > /dev/null 2>&1 && git config core.hooksPath .githooks || true",
-		"registry:mirror": "node scripts/registry-rewrite.mjs mirror",
-		"registry:canonical": "node scripts/registry-rewrite.mjs canonical",
-		"registry:check": "node scripts/registry-rewrite.mjs check",
 		"build": "yarn clean && yarn run build:esm",
 		"prepare:all": "echo 'read REAMDE' && rm -rf dist && yarn run build:all",
 		"build:all": "yarn run build:cjs && yarn run build:esm",
@@ -55,7 +52,7 @@
 		"semgrep:all": "./scripts/semgrep.sh --registry",
 		"semgrep:canary": "./scripts/semgrep-canary.sh",
 		"upload": "npm publish --registry=https://registry.npmjs.org/",
-		"update": "yarn upgrade-interactive --latest --network-timeout 100000",
+		"update": "yarn upgrade-interactive",
 		"cloc": "cloc . --exclude-dir=node_modules,dist,.git,upload",
 		"scc": "scc . --exclude-dir=node_modules,dist,.git -w --sort --directory-walker-job-workers=8 --count-as=mts:TypeScript"
 	},
@@ -1215,7 +1212,6 @@
 		"!dist/**/*.mjs.map",
 		"!dist/**/*.js.map"
 	],
-	"dependencies": {},
 	"peerDependencies": {
 		"@node-rs/bcrypt": "<2",
 		"@sentry/node": "<11",
@@ -1330,6 +1326,7 @@
 		"fs-extra": "^11.4.1",
 		"fta-cli": "^3.1.0",
 		"graphql": "^16.15.0",
+		"keygrip": "^1.1.0",
 		"knip": "^6.44.2",
 		"koa": "^3.3.0",
 		"mariadb": "^3.5.5",
@@ -1356,8 +1353,8 @@
 	"resolutions": {
 		"@socketlabs/email/axios": "^1.21.0",
 		"sequelize/uuid": "^11.1.1",
-		"**/typed-rest-client/qs": "^6.16.1",
-		"**/glob": "^14.0.2",
-		"**/minimatch": "^11.0.3"
+		"typed-rest-client/qs": "^6.16.1",
+		"glob": "^14.0.2",
+		"minimatch": "^11.0.3"
 	}
 }
