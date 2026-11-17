@@ -1332,7 +1332,7 @@
 		"mariadb": "^3.5.5",
 		"mocha": "^12.0.3",
 		"mongodb-memory-server": "^11.3.0",
-		"mongoose": "^9.12.0",
+		"mongoose": "^9.12.1",
 		"patch-package": "8.0.1",
 		"pg": "^8.23.1",
 		"prettier": "^3.9.10",
@@ -1346,7 +1346,7 @@
 		"ts-patch": "^4.0.1",
 		"type-coverage": "^2.31.2",
 		"typescript": "^6.0.3",
-		"typescript-eslint": "8.72.1",
+		"typescript-eslint": "8.72.2",
 		"typescript-transform-paths": "^4.0.0",
 		"uuid": "^14.0.3"
 	},
