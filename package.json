@@ -1349,7 +1349,7 @@
 		"ts-patch": "^4.0.1",
 		"type-coverage": "^2.31.2",
 		"typescript": "^6.0.3",
-		"typescript-eslint": "8.72.1",
+		"typescript-eslint": "8.72.2",
 		"typescript-transform-paths": "^4.0.0",
 		"uuid": "^14.0.3"
 	},
