@@ -163,12 +163,12 @@ jobs:
           node-version: 26.13.0
           package-manager-cache: false
 
-      # Fail here, not later, if the Yarn shim ever runs on the wrong Node. `yarn node -v` prints the
-      # bare version under Yarn 4 (Yarn 1 printed a banner and needed `-s`), and `-s` is an error now.
+      # Fail here, not later, if Node or Yarn is not what the pin says. The Yarn check is the major version:
+      # `yarn node -v` cannot run yet, because Yarn 4 refuses it before an install (no node_modules state file).
       - name: Check the toolchain
         run: |
           test "$(node -v)" = "v26.13.0"
-          test "$(yarn node -v)" = "v26.13.0"
+          test "$(yarn --version | cut -d. -f1)" = "4"
 
       # The pool is persistent and shared: a Yarn cache under the runner user's home would carry
       # one job's downloads into the next, including a job of another repository.
@@ -213,7 +213,7 @@ jobs:
       - name: Check the toolchain
         run: |
           test "$(node -v)" = "v26.13.1"
-          test "$(yarn node -v)" = "v26.13.1"
+          test "$(yarn --version | cut -d. -f1)" = "4"
 
       # Gate: what the package ships to consumers. It declares no runtime dependencies, so this must stay clean.
       - name: Audit shipped dependencies
@@ -283,7 +283,7 @@ jobs:
       - name: Check the toolchain
         run: |
           test "$(node -v)" = "v26.13.1"
-          test "$(yarn node -v)" = "v26.13.1"
+          test "$(yarn --version | cut -d. -f1)" = "4"
 
       - name: Isolate the Yarn cache to this job
         run: echo "YARN_GLOBAL_FOLDER=$RUNNER_TEMP/yarn-global" >> "$GITHUB_ENV"

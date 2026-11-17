@@ -15,7 +15,7 @@ corepack enable --install-directory "$COREPACK_SHIMS"
 export PATH="$COREPACK_SHIMS:$PATH"
 nvm use
 node --version
-yarn node -v
+yarn --version
 
 if [ -f /var/ram/koa-utils/started ];
 then

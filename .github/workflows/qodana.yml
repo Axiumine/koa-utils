@@ -78,7 +78,7 @@ jobs:
       - name: Check the toolchain
         run: |
           test "$(node -v)" = "v26.13.1"
-          test "$(yarn node -v)" = "v26.13.1"
+          test "$(yarn --version | cut -d. -f1)" = "4"
 
       # Persistent shared runner pool: per-job Yarn cache, see the header of ci.yml.
       - name: Isolate the Yarn cache to this job
