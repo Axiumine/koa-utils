@@ -5,12 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 9.1.1 — 2026-11-18
 
-Maintainer tooling only. Nothing under `dist/` changes and the public API, `exports` and `peerDependencies` are untouched, so no consumer action is needed.
+Maintainer tooling and documentation only. Nothing under `dist/` changes and the public API, `exports` and `peerDependencies` are untouched, so no consumer action is needed. The release exists so the README on npm stops describing the retired Yarn 1 registry workflow.
 
 ### Changed
 
+- The README Build and Registry sections describe the Yarn 4 setup: `corepack enable`, `yarn hooks:install`, and the `YARN_NPM_REGISTRY_SERVER` environment variable for a private mirror. The 9.1.0 README still told contributors to run `yarn registry:mirror`, `registry:canonical` and `registry:check`, which no longer exist.
 - Node 26.13.1, a security release (HTTP/2 headers are released when a stream is removed), is the toolchain Node. `.nvmrc` asked for Node 24 and now asks for `26.13.1`. Every CI job outside the two test jobs moves from a floating Node 24 to the exact pin `26.13.1`: `Dependency audit`, `Leak check`, `qodana.yml`, `mutation.yml` and both `release.yml` jobs. Node 26 ships no Corepack, so the pool jobs take Yarn from a Node 24.14.0 first and check the resulting Node version, as the Node 26 test job already did. `engines` stays `^24.14.0 || ^26.13.0`, and `Test coverage` (Node 24.14.0) and `Test coverage (Node 26.13.0)` keep testing both floors.
 - Yarn 4 replaces Yarn 1 as the package manager. `package.json` pins it through `packageManager` (Yarn 4.18.1 with its sha512, enabled by Corepack), `.yarnrc.yml` sets `nodeLinker: node-modules` and the public registry, and `yarn.lock` moves to the Yarn 4 format, which records no registry host. Install is `yarn install` (`--immutable` in CI, `--immutable --mode=skip-build` in the release job). Yarn 4 never runs the root `prepare` script on install, so a maintainer runs `yarn hooks:install` once per clone; `npm publish` still runs `prepare`. The three glob-pattern `resolutions` (`**/typed-rest-client/qs`, `**/glob`, `**/minimatch`) are rewritten in the Yarn 4 syntax, which let `glob`, `minimatch` and `@isaacs/nonrecursive-glob-match` resolve to newer releases inside the same ranges; every other locked version is unchanged. `keygrip` joins `devDependencies` at its peer range: the tests and the source import it, and it only resolved under Yarn 1 because `koa` happened to hoist it. The dependency audit runs `yarn npm audit`. The pre-commit lockfile guard now rejects a Yarn 1 lockfile, a package resolved from a URL or git source, and credentials or a foreign registry in `.yarnrc.yml`.
 
