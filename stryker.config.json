@@ -27,5 +27,6 @@
 	"timeoutFactor": 2,
 	"symlinkNodeModules": false,
 	"concurrency": 4,
+	"testRunnerNodeArgs": ["--enable-source-maps", "--no-warnings"],
 	"cleanTempDir": "always"
 }
