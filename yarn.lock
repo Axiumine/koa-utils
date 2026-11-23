@@ -97,6 +97,9 @@ __metadata:
     typescript-transform-paths: "npm:^4.0.0"
     uuid: "npm:^14.0.3"
   peerDependencies:
+    "@gltf-transform/core": <5
+    "@gltf-transform/extensions": <5
+    "@gltf-transform/functions": <5
     "@node-rs/bcrypt": <2
     "@sentry/node": <11
     "@socketlabs/email": <2
@@ -104,10 +107,12 @@ __metadata:
     dotenv: <18
     file-type: <23
     fs-extra: <12
+    gltf-validator: ">=2.0.0-0 <3"
     graphql: <18
     keygrip: ^1.1.0
     koa: <4
     mariadb: <4
+    meshoptimizer: <2
     mongoose: <10
     pg: <9
     redis: <7
@@ -116,6 +121,12 @@ __metadata:
     sequelize-typescript: <3
     sharp: <1
   peerDependenciesMeta:
+    "@gltf-transform/core":
+      optional: true
+    "@gltf-transform/extensions":
+      optional: true
+    "@gltf-transform/functions":
+      optional: true
     "@node-rs/bcrypt":
       optional: true
     "@sentry/node":
@@ -130,6 +141,8 @@ __metadata:
       optional: true
     fs-extra:
       optional: true
+    gltf-validator:
+      optional: true
     graphql:
       optional: true
     keygrip:
@@ -137,6 +150,8 @@ __metadata:
     koa:
       optional: true
     mariadb:
+      optional: true
+    meshoptimizer:
       optional: true
     mongoose:
       optional: true
