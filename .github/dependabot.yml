@@ -32,6 +32,14 @@ version: 2
 #   - Raising a peer bound stays a manual owner decision (see the peer rules in
 #     the agent rule file): npm view, swap the major into node_modules, green
 #     `yarn test:coverage`, then edit the range.
+#   - `typescript` is not a peer, but its semver-major is ignored as well.
+#     TypeScript 7 is the Go-native compiler: its package root exports only a
+#     version stub and the JS compiler API moved under `unstable/*`. The
+#     code-caps script reads `ts.SyntaxKind` from the root (PR 73 failed there),
+#     the `tspc` build with typescript-transform-paths patches the JS compiler
+#     that 7 no longer ships, and typescript-eslint 8.73 accepts only
+#     `typescript <6.1.0`. Moving to 7 is a toolchain migration, done by hand;
+#     minor and patch releases of 6.x still flow.
 
 updates:
   - package-ecosystem: npm
@@ -103,6 +111,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: sharp
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
