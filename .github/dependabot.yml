@@ -86,8 +86,6 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@sentry/node"
         update-types: ["version-update:semver-major"]
-      - dependency-name: "@socketlabs/email"
-        update-types: ["version-update:semver-major"]
       - dependency-name: clamscan
         update-types: ["version-update:semver-major"]
       - dependency-name: dotenv

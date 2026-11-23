@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+Mail to SocketLabs no longer goes through the `@socketlabs/email` SDK. The SDK's latest release, 1.4.4 (October 2023), is unmaintained and depends on `axios` `^0.21.1`, which resolves to 0.21.4 and has published high-severity advisories, so every project that used the SocketLabs sender failed `npm audit` and `yarn npm audit` and nothing could be done about it: there is no fixed SDK. `email/SocketLabsLib` and `email/createSocketLabsSender` now post to the SocketLabs Injection API with Node's built-in `fetch`. No exported symbol, signature, type or `exports` key changes, and the optional peer `@socketlabs/email` is removed.
+
+### Removed
+
+- The optional peer dependency `@socketlabs/email` (`peerDependencies` and `peerDependenciesMeta`), and with it the `axios` 0.21 tree. Nothing in the package imports it any more. If this package was the only reason you installed it, remove it from your project.
+- `@socketlabs/email` from `devDependencies`, the `@socketlabs/email/axios` entry from `resolutions`, the ambient declaration `src/types/socketlabs-email.d.ts` and the Dependabot ignore entry for the package. `yarn.lock` no longer holds `axios` (the repository forced 1.21.0 through that `resolutions` entry; a consumer got 0.21.4), `promise-retry`, `retry`, `err-code`, `form-data`, `proxy-from-env`, `https-proxy-agent` or their small helpers.
+
+### Changed
+
+- No subpath reaches `@socketlabs/email` any more. `email/createSocketLabsSender` and its four type files reach no peer at all (`PEER_BUDGET` is `[]` for all five), and `email/SocketLabsLib`, `lib/access/*`, `koa/router/verifyEmail` and the mutations keep the peers they had for other reasons. The snapshot `test/__snapshots__/peer-reach.json` loses the `@socketlabs/email` entry and the README peer table loses its row.
+- The built-in client (`src/private/email/socketLabsClient.mts`, not exported) sends what the SDK sent for a basic message: `POST https://inject.socketlabs.com/api/v1/email`, the key as `Authorization: Bearer <key>` when it has the `<20>.<40>` form and as `apiKey` in the JSON body otherwise, and a body of `{ serverId, messages: [ { subject, htmlBody, textBody, messageId, from, to } ] }`. It keeps the SDK's checks before a send (`AuthenticationValidationFailed`, `MessageValidationEmptySubject`, `MessageValidationEmptyMessage`, ...), its retry rule (a timeout or a 500, 502, 503 or 504 answer, up to `numberOfRetries` times, waiting 1 to 2 s, 2 to 4 s, 4 to 8 s, 8 to 10 s, then 10 s), its default timeout of 120 s, and its mapping of an answer to the `code` of `ISocketLabsSendResult`. Like the SDK it does not retry a 429, another 4xx or a network error, and a 401, a 503 and a network error still come back as `UnknownError`. Wire format, mapping and the list of differences: `docs/code/email.md`.
+- The message that `createSocketLabsSender` hands to `client.send` is a plain object with the data fields of the SDK's `BasicMessage` (`messageType: 'basic'`, `from`, `to`, `subject`, `textBody`, `htmlBody`, `messageId`), no longer an instance of the SDK class. A `client` written against the SDK reads the same fields, and an SDK `SocketLabsClient` passed as `client` still sends it.
+- The rejection of the built-in client is a `SocketLabsSendError`, an `Error` with `result.name`, `transactionReceipt` and `addressResults`, where the SDK rejected with a `SendResponse` object. `onError` receives it by identity as before and `code` is still `rejection.result.name`. A field of `ISocketLabsMessage` that is set but is not a string makes the returned promise reject with a `TypeError` (`Invalid subject, type of 'string' was expected.`).
+
+### Security
+
+- The SDK printed `statusCode: <code>` with `console.log` on every failed attempt; the client logs nothing. Its errors hold no API key: `fetch` itself quotes the whole header value, the key included, in the `TypeError` it raises for an invalid header value, so the client drops that error instead of passing it on, and a spec pins it.
+- The client follows no redirect (`redirect: 'error'`), so the key and the mail cannot be sent to a `Location`. The endpoint is a constant and the sender still has no `endpointUrl` or proxy option.
+
+### Notes
+
+- **Proxies.** `axios` read `HTTP_PROXY` / `HTTPS_PROXY` by itself; Node's `fetch` does not. If your service reaches SocketLabs through a proxy set in those variables, start Node with `NODE_USE_ENV_PROXY=1` (or `--use-env-proxy`), or the mail goes out directly.
+- **Timeout.** `requestTimeout` is now a deadline for the whole request (`AbortSignal.timeout`); the SDK's was an idle-socket timeout. A value above 24.8 days is capped at the longest delay a Node timer holds, where the SDK turned it into 1 ms.
+- Other small differences, all in `docs/code/email.md`: an empty `apiKey` is `AuthenticationValidationFailed` and nothing is sent, an empty `from` is `EmailAddressValidationMissingFrom`, the `User-Agent` names this package, and the raw rejection no longer holds `result.value`, `result.message` or `responseMessage`.
+- **Version.** This is a minor release (the next one is 9.3.0 if nothing breaking lands first), not a major: no exported symbol, signature, type or `exports` key changes, the removed peer was optional so no install changes for a consumer who keeps or drops it, and the wire behaviour matches the SDK except for the points above. The one change that can break a deployment is the proxy variables; if you treat that as a contract, read this as a reason to release 10.0.0 instead.
+
 ## 9.2.0 — 2026-11-23
 
 Adds a validator and a sanitiser for GLB (binary glTF, 3D model) uploads. Nine new `exports` keys and five new optional peer dependencies; no existing export, behaviour or peer range changes, and a consumer that does not import the new subpaths installs nothing and loads nothing new.

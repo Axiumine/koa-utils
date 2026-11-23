@@ -1051,24 +1051,34 @@ describe('SocketLabsLib — exact copy of every mail', () => {
 describe('SocketLabsLib — constructor wiring', () => {
 	afterEach(() => sinon.restore())
 
-	function clientOf(lib: SocketLabsLib) {
-		return (lib as unknown as { client: { serverId: number; apiKey: string; numberOfRetries: number; requestTimeout: number } })
-			.client
+	// credentials = same serverId + apiKey the constructor hands to the built-in client
+	function credentialsOf(lib: SocketLabsLib) {
+		return (lib as unknown as { credentials: { serverId: number; apiKey: string } }).credentials
 	}
 
-	it('hands env serverId, api key and retry options to the SocketLabs client', () => {
-		const client = clientOf(new SocketLabsLib())
-		expect(client.serverId).to.equal(1234)
-		expect(client.apiKey).to.equal('test-api-key')
-		expect(client.numberOfRetries).to.equal(3)
-		expect(client.requestTimeout).to.equal(120)
+	it('hands env serverId and api key to the built-in client, with a 120 s timeout and 3 retries', async () => {
+		const timeout = sinon.spy(AbortSignal, 'timeout')
+		const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+		// 503 every time → 1 try + 3 retries, no network (fetch replaced)
+		const fetchStub = sinon.stub(globalThis, 'fetch').callsFake(() => Promise.resolve(new Response('', { status: 503 })))
+		const sending = new SocketLabsLib().accountDisabled('d@x.com')
+		await clock.runAllAsync()
+		expect(await sending).to.equal(false)
+		expect(fetchStub.callCount).to.equal(4)
+		const init = fetchStub.firstCall.args[1] as { body: string }
+		expect(JSON.parse(init.body)).to.include({ serverId: 1234, apiKey: 'test-api-key' })
+		expect(timeout.getCalls().map((call) => call.args[0])).to.deep.equal([120000, 120000, 120000, 120000])
+	})
+
+	it('keeps serverId and api key from the env', () => {
+		expect(credentialsOf(new SocketLabsLib())).to.deep.equal({ serverId: 1234, apiKey: 'test-api-key' })
 	})
 
 	it('falls back to serverId 0 when SOCKETLABS_SERVER_ID is unset', () => {
 		const saved = process.env['SOCKETLABS_SERVER_ID']
 		delete process.env['SOCKETLABS_SERVER_ID']
 		try {
-			expect(clientOf(new SocketLabsLib()).serverId).to.equal(0)
+			expect(credentialsOf(new SocketLabsLib()).serverId).to.equal(0)
 		} finally {
 			process.env['SOCKETLABS_SERVER_ID'] = saved
 		}

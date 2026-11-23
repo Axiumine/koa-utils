@@ -1,28 +1,22 @@
 import { createSocketLabsSender } from '../../dist/email/createSocketLabsSender.mjs'
 import type { ISocketLabsClient } from '../../dist/email/ISocketLabsClient.mjs'
 import type { ISocketLabsMessage } from '../../dist/email/ISocketLabsMessage.mjs'
-import { BasicMessage, SocketLabsClient } from '@socketlabs/email'
+import type { ISocketLabsSenderOptions } from '../../dist/email/ISocketLabsSenderOptions.mjs'
+import { createSocketLabsClient } from '@private/email/socketLabsClient.mjs'
+import { SocketLabsSendError } from '@private/email/SocketLabsSendError.mjs'
 import { expect } from 'chai'
 import sinon from 'sinon'
+import { type IFakeServer, replyNever, replyWith, startFakeServer, SUCCESS_BODY, type TReply } from '../helpers/fakeInjectionServer.mjs'
 
-// shape of BasicMessage as handed to client.send. Fields read back, SDK ships no types
+// shape of the message handed to client.send. Fields read back
 interface ISentMessage {
+	messageType?: string
 	from?: { emailAddress?: string; friendlyName?: string }
 	to: { emailAddress?: string }[]
 	subject?: string
 	textBody?: string
 	htmlBody?: string
 	messageId?: string
-}
-
-// real-client fields the SDK keeps on the instance
-interface IRealClient {
-	serverId: unknown
-	apiKey: unknown
-	requestTimeout: number
-	numberOfRetries: number
-	endpointUrl: string
-	proxy?: string
 }
 
 const MESSAGE: ISocketLabsMessage = {
@@ -76,7 +70,7 @@ describe('createSocketLabsSender', () => {
 	afterEach(() => sinon.restore())
 
 	describe('success', () => {
-		it('resolves exactly { ok: true } and calls send once with a BasicMessage', async () => {
+		it('resolves exactly { ok: true } and calls send once with a BasicMessage-shaped object', async () => {
 			const { client, send } = okClient()
 			const onError = sinon.spy()
 			const result = await createSocketLabsSender({ ...CREDS, client, onError })(MESSAGE)
@@ -84,7 +78,15 @@ describe('createSocketLabsSender', () => {
 			expect(Object.keys(result)).to.deep.equal(['ok'])
 			expect(send.calledOnce).to.equal(true)
 			expect(send.firstCall.args).to.have.lengthOf(1)
-			expect(send.firstCall.args[0]).to.be.instanceOf(BasicMessage)
+			expect(send.firstCall.args[0]).to.deep.equal({
+				messageType: 'basic',
+				from: { emailAddress: 'from@example.com', friendlyName: 'From Name' },
+				to: [{ emailAddress: 'to@example.com' }],
+				subject: 'Subject line',
+				textBody: 'Text body',
+				htmlBody: '<p>Html body</p>',
+				messageId: 'msg-1'
+			})
 			expect(onError.called).to.equal(false)
 		})
 
@@ -111,7 +113,8 @@ describe('createSocketLabsSender', () => {
 	})
 
 	describe('message content', () => {
-		it('maps every field onto the BasicMessage', async () => {
+		it('maps every field onto the message', async () => {
+			// messageType 'basic' → an SDK SocketLabsClient given as `client` still takes it
 			const { client, send } = okClient()
 			await createSocketLabsSender({ ...CREDS, client })(MESSAGE)
 			const sent = sentOf(send)
@@ -182,24 +185,10 @@ describe('createSocketLabsSender', () => {
 			expect(sentOf(send)).to.not.have.property('messageId')
 		})
 
-		it('calls the setters in the order from, subject, text, html, to, messageId', async () => {
-			const proto = BasicMessage.prototype as Record<string, () => void>
-			const names = ['setFromAddress', 'setSubject', 'setTextBody', 'setHtmlBody', 'setTo', 'setMessageId'] as const
-			const spies = names.map((name) => sinon.spy(proto, name))
-			const { client } = okClient()
+		it('sets messageType basic, which an SDK client given as `client` needs', async () => {
+			const { client, send } = okClient()
 			await createSocketLabsSender({ ...CREDS, client })(MESSAGE)
-			sinon.assert.callOrder(...spies)
-			spies.forEach((spy) => sinon.assert.calledOnce(spy))
-		})
-
-		it('passes from + fromName to setFromAddress and the message id to setMessageId', async () => {
-			const proto = BasicMessage.prototype as Record<string, () => void>
-			const fromSpy = sinon.spy(proto, 'setFromAddress')
-			const idSpy = sinon.spy(proto, 'setMessageId')
-			const { client } = okClient()
-			await createSocketLabsSender({ ...CREDS, client })(MESSAGE)
-			expect(fromSpy.firstCall.args).to.deep.equal(['from@example.com', 'From Name'])
-			expect(idSpy.firstCall.args).to.deep.equal(['msg-1'])
+			expect(sentOf(send).messageType).to.equal('basic')
 		})
 	})
 
@@ -271,19 +260,19 @@ describe('createSocketLabsSender', () => {
 			expect(onError.called).to.equal(false)
 		})
 
-		it('a setter that throws rejects, client.send is never called and onError is not called', async () => {
+		it('a message field that is not a string rejects, client.send is never called and onError is not called', async () => {
 			const { client, send } = okClient()
 			const onError = sinon.spy()
 			const sender = createSocketLabsSender({ ...CREDS, client, onError })
-			// cast → feed a non-string subject on purpose, SDK setSubject throws on it
+			// cast → feed a non-string subject on purpose, builder throws on it
 			const reason = await reasonOf(sender({ ...MESSAGE, subject: 5 as unknown as string }))
-			expect(reason).to.be.instanceOf(Error)
-			expect((reason as Error).message).to.contain('Invalid subject')
+			expect(reason).to.be.instanceOf(TypeError)
+			expect((reason as Error).message).to.equal("Invalid subject, type of 'string' was expected.")
 			expect(send.called).to.equal(false)
 			expect(onError.called).to.equal(false)
 		})
 
-		it('a setter throw is a rejected promise, never a synchronous throw', () => {
+		it('a builder throw is a rejected promise, never a synchronous throw', () => {
 			const { client } = okClient()
 			const sender = createSocketLabsSender({ ...CREDS, client })
 			// cast → feed non-string subject on purpose
@@ -370,54 +359,73 @@ describe('createSocketLabsSender', () => {
 		})
 	})
 
-	describe('real SocketLabsClient', () => {
-		// stub send on the real prototype → no network. thisValues[0] = the client the sender built
-		const builtClient = async (options: Parameters<typeof createSocketLabsSender>[0]): Promise<IRealClient> => {
-			const send = sinon.stub(SocketLabsClient.prototype as { send: () => Promise<unknown> }, 'send').resolves({})
-			await createSocketLabsSender(options)(MESSAGE)
-			expect(send.calledOnce).to.equal(true)
-			return send.thisValues[0] as IRealClient
+	describe('built-in client', () => {
+		// fetch replaced → no network. Fresh Response per call. Fake timers only for the retry waits
+		const stubFetch = (...statuses: number[]) => {
+			let call = 0
+			return sinon.stub(globalThis, 'fetch').callsFake(() => {
+				const status = statuses[Math.min(call++, statuses.length - 1)] ?? 200
+				return Promise.resolve(new Response(status === 200 ? SUCCESS_BODY : '', { status }))
+			})
 		}
+		const bodyOf = (fetchStub: sinon.SinonStub, call = 0) =>
+			JSON.parse((fetchStub.getCall(call).args[1] as { body: string }).body) as Record<string, unknown>
 
-		it('defaults: requestTimeout 120 and numberOfRetries 3, with the given serverId and apiKey', async () => {
-			const client = await builtClient({ serverId: 777, apiKey: 'real-key' })
-			expect(client).to.be.instanceOf(SocketLabsClient)
-			expect(client.serverId).to.equal(777)
-			expect(client.apiKey).to.equal('real-key')
-			expect(client.requestTimeout).to.equal(120)
-			expect(client.numberOfRetries).to.equal(3)
+		it('posts to the SocketLabs endpoint with the given serverId and apiKey', async () => {
+			const fetchStub = stubFetch(200)
+			expect(await createSocketLabsSender({ serverId: 777, apiKey: 'real-key' })(MESSAGE)).to.deep.equal({ ok: true })
+			expect(fetchStub.calledOnce).to.equal(true)
+			expect(fetchStub.firstCall.args[0]).to.equal('https://inject.socketlabs.com/api/v1/email')
+			expect(bodyOf(fetchStub)).to.include({ serverId: 777, apiKey: 'real-key' })
+		})
+
+		it('defaults: requestTimeout 120 s and 3 retries', async () => {
+			const timeout = sinon.spy(AbortSignal, 'timeout')
+			const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+			const fetchStub = stubFetch(503)
+			const sending = createSocketLabsSender({ serverId: 1, apiKey: 'k' })(MESSAGE)
+			await clock.runAllAsync()
+			expect(await sending).to.deep.equal({ ok: false, code: 'UnknownError' })
+			expect(fetchStub.callCount).to.equal(4)
+			expect(timeout.getCalls().map((call) => call.args[0])).to.deep.equal([120000, 120000, 120000, 120000])
 		})
 
 		it('overridden: requestTimeout 30 and numberOfRetries 5', async () => {
-			const client = await builtClient({ serverId: 1, apiKey: 'k', requestTimeout: 30, numberOfRetries: 5 })
-			expect(client.requestTimeout).to.equal(30)
-			expect(client.numberOfRetries).to.equal(5)
+			const timeout = sinon.spy(AbortSignal, 'timeout')
+			const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+			const fetchStub = stubFetch(503)
+			const sending = createSocketLabsSender({ serverId: 1, apiKey: 'k', requestTimeout: 30, numberOfRetries: 5 })(MESSAGE)
+			await clock.runAllAsync()
+			await sending
+			expect(fetchStub.callCount).to.equal(6)
+			expect(timeout.firstCall.args[0]).to.equal(30000)
 		})
 
 		it('overridden: numberOfRetries 0 stays 0 and requestTimeout keeps a fraction', async () => {
-			const client = await builtClient({ serverId: 1, apiKey: 'k', requestTimeout: 0.5, numberOfRetries: 0 })
-			expect(client.requestTimeout).to.equal(0.5)
-			expect(client.numberOfRetries).to.equal(0)
+			const timeout = sinon.spy(AbortSignal, 'timeout')
+			const fetchStub = stubFetch(503)
+			await createSocketLabsSender({ serverId: 1, apiKey: 'k', requestTimeout: 0.5, numberOfRetries: 0 })(MESSAGE)
+			expect(fetchStub.callCount).to.equal(1)
+			expect(timeout.firstCall.args[0]).to.equal(500)
 		})
 
 		it('explicit undefined for both options gives the defaults', async () => {
-			const client = await builtClient({ serverId: 1, apiKey: 'k', requestTimeout: undefined, numberOfRetries: undefined })
-			expect(client.requestTimeout).to.equal(120)
-			expect(client.numberOfRetries).to.equal(3)
+			const timeout = sinon.spy(AbortSignal, 'timeout')
+			const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+			const fetchStub = stubFetch(503)
+			const sending = createSocketLabsSender({ serverId: 1, apiKey: 'k', requestTimeout: undefined, numberOfRetries: undefined })(MESSAGE)
+			await clock.runAllAsync()
+			await sending
+			expect(fetchStub.callCount).to.equal(4)
+			expect(timeout.firstCall.args[0]).to.equal(120000)
 		})
 
-		it('keeps the SDK default endpoint and sets no proxy', async () => {
-			const client = await builtClient({ serverId: 1, apiKey: 'k' })
-			expect(client.endpointUrl).to.equal('https://inject.socketlabs.com/api/v1/email')
-			expect(client).to.not.have.property('proxy')
-		})
-
-		it('builds the client once, when the sender is created', async () => {
-			const send = sinon.stub(SocketLabsClient.prototype as { send: () => Promise<unknown> }, 'send').resolves({})
-			const sender = createSocketLabsSender({ serverId: 1, apiKey: 'k' })
+		it('builds the client once, when the sender is created: both sends use the same credentials', async () => {
+			const fetchStub = stubFetch(200)
+			const sender = createSocketLabsSender({ serverId: 5, apiKey: 'k' })
 			await sender(MESSAGE)
 			await sender(MESSAGE)
-			expect(send.thisValues[0]).to.equal(send.thisValues[1])
+			expect(bodyOf(fetchStub, 0)).to.deep.equal(bodyOf(fetchStub, 1))
 		})
 
 		it('reads no environment: SOCKETLABS_* decoys change nothing', async () => {
@@ -425,9 +433,9 @@ describe('createSocketLabsSender', () => {
 			process.env['SOCKETLABS_SERVER_ID'] = '999'
 			process.env['SOCKETLABS_SERVER_APIKEY'] = 'env-decoy-key'
 			try {
-				const client = await builtClient({ serverId: 55, apiKey: 'option-key' })
-				expect(client.serverId).to.equal(55)
-				expect(client.apiKey).to.equal('option-key')
+				const fetchStub = stubFetch(200)
+				await createSocketLabsSender({ serverId: 55, apiKey: 'option-key' })(MESSAGE)
+				expect(bodyOf(fetchStub)).to.include({ serverId: 55, apiKey: 'option-key' })
 			} finally {
 				for (const [i, name] of ['SOCKETLABS_SERVER_ID', 'SOCKETLABS_SERVER_APIKEY'].entries()) {
 					const value = saved[i]
@@ -437,12 +445,25 @@ describe('createSocketLabsSender', () => {
 			}
 		})
 
-		it('bad credentials reject inside the SDK and come back as a code, no network', async () => {
-			// serverId 0 → SDK validateCredentials rejects before any HTTP call
+		it('bad credentials reject inside the client and come back as a code, no network', async () => {
+			// serverId 0 → client check rejects before any HTTP call
+			const fetchStub = stubFetch(200)
 			const onError = sinon.spy()
 			const result = await createSocketLabsSender({ serverId: 0, apiKey: 'x', onError })(MESSAGE)
 			expect(result).to.deep.equal({ ok: false, code: 'AuthenticationValidationFailed' })
+			expect(fetchStub.called).to.equal(false)
 			expect(onError.calledOnce).to.equal(true)
+			expect(onError.firstCall.args[0]).to.be.instanceOf(SocketLabsSendError)
+		})
+
+		it('a message with neither text nor html comes back as MessageValidationEmptyMessage', async () => {
+			const fetchStub = stubFetch(200)
+			const { text: _t, html: _h, ...bare } = MESSAGE
+			expect(await createSocketLabsSender({ serverId: 1, apiKey: 'k' })(bare)).to.deep.equal({
+				ok: false,
+				code: 'MessageValidationEmptyMessage'
+			})
+			expect(fetchStub.called).to.equal(false)
 		})
 
 		it('creating a sender validates nothing about serverId and apiKey', () => {
@@ -451,15 +472,84 @@ describe('createSocketLabsSender', () => {
 		})
 	})
 
+	describe('built-in client against a local server', () => {
+		let fake: IFakeServer | undefined
+
+		afterEach(async () => {
+			await fake?.close()
+			fake = undefined
+		})
+
+		// client points at 127.0.0.1 through the internal endpointUrl, handed in as `client`. The sender has no such option
+		const senderFor = async (reply: TReply, extra: Partial<ISocketLabsSenderOptions> = {}) => {
+			fake = await startFakeServer(reply)
+			const client = createSocketLabsClient({
+				serverId: 4321,
+				apiKey: `${'A'.repeat(20)}.${'b'.repeat(40)}`,
+				requestTimeout: 0.1,
+				numberOfRetries: 0,
+				endpointUrl: fake.endpointUrl
+			})
+			return createSocketLabsSender({ serverId: 1, apiKey: 'ignored', client, ...extra })
+		}
+
+		it('mail goes out as the SocketLabs JSON and Success gives { ok: true }', async () => {
+			const send = await senderFor(replyWith(200, SUCCESS_BODY))
+			expect(await send(MESSAGE)).to.deep.equal({ ok: true })
+			const sent = JSON.parse(fake?.requests[0]?.body ?? '{}') as { serverId: number; messages: Record<string, unknown>[] }
+			expect(sent.serverId).to.equal(4321)
+			expect(sent.messages).to.deep.equal([
+				{
+					subject: 'Subject line',
+					htmlBody: '<p>Html body</p>',
+					textBody: 'Text body',
+					messageId: 'msg-1',
+					from: { emailAddress: 'from@example.com', friendlyName: 'From Name' },
+					to: [{ emailAddress: 'to@example.com' }]
+				}
+			])
+		})
+
+		it('an API-level failure gives its name as code, and onError gets the SocketLabsSendError by identity', async () => {
+			const onError = sinon.spy()
+			const send = await senderFor(replyWith(200, '{"ErrorCode":"OverQuota","TransactionReceipt":"r-1"}'), { onError })
+			expect(await send(MESSAGE)).to.deep.equal({ ok: false, code: 'OverQuota' })
+			expect(onError.calledOnce).to.equal(true)
+			const rejection = onError.firstCall.args[0] as SocketLabsSendError
+			expect(rejection).to.be.instanceOf(SocketLabsSendError)
+			expect(rejection.transactionReceipt).to.equal('r-1')
+		})
+
+		it('a 401 and a 500 are UnknownError, a stalled server is Timeout', async () => {
+			expect(await (await senderFor(replyWith(401, '')))(MESSAGE)).to.deep.equal({ ok: false, code: 'UnknownError' })
+			await fake?.close()
+			expect(await (await senderFor(replyWith(500, '')))(MESSAGE)).to.deep.equal({ ok: false, code: 'UnknownError' })
+			await fake?.close()
+			expect(await (await senderFor(replyNever))(MESSAGE)).to.deep.equal({ ok: false, code: 'Timeout' })
+		})
+
+		it('the result never carries the receipt, a recipient or the key', async () => {
+			const answer = JSON.stringify({
+				ErrorCode: 'Warning',
+				TransactionReceipt: 'planted-receipt',
+				MessageResults: [{ ErrorCode: 'InvalidAddress', AddressResults: [{ EmailAddress: 'planted.recipient@example.org' }] }]
+			})
+			const send = await senderFor(replyWith(200, answer))
+			const result = await send(MESSAGE)
+			expect(result).to.deep.equal({ ok: false, code: 'InvalidAddress' })
+			expect(JSON.stringify(result)).to.not.contain('planted')
+		})
+	})
+
 	describe('injected client', () => {
-		it('is used instead of a SocketLabsClient and ignores serverId and apiKey', async () => {
-			const realSend = sinon.stub(SocketLabsClient.prototype as { send: () => Promise<unknown> }, 'send').resolves({})
+		it('is used instead of the built-in client and ignores serverId and apiKey', async () => {
+			const fetchStub = sinon.stub(globalThis, 'fetch').rejects(new Error('no network in tests'))
 			const { client, send } = okClient()
 			// cast → junk credentials on purpose, must be ignored
 			const sender = createSocketLabsSender({ serverId: NaN, apiKey: undefined as unknown as string, client })
 			expect(await sender(MESSAGE)).to.deep.equal({ ok: true })
 			expect(send.calledOnce).to.equal(true)
-			expect(realSend.called).to.equal(false)
+			expect(fetchStub.called).to.equal(false)
 		})
 
 		it('is called as a method: this is the client object', async () => {
@@ -474,10 +564,10 @@ describe('createSocketLabsSender', () => {
 			expect(seen[0]).to.equal(client)
 		})
 
-		it('explicit undefined client builds the real one', async () => {
-			const realSend = sinon.stub(SocketLabsClient.prototype as { send: () => Promise<unknown> }, 'send').resolves({})
-			await createSocketLabsSender({ ...CREDS, client: undefined })(MESSAGE)
-			expect(realSend.calledOnce).to.equal(true)
+		it('explicit undefined client builds the built-in one', async () => {
+			const fetchStub = sinon.stub(globalThis, 'fetch').callsFake(() => Promise.resolve(new Response(SUCCESS_BODY, { status: 200 })))
+			expect(await createSocketLabsSender({ ...CREDS, client: undefined })(MESSAGE)).to.deep.equal({ ok: true })
+			expect(fetchStub.calledOnce).to.equal(true)
 		})
 
 		it('still checks requestTimeout and numberOfRetries', () => {
