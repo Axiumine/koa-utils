@@ -8,7 +8,7 @@
 # Same three steps as `yarn test:coverage` minus c8 and mocha.
 #
 # Sandbox mode: Stryker copies the project to .stryker-tmp/sandbox-*/ and runs this
-# command there BEFORE it links node_modules, so the build tools (tspc) would not
+# command there BEFORE it links node_modules, so the build tools (tsc) would not
 # resolve. Link the repo's node_modules first when the sandbox has none. A real
 # node_modules directory (in-place run, or a full checkout) is left alone.
 

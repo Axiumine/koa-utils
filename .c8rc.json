@@ -3,7 +3,9 @@
 	"include": [
 		"dist/**/*.mjs",
 		"scripts/check-code-caps.mts",
-		"scripts/code-caps/**/*.mts"
+		"scripts/code-caps/**/*.mts",
+		"scripts/rewrite-path-aliases.mts",
+		"scripts/path-aliases/**/*.mts"
 	],
 	"exclude": [
 		"dist/**/I*.mjs",

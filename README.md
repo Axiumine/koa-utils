@@ -326,7 +326,7 @@ yarn check:static # every static gate: caps, lint, typecheck (src, scripts, spec
 yarn clean
 ```
 
-Source files are `.mts`. Imports use `.mjs` extension explicitly (NodeNext). Path aliases (`@lib/*`, `@throw/*`, `@models/*`, `@context/*`, `@stypes/*`, `@private/*`, `@email/*`, `@dataSources/*`) are rewritten to relative paths in emitted code via `typescript-transform-paths` (run through `tspc`, the `ts-patch` wrapper).
+Source files are `.mts`. Imports use `.mjs` extension explicitly (NodeNext). Path aliases (`@lib/*`, `@throw/*`, `@models/*`, `@context/*`, `@stypes/*`, `@private/*`, `@email/*`, `@dataSources/*`) are rewritten to relative paths in the emitted `.mjs` / `.d.mts` right after `tsc`, by `scripts/rewrite-path-aliases.mts`, which reads the alias map from the tsconfig `paths`. The build is a plain `tsc` plus that step: it does not patch the compiler or need a transformer plugin.
 
 Adding a new public symbol requires both:
 1. Creating `src/<area>/<Name>.mts`

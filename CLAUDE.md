@@ -30,7 +30,7 @@ Before you create or edit **any** `CLAUDE.md` in this repo, root or nested:
 ## Always
 
 - Edit `.mts` in `src/`. Never `dist/` — `yarn build` regen it.
-- Aliases `@lib/* @throw/* @models/* @context/* @stypes/* @private/* @email/* @dataSources/*`. Imports MUST end `.mjs`, not `.ts`/`.mts` — NodeNext require, `typescript-transform-paths` rewrite at build.
+- Aliases `@lib/* @throw/* @models/* @context/* @stypes/* @private/* @email/* @dataSources/*`. Imports MUST end `.mjs`, not `.ts`/`.mts` — NodeNext require. Build: plain `tsc` → `scripts/rewrite-path-aliases.mts` rewrite aliases → relative in emitted `.mjs` / `.d.mts`. Alias map read from tsconfig `paths`, never 2nd list.
 - Tabs (`.editorconfig`). Prettier: no semicolons, single quotes, `trailingComma:none`, `printWidth:129`. Match neighbours. Never reformat unrelated lines.
 - New public symbol → matching `package.json` `exports` entry (check `_moduleAliases`). No barrel → 1 export key per consumer-visible file.
 - Every package `src/` or `test/` import → own `devDependencies` entry, peer-only deps included. `node-modules` linker no hoist a name root declare as unmet peer: `keygrip` pass under Yarn 1 by hoist accident, `ERR_MODULE_NOT_FOUND` under Yarn 4 until `devDependencies` got it. Peer range untouched.
@@ -50,7 +50,7 @@ Full prose by Rule 0 §4. Both of these shipped as real defects.
 ## Coverage — hard 100%
 
 - `.c8rc.json`: `check-coverage: true`, `per-file: true`, `lines`/`statements`/`functions`/`branches` all `100`. Any file below → `yarn test:coverage` exit non-zero.
-- `.c8rc.json` `include` = `dist/**/*.mjs` + `scripts/check-code-caps.mts` + `scripts/code-caps/**/*.mts` → caps tool + specs held to same 100%. Other `scripts/` = measurement tools, outside include, no spec.
+- `.c8rc.json` `include` = `dist/**/*.mjs` + `scripts/check-code-caps.mts` + `scripts/code-caps/**/*.mts` + `scripts/rewrite-path-aliases.mts` + `scripts/path-aliases/**/*.mts` → caps tool, alias rewrite (build step, make published bytes) + specs held to same 100%. Other `scripts/` = measurement tools, outside include, no spec.
 - `.githooks/pre-commit` order: lockfile + Yarn config check (always) → `yarn check:static` → `yarn test:coverage` → Qodana last. Run on any commit touching `src/`, `test/`, `scripts/`, `package.json`, `.c8rc.json`, `.mocharc.json`, `tsconfig*.json`, `eslint.config.js`, `eslint-suppressions.json`, `knip.config.js`, `fta.json`, `.code-caps-baseline.json`. Docs-only skip all heavy steps. Wired by `yarn hooks:install`, run once per clone (Yarn 4 skip root `prepare`) → `core.hooksPath .githooks`.
 - `.githooks/pre-push`: `yarn check:static` again (catch `--no-verify` commits) → `yarn ratchet:against` (merge base w/ `origin/main`) → `scripts/semgrep.sh` → `scripts/semgrep-canary.sh` → `yarn mutation:changed <range base>` (only when range touch `src/**/*.mts`; ~35 s per file + 30 s fixed; fail below `thresholds.break` = 100). Run on pre-commit paths + `.semgrep/` + `.github/workflows/semgrep.yml`. Skip branch delete + docs-only range. Prereq missing (yarn, `node_modules`, `stryker` / `patch-package` bins, `origin/main` ref, python3, docker, daemon, pinned `SEMGREP_IMAGE` local) → print 1 fix cmd, exit 1. Never pull. Offline-safe: no `--registry` packs, semgrep scripts pass `--disable-version-check`. No `SKIP_*`.
 - Red gate → new test. Never lower threshold, never new exclude.
@@ -132,7 +132,7 @@ Docs hand-written. Nothing verify them → drift silent → consumers read stale
 
 ## Build / lint
 
-- `yarn build` — prod ESM build (`yarn clean && yarn build:esm`). `tspc` (ts-patch) apply `typescript-transform-paths` → emitted `.mjs` carry relative imports.
+- `yarn build` — prod ESM build (`yarn clean && yarn build:esm`). `tsc` then `node scripts/rewrite-path-aliases.mts <tsconfig>` → emitted `.mjs` / `.d.mts` carry relative imports. No ts-patch, no `tspc`, no transformer plugin: TS 7 ship no such hook. Script silent on success (`npm pack --json` stdout stay clean), fail closed (exit 2) on unreadable tsconfig, empty outDir, unsupported `paths`.
 - `yarn build:all` — ESM + CJS attempt. Broken: CJS half emit nothing (`include` match `*.ts`, all src `.mts`) → `find: dist/cjs` exit 1. Package ESM-only. Use `yarn build`.
 - `yarn lint` — `eslint --fix` then `prettier --write 'src/**/*.mts' 'scripts/**/*.mts'`. Run after every multi-file edit.
 - `yarn lint:check` — `eslint --max-warnings 0 --cache` then `prettier --check`. Read-only, no fix. Part of `check:static` → red CI = run `yarn lint`.

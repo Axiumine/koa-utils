@@ -67,6 +67,6 @@ The library keeps no persistent state of its own. In memory it holds module-leve
 
 ## Build and release
 
-TypeScript sources (`.mts`) are compiled by `tspc` (ts-patch) with `typescript-transform-paths`, which turns the `@lib/*` style aliases into relative imports, and the output is renamed to `.mjs`. The build is deterministic: CI checks that two clean builds are byte-identical, and the 7.1.0 tarball rebuilt from its tag has the same SHA-1 as the one on npm ([verify-release.md](verify-release.md)). The tarball contains `dist/` without source maps.
+TypeScript sources (`.mts`) are compiled by plain `tsc`; the output is renamed to `.mjs`, then `scripts/rewrite-path-aliases.mts` turns the `@lib/*` style aliases into relative imports (it reads the alias map from the tsconfig `paths`). The build is deterministic: CI checks that two clean builds are byte-identical, and the 7.1.0 tarball rebuilt from its tag has the same SHA-1 as the one on npm ([verify-release.md](verify-release.md)). The tarball contains `dist/` without source maps.
 
 Quality gates run before code reaches `main` and again in CI: Mocha tests with a 100% per-file c8 coverage gate, ESLint and Prettier, Semgrep (custom rules plus a canary suite that proves the rules still detect) and a Qodana scan.

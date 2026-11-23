@@ -36,8 +36,6 @@ export default {
 		'mariadb',
 		// Imported only by scripts/migrate-account-disabled-to-boolean.mjs through a dynamic path Knip cannot follow.
 		'mongodb',
-		// Loaded by ts-patch from the tsconfig `plugins` entry, never imported.
-		'typescript-transform-paths',
 		// The built .d.mts files import its types, it is not a declared devDependency (hint only, kept for visibility).
 		'@types/keygrip',
 		// Optional peer by design: the package keeps zero runtime dependencies and every peer is consumer-installed.
