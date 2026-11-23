@@ -259,7 +259,7 @@ Sentry is reached through the internal `private/lib/sentry` facade (`captureExce
 
 - License: `AGPL-3.0-or-later` from 9.0.0 (`GPL-3.0-or-later` up to 8.1.0). Contributors accept `CLA.md`.
 - Repo: <https://github.com/Axiumine/koa-utils>.
-- Current version: `9.2.0` (`package.json`). Bump version, merge to `main`, then publish a GitHub release `vX.Y.Z`:
+- Current version: `9.3.0` (`package.json`). Bump version, merge to `main`, then publish a GitHub release `vX.Y.Z`:
   `.github/workflows/release.yml` publishes to npm with provenance (no token stored). `yarn upload` is the manual
   fallback and needs the token in `.npmrc`; use one path per version, never both.
 - **Publishing:** `yarn upload` pins `--registry=https://registry.npmjs.org/` on purpose. Yarn 1 exported the registry from

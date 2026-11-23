@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## 9.3.0 — 2026-11-23
 
 Mail to SocketLabs no longer goes through the `@socketlabs/email` SDK. The SDK's latest release, 1.4.4 (October 2023), is unmaintained and depends on `axios` `^0.21.1`, which resolves to 0.21.4 and has published high-severity advisories, so every project that used the SocketLabs sender failed `npm audit` and `yarn npm audit` and nothing could be done about it: there is no fixed SDK. `email/SocketLabsLib` and `email/createSocketLabsSender` now post to the SocketLabs Injection API with Node's built-in `fetch`. No exported symbol, signature, type or `exports` key changes, and the optional peer `@socketlabs/email` is removed.
 
@@ -32,7 +32,7 @@ Mail to SocketLabs no longer goes through the `@socketlabs/email` SDK. The SDK's
 - **429 is retried (a deviation from the SDK).** The SDK never retried a 429; this client does, with the same back-off and the same `numberOfRetries` budget as a 500, 502, 503 or 504. Reason: a 429 means SocketLabs rejected the request, so a retry cannot deliver the mail twice. A 429 that outlasts the retries is reported as before (`UnknownError`, no `result`). `Retry-After` is not read: the wait is the fixed back-off, whatever the server asks. Network errors stay unretried, because that request may have reached SocketLabs and a retry could send the mail twice; so does every other 4xx.
 - **Timeout.** `requestTimeout` is now a deadline for the whole request (`AbortSignal.timeout`); the SDK's was an idle-socket timeout. A value above 24.8 days is capped at the longest delay a Node timer holds, where the SDK turned it into 1 ms.
 - Other small differences, all in `docs/code/email.md`: an empty `apiKey` is `AuthenticationValidationFailed` and nothing is sent, an empty `from` is `EmailAddressValidationMissingFrom`, the `User-Agent` names this package, and the raw rejection no longer holds `result.value`, `result.message` or `responseMessage`.
-- **Version.** This is a minor release (the next one is 9.3.0 if nothing breaking lands first): no exported symbol, signature, type or `exports` key changes, the removed peer was optional so no install changes for a consumer who keeps or drops it, and the wire behaviour matches the SDK except for the points above. Read these before upgrading: the proxy variables (`HTTP_PROXY` / `HTTPS_PROXY` are not read unless Node runs with `NODE_USE_ENV_PROXY=1`), the rejection that `onError` receives (a `SocketLabsSendError` instead of the SDK's `SendResponse`, so `result.value`, `result.message` and `responseMessage` are gone), the 429 retry and the no-redirect rule. The `version` bump belongs to the release-prep commit.
+- **Version.** This is a minor release (9.3.0): no exported symbol, signature, type or `exports` key changes, the removed peer was optional so no install changes for a consumer who keeps or drops it, and the wire behaviour matches the SDK except for the points above. Read these before upgrading: the proxy variables (`HTTP_PROXY` / `HTTPS_PROXY` are not read unless Node runs with `NODE_USE_ENV_PROXY=1`), the rejection that `onError` receives (a `SocketLabsSendError` instead of the SDK's `SendResponse`, so `result.value`, `result.message` and `responseMessage` are gone), the 429 retry and the no-redirect rule.
 
 ## 9.2.0 — 2026-11-23
 
