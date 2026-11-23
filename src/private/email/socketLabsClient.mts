@@ -9,8 +9,12 @@ import { SocketLabsSendError } from './SocketLabsSendError.mjs'
 
 /** The SocketLabs Injection API, the only host the client talks to. Fixed: nothing a caller passes can change it. */
 const INJECTION_ENDPOINT = 'https://inject.socketlabs.com/api/v1/email'
-/** The statuses the SDK retried, besides a timeout. Not 429, not any 4xx, and not a network error: the SDK never retried those. */
-const RETRY_STATUSES: ReadonlySet<number> = new Set([500, 502, 503, 504])
+/**
+ * The statuses retried, besides a timeout: the four the SDK retried (500, 502, 503, 504) and 429, which is retried on purpose, a deviation
+ * from the SDK. A 429 means the request was rejected, so a retry cannot deliver the mail twice. No other 4xx is retried, and no network
+ * error either: that request may have reached SocketLabs, so a retry could send the mail twice. `Retry-After` is not read.
+ */
+const RETRY_STATUSES: ReadonlySet<number> = new Set([429, 500, 502, 503, 504])
 const BACKOFF_MIN_MS = 1000
 const BACKOFF_MAX_MS = 10_000
 /** Longest delay a Node timer can hold: a larger one makes it fire after 1 ms. */

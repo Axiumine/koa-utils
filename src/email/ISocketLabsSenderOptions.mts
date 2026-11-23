@@ -17,7 +17,7 @@ export interface ISocketLabsSenderOptions {
 	 */
 	requestTimeout?: number | undefined
 	/**
-	 * How many times the client retries a failed request: a timeout, or a 500, 502, 503 or 504 answer. Default 3. Must be an
+	 * How many times the client retries a failed request: a timeout, or a 429, 500, 502, 503 or 504 answer (`Retry-After` is not read). Default 3. Must be an
 	 * integer from 0 to 5, else `RangeError` when the sender is created. Unused when `client` is given. Retries add to the time
 	 * one send can take (up to `requestTimeout` x (1 + `numberOfRetries`) plus a back-off of 1 to 10 s before each retry), and a
 	 * retry after a timeout can deliver the mail twice.

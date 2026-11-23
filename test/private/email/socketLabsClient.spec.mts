@@ -236,8 +236,8 @@ describe('createSocketLabsClient', () => {
 	})
 
 	describe('other 2xx and 3xx, and 4xx', () => {
-		// success body on purpose: only status counts. 408 + 429 not retried either, as in the SDK
-		for (const status of [201, 202, 204, 400, 401, 403, 404, 408, 413, 422, 429]) {
+		// success body on purpose: only status counts. 408 not retried, only 429 is (own describe below)
+		for (const status of [201, 202, 204, 400, 401, 403, 404, 408, 413, 422]) {
 			it(`${status} rejects with no result and is never retried`, async () => {
 				const fake = await serve(replyWith(status, SUCCESS_BODY))
 				const err = await rejectionOf(clientFor(fake, { numberOfRetries: 3 }).send(MESSAGE))
@@ -248,6 +248,79 @@ describe('createSocketLabsClient', () => {
 				expect(sleeps).to.deep.equal([])
 			})
 		}
+	})
+
+	describe('429', () => {
+		// owner decision, differs from SDK: 429 = request rejected → retry cannot deliver twice. Same back-off + budget as 5xx
+		it('429 then Success resolves after exactly two requests and one wait', async () => {
+			const fake = await serve(replySequence(replyWith(429, ''), replyWith(200, SUCCESS_BODY)))
+			expect(await clientFor(fake, { numberOfRetries: 3 }).send(MESSAGE)).to.deep.equal({ name: 'Success' })
+			expect(fake.requests).to.have.lengthOf(2)
+			expect(sleeps).to.deep.equal([1000])
+		})
+
+		it('429 for ever is retried numberOfRetries times with the SDK back-off, then rejects with no result (UnknownError)', async () => {
+			const fake = await serve(replyWith(429, SUCCESS_BODY))
+			const err = await rejectionOf(clientFor(fake, { numberOfRetries: 3 }).send(MESSAGE))
+			expect(fake.requests).to.have.lengthOf(4)
+			expect(sleeps).to.deep.equal([1000, 2000, 4000])
+			expect(err.result).to.equal(undefined)
+			expect(err.message).to.equal('SocketLabs send failed: UnknownError')
+			expect(err.transactionReceipt).to.equal(null)
+		})
+
+		it('429 with numberOfRetries 0 makes one request and no wait', async () => {
+			const fake = await serve(replyWith(429, ''))
+			const err = await rejectionOf(clientFor(fake, { numberOfRetries: 0 }).send(MESSAGE))
+			expect(fake.requests).to.have.lengthOf(1)
+			expect(sleeps).to.deep.equal([])
+			expect(err.message).to.equal('SocketLabs send failed: UnknownError')
+		})
+
+		it('429 with numberOfRetries 5 gives six requests and the waits 1, 2, 4, 8, 10 s', async () => {
+			const fake = await serve(replyWith(429, ''))
+			await rejectionOf(clientFor(fake, { numberOfRetries: 5 }).send(MESSAGE))
+			expect(fake.requests).to.have.lengthOf(6)
+			expect(sleeps).to.deep.equal([1000, 2000, 4000, 8000, 10000])
+		})
+
+		it('429 does not honour Retry-After: the wait is the back-off', async () => {
+			const fake = await serve(replyWith(429, '', { 'retry-after': '120' }))
+			await rejectionOf(clientFor(fake, { numberOfRetries: 1 }).send(MESSAGE))
+			expect(sleeps).to.deep.equal([1000])
+		})
+
+		it('every 429 retry sends the same headers and the same body', async () => {
+			const fake = await serve(replyWith(429, ''))
+			await rejectionOf(clientFor(fake, { numberOfRetries: 2 }).send(MESSAGE))
+			const [first, ...rest] = fake.requests
+			expect(rest).to.have.lengthOf(2)
+			for (const request of rest) {
+				expect(request.body).to.equal(first?.body)
+				expect(request.headers['authorization']).to.equal(first?.headers['authorization'])
+			}
+		})
+
+		it('a 429 then a 503 then Success keeps retrying: one budget for all retried statuses', async () => {
+			const fake = await serve(replySequence(replyWith(429, ''), replyWith(503, ''), replyWith(200, SUCCESS_BODY)))
+			expect(await clientFor(fake, { numberOfRetries: 2 }).send(MESSAGE)).to.deep.equal({ name: 'Success' })
+			expect(fake.requests).to.have.lengthOf(3)
+			expect(sleeps).to.deep.equal([1000, 2000])
+		})
+
+		it('a 429 then a 401 stops at the 401', async () => {
+			const fake = await serve(replySequence(replyWith(429, ''), replyWith(401, '')))
+			await rejectionOf(clientFor(fake, { numberOfRetries: 3 }).send(MESSAGE))
+			expect(fake.requests).to.have.lengthOf(2)
+			expect(sleeps).to.deep.equal([1000])
+		})
+
+		it('a 429 then an API-level code rejects with that code, no more requests', async () => {
+			const fake = await serve(replySequence(replyWith(429, ''), replyWith(200, '{"ErrorCode":"OverQuota"}'), replyWith(200, SUCCESS_BODY)))
+			const err = await rejectionOf(clientFor(fake, { numberOfRetries: 3 }).send(MESSAGE))
+			expect(err.result).to.deep.equal({ name: 'OverQuota' })
+			expect(fake.requests).to.have.lengthOf(2)
+		})
 	})
 
 	describe('5xx', () => {
