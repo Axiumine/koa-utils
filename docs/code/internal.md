@@ -191,6 +191,34 @@ Rejects a path-traversal attempt in a value that gets interpolated into a filesy
 
 **Throws:** `Error` — if `value` contains a `..` path segment.
 
+## `glb/` — GLB sanitiser internals
+
+Internal modules behind `files/sanitiseGlb`, `files/sanitiseGlbFile` and `files/checkGlbContainer` (public reference: `docs/code/files.md`). Never exported. Every function that reads the hostile JSON takes it as `IJsonObject` (`Record<string, unknown>`) and reads it through the helpers of `jsonAccess`, so a wrong type, a missing key or a prototype name (`constructor`, `__proto__`) is an empty list or `0`, never a throw. Every check returns `IGlbReason[]` and fills the shared `IGlbStats`.
+
+| Module | Role |
+|---|---|
+| `jsonAccess` | `isObject`, `listOf`, `countOf` (a safe integer, floored at 0, else 0), `field` (own-property read only), `itemOf`, `childOf`. The one place that indexes by a key from the file. |
+| `glbReason` | `limitReasons(limit, label, value, max)` (a value equal to `max` passes), `MAX_REASONS = 20`, `tooLargeReason`. |
+| `glbStats` | `emptyStats(inputBytes)` (all zero) and `rejected(reasons, stats)`, which cuts the list to `MAX_REASONS`. |
+| `glbExtensions` | `GLB_FORBIDDEN_EXTENSIONS` (`KHR_interactivity`) and `GLB_SUPPORTED_EXTENSIONS` (the defaults plus `KHR_lights_punctual` and `KHR_materials_variants`: the names glTF Transform can rewrite). |
+| `resolveGlbPolicy` | Merges options over `GLB_POLICY_DEFAULTS` and validates: unknown key, a limit that is not a positive safe integer, `textureQuality` outside 1 to 100 and a non-array list are `TypeError`; a name outside the supported list is `RangeError`. |
+| `parseGlbJson` | Strict UTF-8 decode, `JSON.parse`, the result must be an object (`JSON_INVALID` otherwise). |
+| `checkGlbUris` | Any `uri` on a buffer or an image: `URI_DATA` for `data:` (any case), else `URI_EXTERNAL`; pointer `/<collection>/<i>/uri`. An empty `uri` counts. |
+| `checkGlbExtensions` | The union of `extensionsUsed`, `extensionsRequired` and the keys of the root `extensions`: forbidden first, then not in the allowlist. |
+| `checkGlbCounts` | Nodes, meshes, materials, textures (images count against `maxTextures`), animations, accessors; `checkGlbAccessors` (biggest `count` and the sum of `sparse.count`); `checkGlbBuffers` (declared bytes plus `count * byteStride` of every `EXT_meshopt_compression` view, because the decoder allocates that up front). |
+| `checkGlbGeometry` | Triangles and vertices per node instance, with a per-mesh memo, for modes 4, 5 and 6; an indexed primitive counts its index accessor. |
+| `IImageSize`, `readImageHeader`, `readJpegSize`, `readKtx2Size` | `detectImageFormat` (magic number) and `readImageSize` (width and height from the header, `null` for a cut or malformed header or a side of 0 or 2^31 and over; the `DataView` reads that run past the end are caught). PNG needs an `IHDR` of 13 bytes first; JPEG walks segments to a start-of-frame marker; WebP reads `VP8 `, `VP8L` and `VP8X`; KTX2 needs 1 to 32 levels that all end inside the file. |
+| `checkGlbImages` | Reads each embedded image from the BIN chunk and checks the format against the claimed `mimeType`, each side against `maxTextureSide` and the pixel total against `maxTexturePixels`; fills `stats.maxTextureSide`. An image with a `uri` is left to `checkGlbUris`. |
+| `inspectGlbJson` | Runs the checks above in a fixed order (uris, extensions, counts, accessors, buffers, geometry, images). |
+| `validateKhronos` | `gltf-validator` through a replaceable `validate` argument (the tests pass fakes); `maxIssues: 100`, severity 0 becomes `VALIDATOR_ERROR` (up to 20), a crash `VALIDATOR_FAILED`, a counted error with no message a generic reason. The library has no types: `src/types/gltf-validator.d.ts`. |
+| `glbIo` | A silent glTF Transform `WebIO` with only the allowed extensions registered and the meshopt decoder and encoder ready. |
+| `stripExtras` | `setExtras({})` on the root and on every property reachable from the graph. |
+| `reEncodeImage`, `reencodeTextures` | `sharp` decode and encode in the same format (PNG lossless, JPEG progressive, WebP lossy at `textureQuality`), `limitInputPixels` of `maxTextureSide` squared and `failOn: 'warning'` so a cut file is refused, not repaired. A texture that fails is `IMAGE_DECODE_FAILED`; KTX2 passes through. |
+| `rewriteGlb` | Read (a meshopt failure is `MESHOPT_DECODE_FAILED`, any other read error `READ_FAILED`), `stripExtras`, `prune` (with `keepLeaves`, `keepAttributes` and `keepSolidTextures`, so empty nodes, unused attributes and solid-colour textures stay), `reencodeTextures`, mark meshopt required when it was used, write. |
+| `verifyGlbOutput` | The written file through the validator (errors become `OUTPUT_INVALID`) and through `io.readBinary` again. |
+
+Rules that the tests pin: the first stage that finds a problem ends the run; a hostile file never throws; `sanitiseGlb` works on a private copy of its input, because glTF Transform reads from offset 0 of the underlying buffer and a pooled `Buffer` or a view would fail; a texture no material uses is pruned and therefore never decoded; the `gltf-validator` peer range is `>=2.0.0-0 <3` because every release is a `2.0.0-dev.*` prerelease.
+
 ## `graphQL/Consts`
 
 Shared user-facing error copy for internal error paths.

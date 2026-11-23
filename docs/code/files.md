@@ -1,6 +1,6 @@
 # File Upload Pipeline
 
-This section covers the `src/files/*` modules that implement koa-utils' upload pipeline: an incoming multipart stream is first written to a temp file (`storeUploadAsTemp`), then run through extension and magic-number MIME validation, a ClamAV virus scan, an (currently disabled) NSFW check, a `sharp`-based re-encode that rebuilds the file from its decoded pixels and replaces the EXIF block (other metadata, such as XMP and the ICC profile, is not stripped, see the note under `reEncodeToJpeg`), and finally a move out of the temp directory into its permanent home. The two orchestrators — `uploadTempImage` (images) and `uploadTempPdf` (PDFs) — wire these building blocks together into a single call. Pieces are grouped below as constants/interfaces, validators, scanners, re-encoders, movers, and uploaders (orchestrators).
+This section covers the `src/files/*` modules that implement koa-utils' upload pipeline: an incoming multipart stream is first written to a temp file (`storeUploadAsTemp`), then run through extension and magic-number MIME validation, a ClamAV virus scan, an (currently disabled) NSFW check, a `sharp`-based re-encode that rebuilds the file from its decoded pixels and replaces the EXIF block (other metadata, such as XMP and the ICC profile, is not stripped, see the note under `reEncodeToJpeg`), and finally a move out of the temp directory into its permanent home. The two orchestrators — `uploadTempImage` (images) and `uploadTempPdf` (PDFs) — wire these building blocks together into a single call. 3D models (`.glb`) have their own building blocks: the GLB validators and the GLB sanitiser, which checks the file structure, applies a size and content policy and writes a clean copy; there is no GLB orchestrator, the caller chains them (see the example under [GLB sanitiser](#glb-sanitiser)). Pieces are grouped below as constants/interfaces, validators, scanners, re-encoders, the GLB sanitiser, movers, and uploaders (orchestrators).
 
 ## Constants & interfaces
 
@@ -194,6 +194,49 @@ Thin wrapper over `validateMimeType` fixed to `['application/pdf']`. Used by `up
 
 **Throws:** `Error('Invalid file MIME type')` — propagated from `validateMimeType` if content is not a PDF.
 
+### `validateGlbExtension`
+
+**Import:** `import { validateGlbExtension } from '@axiumine/koa-utils/files/validateGlbExtension'`
+
+**Signature:**
+```ts
+export async function validateGlbExtension(filename: string, filePath: string)
+```
+
+Same pattern as `validatePdfExtension` but restricted to `.glb`. Removes `filePath` via `fs-extra` before throwing on a mismatch. A `.gltf` file (JSON with external files) is refused on purpose: only the single-file binary form can be checked.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| filename | string | Original/stored filename used only to read the extension. |
+| filePath | string | Path of the temp file on disk, removed if validation fails. |
+
+**Returns:** `Promise<void>`.
+
+**Throws:** `Error('Invalid file extension')` — if the extension is not `.glb`.
+
+### `validateMimeTypeGlb`
+
+**Import:** `import { validateMimeTypeGlb } from '@axiumine/koa-utils/files/validateMimeTypeGlb'`
+
+**Signature:**
+```ts
+export async function validateMimeTypeGlb(filePath: string): Promise<string>
+```
+
+Thin wrapper over `validateMimeType` fixed to `['model/gltf-binary']` (the `file-type` magic-number check; it reads the `glTF` magic at the start of the file). Unlike `validateMimeTypePdf` it is exported.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| filePath | string | Path of the file to inspect on disk. |
+
+**Returns:** `Promise<string>` — detected extension (`'glb'`) on success.
+
+**Throws:** `Error('Invalid file MIME type')` — propagated from `validateMimeType` if content is not a GLB. The file is removed first.
+
 ## Scanners
 
 ### `initClamScan`
@@ -330,6 +373,155 @@ Same pattern targeting WebP: `reEncode` reads the source into a `Buffer` first, 
 **Returns:** `Promise<string>` — path of the newly written `.webp` file.
 
 **Throws:** `Error('Error processing the image')` — if `sharp` fails. Also can throw `throwInternalError()` if unlinking the original fails.
+
+## GLB sanitiser
+
+A GLB is a container for a glTF 3D model. An uploaded GLB is hostile input in several ways that an image re-encode never meets: the JSON can point at files on your server or at remote URLs, a few bytes of header can claim a texture of 100 000 by 100 000 pixels, a few kilobytes of accessors can claim a billion triangles, compressed geometry can claim a gigantic decoded size, and `extras` and unknown extensions carry data nobody checked. `sanitiseGlb` rejects those files and, for the rest, writes a **fresh** GLB built from what the model really contains.
+
+The stages run in this order and the first stage that finds a problem ends the run (so a hostile file is refused cheaply, before anything is decoded):
+
+1. **Container** (`checkGlbContainer`): size, `glTF` magic, version 2, declared length against the real length, one JSON chunk then at most one BIN chunk ending at the end of the file.
+2. **JSON**: the JSON chunk is strict UTF-8 holding one JSON object.
+3. **Policy** (the policy fields below): no `uri` on any buffer or image (`data:` URIs included), only allowed extensions (`KHR_interactivity` is refused whatever the list says), limits on triangles, vertices, accessors (sparse `count` included), meshes, nodes, materials, textures, animations and buffer bytes, and the size of every texture, read **from the image header** before anything decodes it. The image format is taken from the magic number, not from the claimed `mimeType`.
+4. **Khronos glTF Validator** (`gltf-validator`): any error rejects. Warnings never do.
+5. **Rewrite** through glTF Transform: `EXT_meshopt_compression` data is decoded (bad data rejects) and written compressed again; every `extras` is dropped, unknown extensions and unused data are dropped; PNG, JPEG and WebP textures are decoded and re-encoded with `sharp`, which drops EXIF, XMP, the ICC profile and any bytes hidden after the image data; the model is written as one embedded buffer. Names, the scene graph, solid-colour textures and empty nodes are kept.
+6. **Output check**: the new file goes through the validator and the decoder once more.
+
+KTX2 textures (`KHR_texture_basisu`) cannot be decoded here: their header and level index are checked against the limits and the bytes are passed through.
+
+`KHR_draco_mesh_compression` is not allowed by default and cannot be added to the allowlist: there is no Draco decoder in the sanitiser, so the data could not be checked. Allowed extension names must be ones the sanitiser can rewrite (the defaults, `KHR_lights_punctual` and `KHR_materials_variants`); any other name in `allowedExtensions` throws a `RangeError`.
+
+**Peers:** `@gltf-transform/core`, `@gltf-transform/extensions`, `@gltf-transform/functions`, `gltf-validator`, `meshoptimizer` and `sharp` are all optional peers, reached only through `sanitiseGlb` and `sanitiseGlbFile`. The `gltf-validator` peer range is `>=2.0.0-0 <3`: every release on npm is a `2.0.0-dev.*` prerelease, and semver does not let a plain `<3` match a prerelease.
+
+**Not a virus scan.** The sanitiser looks at structure, not at signatures. Run `scanVirus` on the stored file as well.
+
+### Usage
+
+```ts
+import { storeUploadAsTemp } from '@axiumine/koa-utils/files/storeUploadAsTemp'
+import { scanVirus } from '@axiumine/koa-utils/files/scanVirus'
+import { validateGlbExtension } from '@axiumine/koa-utils/files/validateGlbExtension'
+import { validateMimeTypeGlb } from '@axiumine/koa-utils/files/validateMimeTypeGlb'
+import { sanitiseGlbFile } from '@axiumine/koa-utils/files/sanitiseGlbFile'
+
+// storeUploadAsTemp caps uploads at 5 MB unless told otherwise: pass the GLB limit
+const { filePath, originalFilename } = await storeUploadAsTemp(upload, 32 * 1024 * 1024)
+await validateGlbExtension(originalFilename, filePath)
+await validateMimeTypeGlb(filePath)
+await scanVirus(filePath)
+const result = await sanitiseGlbFile(filePath) // accepted: the file now holds the clean copy; rejected: the file is gone
+if (!result.accepted) {
+	throw new Error(result.reasons.map((reason) => reason.code).join(', '))
+}
+```
+
+### `sanitiseGlb`
+
+**Import:** `import { sanitiseGlb } from '@axiumine/koa-utils/files/sanitiseGlb'`
+
+**Signature:**
+```ts
+export async function sanitiseGlb(input: Uint8Array, options: Partial<IGlbPolicy> = {}): Promise<IGlbSanitiseResult>
+```
+
+Runs the stages above on the bytes of one GLB. The function works on a private copy of `input`, so a `Buffer`, a view into a bigger buffer, or an array the caller changes during the call are all safe.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| input | `Uint8Array` | The whole GLB file. A Node `Buffer` is a `Uint8Array`. |
+| options | `Partial<IGlbPolicy>` | Limits, texture quality and extension list; see the table below. Every field has a safe default in `GLB_POLICY_DEFAULTS`. |
+
+**Returns:** `Promise<IGlbSanitiseResult>`:
+
+- `{ accepted: true, glb, reasons: [], stats }` — `glb` is the freshly written file.
+- `{ accepted: false, reasons, stats }` — `reasons` is never empty and holds at most 20 entries.
+
+Each reason is `{ code, message, pointer?, limit? }`. `code` is one of `GLB_REJECT_CODES` and is the part to match on; `message` is English text for a log and may change in a patch release. `pointer` is a JSON pointer such as `/images/0/uri`. `limit` is set for `LIMIT_EXCEEDED` and names the policy field that was hit. `stats` holds `inputBytes`, `outputBytes` (`0` when rejected), `nodes`, `meshes`, `materials`, `textures`, `animations`, `accessors`, `triangles`, `vertices`, `bufferBytes`, `maxTextureSide` and `texturesReencoded`; a count is `0` for a stage the file never reached.
+
+**Throws:** only on misuse, never on a hostile file. `TypeError('sanitiseGlb: input must be a Uint8Array or a Buffer')` for any other input type; `TypeError` for an unknown option name or an invalid value (a limit must be a positive integer, `textureQuality` an integer from 1 to 100, `allowedExtensions` an array); `RangeError` for an extension name the sanitiser cannot rewrite. Options are checked before the input.
+
+### `sanitiseGlbFile`
+
+**Import:** `import { sanitiseGlbFile } from '@axiumine/koa-utils/files/sanitiseGlbFile'`
+
+**Signature:**
+```ts
+export async function sanitiseGlbFile(filePath: string, options: Partial<IGlbPolicy> = {}): Promise<IGlbSanitiseResult>
+```
+
+`sanitiseGlb` on a stored upload. A file bigger than `maxBytes` is refused from its size, before one byte is read.
+
+- accepted: the sanitised bytes replace the file at `filePath`, so the path stays valid for `moveTempFile`.
+- rejected: the file is deleted, like the extension and MIME validators do.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| filePath | string | The temp file `storeUploadAsTemp` wrote. Must be a path the caller owns, not request data. |
+| options | `Partial<IGlbPolicy>` | As for `sanitiseGlb`. |
+
+**Returns:** `Promise<IGlbSanitiseResult>`, as for `sanitiseGlb`.
+
+**Throws:** the same misuse errors as `sanitiseGlb` (before the file is touched), and the error of `fs` when the file cannot be stat-ed or read.
+
+### `checkGlbContainer`
+
+**Import:** `import { checkGlbContainer } from '@axiumine/koa-utils/files/checkGlbContainer'`
+
+**Signature:**
+```ts
+export function checkGlbContainer(bytes: Uint8Array, limits: Partial<Pick<IGlbPolicy, 'maxBytes' | 'maxJsonBytes'>> = {}): IGlbContainerResult
+```
+
+Stage 1 on its own, with no peer: a plain `DataView` read of the header and chunk headers. Returns `{ ok: true, json, bin }` (two views into `bytes`, `bin` is `null` for a JSON-only file) or `{ ok: false, reason }` with a `GLB_*` reason. Never throws. The types are in `@axiumine/koa-utils/files/IGlbContainer`.
+
+### `GLB_POLICY_DEFAULTS`
+
+**Import:** `import { GLB_POLICY_DEFAULTS } from '@axiumine/koa-utils/files/GLB_POLICY_DEFAULTS'`
+
+A `Readonly<IGlbPolicy>`. A caller that wants one more extension spreads the list: `{ allowedExtensions: [...GLB_POLICY_DEFAULTS.allowedExtensions, 'KHR_lights_punctual'] }`.
+
+| Field | Default | Limits |
+|---|---|---|
+| maxBytes | 32 MiB | the whole file |
+| maxJsonBytes | 4 MiB | the JSON chunk, judged from its declared length |
+| maxBufferBytes | 128 MiB | declared buffer bytes plus the decoded size of every meshopt view |
+| maxTriangles | 500 000 | counted once for every node that instances the mesh |
+| maxVertices | 1 000 000 | counted once for every node that instances the mesh |
+| maxAccessors | 5000 | number of accessors |
+| maxAccessorElements | 2 000 000 | `count` of the biggest single accessor |
+| maxSparseElements | 100 000 | sum of every `sparse.count` |
+| maxMeshes | 1000 | number of meshes |
+| maxNodes | 10 000 | number of nodes |
+| maxMaterials | 500 | number of materials |
+| maxTextures | 100 | number of textures, and of images |
+| maxAnimations | 100 | number of animations |
+| maxTextureSide | 2048 | width or height of one image, from its header |
+| maxTexturePixels | 64 Mi pixels | sum of width times height over all images |
+| textureQuality | 90 | JPEG and WebP quality on re-encode; PNG stays lossless |
+| allowedExtensions | 16 names | the `KHR_materials_*` set (anisotropy, clearcoat, dispersion, emissive_strength, ior, iridescence, sheen, specular, transmission, unlit, volume), `KHR_texture_transform`, `KHR_mesh_quantization`, `EXT_meshopt_compression`, `KHR_texture_basisu`, `EXT_texture_webp` |
+
+The defaults are judgement calls for a web viewer, not a standard. A 4K texture is over the default `maxTextureSide`: raise it per call when the product needs it.
+
+### `GLB_REJECT_CODES`
+
+**Import:** `import { GLB_REJECT_CODES } from '@axiumine/koa-utils/files/GLB_REJECT_CODES'`
+
+The closed `as const` list of reason codes: `GLB_TOO_LARGE`, `GLB_TRUNCATED`, `GLB_BAD_MAGIC`, `GLB_BAD_VERSION`, `GLB_LENGTH_MISMATCH`, `GLB_BAD_CHUNKS`, `GLB_JSON_TOO_LARGE`, `JSON_INVALID`, `URI_EXTERNAL`, `URI_DATA`, `EXTENSION_FORBIDDEN`, `EXTENSION_NOT_ALLOWED`, `LIMIT_EXCEEDED`, `IMAGE_UNREADABLE`, `IMAGE_UNSUPPORTED`, `IMAGE_FORMAT_MISMATCH`, `IMAGE_DECODE_FAILED`, `VALIDATOR_ERROR`, `VALIDATOR_FAILED`, `MESHOPT_DECODE_FAILED`, `READ_FAILED`, `OUTPUT_INVALID`. The meaning of each is in the doc comment in `src/files/GLB_REJECT_CODES.mts`. `OUTPUT_INVALID` is never expected: the file that was just written failed its own check.
+
+### Interfaces: `IGlbPolicy`, `IGlbSanitiseResult`, `IGlbContainerResult`
+
+`IGlbPolicy` is exported from `@axiumine/koa-utils/files/GLB_POLICY_DEFAULTS`; `IGlbSanitiseResult`, `IGlbAccepted`, `IGlbRejected`, `IGlbReason`, `IGlbStats` and `IGlbLimitName` from `@axiumine/koa-utils/files/IGlbSanitiseResult`; `IGlbContainerResult` from `@axiumine/koa-utils/files/IGlbContainer`. They are type-only.
+
+### Known limits
+
+- A glTF that uses `KHR_lights_punctual` with lights that no node references cannot be read by glTF Transform and gives `READ_FAILED`; the extension is not in the default allowlist anyway.
+- Draco-compressed meshes, `.gltf` with external files and `KHR_interactivity` are refused, not converted.
+- KTX2 image data is not decoded: a malformed Basis payload is not detected here. `KHR_texture_basisu` is in the default allowlist; drop it from `allowedExtensions` if the clients that render the model should never receive a payload that was not decoded here.
+- Lossy textures (JPEG, WebP) lose a little quality on each pass; the same file sanitised twice is byte-identical only for lossless content.
 
 ## Movers
 

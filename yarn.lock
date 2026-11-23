@@ -35,6 +35,9 @@ __metadata:
     "@eslint-community/eslint-plugin-eslint-comments": "npm:^4.8.1"
     "@eslint/eslintrc": "npm:^3.3.7"
     "@eslint/js": "npm:^10.0.1"
+    "@gltf-transform/core": "npm:^4.5.1"
+    "@gltf-transform/extensions": "npm:^4.5.1"
+    "@gltf-transform/functions": "npm:^4.5.1"
     "@node-rs/bcrypt": "npm:^1.10.9"
     "@sentry/node": "npm:^10.78.0"
     "@socketlabs/email": "npm:^1.4.4"
@@ -67,11 +70,13 @@ __metadata:
     file-type: "npm:^22.3.0"
     fs-extra: "npm:^11.4.1"
     fta-cli: "npm:^3.1.0"
+    gltf-validator: "npm:^2.0.0-dev.3.10"
     graphql: "npm:^16.15.0"
     keygrip: "npm:^1.1.0"
     knip: "npm:^6.44.2"
     koa: "npm:^3.3.0"
     mariadb: "npm:^3.5.5"
+    meshoptimizer: "npm:^1.3.0"
     mocha: "npm:^12.0.3"
     mongodb-memory-server: "npm:^11.3.0"
     mongoose: "npm:^9.12.1"
@@ -92,6 +97,9 @@ __metadata:
     typescript-transform-paths: "npm:^4.0.0"
     uuid: "npm:^14.0.3"
   peerDependencies:
+    "@gltf-transform/core": <5
+    "@gltf-transform/extensions": <5
+    "@gltf-transform/functions": <5
     "@node-rs/bcrypt": <2
     "@sentry/node": <11
     "@socketlabs/email": <2
@@ -99,10 +107,12 @@ __metadata:
     dotenv: <18
     file-type: <23
     fs-extra: <12
+    gltf-validator: ">=2.0.0-0 <3"
     graphql: <18
     keygrip: ^1.1.0
     koa: <4
     mariadb: <4
+    meshoptimizer: <2
     mongoose: <10
     pg: <9
     redis: <7
@@ -111,6 +121,12 @@ __metadata:
     sequelize-typescript: <3
     sharp: <1
   peerDependenciesMeta:
+    "@gltf-transform/core":
+      optional: true
+    "@gltf-transform/extensions":
+      optional: true
+    "@gltf-transform/functions":
+      optional: true
     "@node-rs/bcrypt":
       optional: true
     "@sentry/node":
@@ -125,6 +141,8 @@ __metadata:
       optional: true
     fs-extra:
       optional: true
+    gltf-validator:
+      optional: true
     graphql:
       optional: true
     keygrip:
@@ -132,6 +150,8 @@ __metadata:
     koa:
       optional: true
     mariadb:
+      optional: true
+    meshoptimizer:
       optional: true
     mongoose:
       optional: true
@@ -790,6 +810,39 @@ __metadata:
     "@eslint/core": "npm:^1.2.1"
     levn: "npm:^0.4.1"
   checksum: 10c0/2daebaedcfbd261478e8b87dfb46d3118f48277c19eb298483ebc6f3b438e9688b86ddca13b3aeb08dfb06be00fb6073506852386aa124645c1170e7e33d140c
+  languageName: node
+  linkType: hard
+
+"@gltf-transform/core@npm:^4.5.1":
+  version: 4.5.1
+  resolution: "@gltf-transform/core@npm:4.5.1"
+  dependencies:
+    property-graph: "npm:^4.1.0"
+  checksum: 10c0/b131261482fbd8ee359eb692053e9ce212617d8d315229f0002ca3fc28052c86182f879749f7479ee53a87374ebc8e5f53506a21617a883ed7be1d6e2fdeccec
+  languageName: node
+  linkType: hard
+
+"@gltf-transform/extensions@npm:^4.5.1":
+  version: 4.5.1
+  resolution: "@gltf-transform/extensions@npm:4.5.1"
+  dependencies:
+    "@gltf-transform/core": "npm:^4.5.1"
+    ktx-parse: "npm:^1.1.0"
+  checksum: 10c0/e293c106ab01f21c45212e9a596b271eaccb97bc5e73f7c0b1bd7d93eda936b4b2ee3beaabf4f3d860a16fc82572421795125ab1841d6f4686860dffed21ba3b
+  languageName: node
+  linkType: hard
+
+"@gltf-transform/functions@npm:^4.5.1":
+  version: 4.5.1
+  resolution: "@gltf-transform/functions@npm:4.5.1"
+  dependencies:
+    "@gltf-transform/core": "npm:^4.5.1"
+    "@gltf-transform/extensions": "npm:^4.5.1"
+    ktx-parse: "npm:^1.1.0"
+    ndarray: "npm:^1.0.19"
+    ndarray-lanczos: "npm:^0.3.0"
+    ndarray-pixels: "npm:^5.2.0"
+  checksum: 10c0/57e85de0edc70ff638569ee0d70aac869c315d1b42d762601c99968a6f53c0230cb183aed984d594d8d8ecaf6b077ab1614fa7879d3609b6e905e80aab169157
   languageName: node
   linkType: hard
 
@@ -2553,6 +2606,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/ndarray@npm:^1.0.11, @types/ndarray@npm:^1.0.14":
+  version: 1.1.0
+  resolution: "@types/ndarray@npm:1.1.0"
+  checksum: 10c0/72f69741d9b5b8cc5f381e08b5380660626ac558c055785161ef5566ddbae6253ea03c741405fba1bf4581ab8bb6bd65df14910fdeea37f3a6283870c0749df0
+  languageName: node
+  linkType: hard
+
 "@types/node@npm:*, @types/node@npm:>=20, @types/node@npm:^26.6.6":
   version: 26.6.6
   resolution: "@types/node@npm:26.6.6"
@@ -3567,6 +3627,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"cwise-compiler@npm:^1.0.0":
+  version: 1.1.3
+  resolution: "cwise-compiler@npm:1.1.3"
+  dependencies:
+    uniq: "npm:^1.0.0"
+  checksum: 10c0/91f38981c4c311cb55f2652d7f7cb31ab2d0bdcca556ac58d7085d43130713dfc19a1d4f5461a751e081ff112a4ada9ff01fa9566ad1c4461323ac7516e1f5cf
+  languageName: node
+  linkType: hard
+
 "debug@npm:4, debug@npm:^4.3.1, debug@npm:^4.3.2, debug@npm:^4.3.4, debug@npm:^4.3.5, debug@npm:^4.4.1, debug@npm:^4.4.3":
   version: 4.4.3
   resolution: "debug@npm:4.4.3"
@@ -4556,6 +4625,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"gltf-validator@npm:^2.0.0-dev.3.10":
+  version: 2.0.0-dev.3.10
+  resolution: "gltf-validator@npm:2.0.0-dev.3.10"
+  checksum: 10c0/6cd3ac50d27db20521e2a4ab037c991a121d3c8c39671fd0baf0aa2730b169d30e21337dbff3ade7596a97d6575bc7389c0ab6021ae9c3b0c3d2b551214abfef
+  languageName: node
+  linkType: hard
+
 "gopd@npm:^1.0.1, gopd@npm:^1.2.0":
   version: 1.2.0
   resolution: "gopd@npm:1.2.0"
@@ -4804,6 +4880,20 @@ __metadata:
   version: 4.1.3
   resolution: "ini@npm:4.1.3"
   checksum: 10c0/0d27eff094d5f3899dd7c00d0c04ea733ca03a8eb6f9406ce15daac1a81de022cb417d6eaff7e4342451ffa663389c565ffc68d6825eaf686bf003280b945764
+  languageName: node
+  linkType: hard
+
+"iota-array@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "iota-array@npm:1.0.0"
+  checksum: 10c0/a6bfc7d5bf0338ade227b302eda52cea3db44cc6dd5803154147cdcee28e9cb65ca76c5859ab2bfe21d91ecc945c57a0dd446bbc657581bbdf92cda9c24def56
+  languageName: node
+  linkType: hard
+
+"is-buffer@npm:^1.0.2":
+  version: 1.1.6
+  resolution: "is-buffer@npm:1.1.6"
+  checksum: 10c0/ae18aa0b6e113d6c490ad1db5e8df9bdb57758382b313f5a22c9c61084875c6396d50bbf49315f5b1926d142d74dfb8d31b40d993a383e0a158b15fea7a82234
   languageName: node
   linkType: hard
 
@@ -5178,6 +5268,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"ktx-parse@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "ktx-parse@npm:1.1.0"
+  checksum: 10c0/7c57982bb53cf022a23740478966056f0055f1fb6cb0225d0c2a395156b134b046da59ac1f59c7474cd62d2e8e6d6378bcd2758bbf208ce83e65f8d022a2a2bd
+  languageName: node
+  linkType: hard
+
 "levn@npm:^0.4.1":
   version: 0.4.1
   resolution: "levn@npm:0.4.1"
@@ -5290,6 +5387,13 @@ __metadata:
   version: 1.5.0
   resolution: "memory-pager@npm:1.5.0"
   checksum: 10c0/2596e80c99fee24f05bd8a20cde2ee899012c996f4ec361ac76ed6f009f34149d733ac6f76880106ccd6a66d062ad439357578d383d429df66ba1278f68806e9
+  languageName: node
+  linkType: hard
+
+"meshoptimizer@npm:^1.3.0":
+  version: 1.3.0
+  resolution: "meshoptimizer@npm:1.3.0"
+  checksum: 10c0/8833ce440e9bfad168ecc53ea1858fc63da917ccbaf625c4f5159756c5f34e557fe2c1b4685862772719c1fe065cf90da5fe8c4053ed1b5042915eec746b0dd8
   languageName: node
   linkType: hard
 
@@ -5611,6 +5715,47 @@ __metadata:
   version: 1.4.0
   resolution: "natural-compare@npm:1.4.0"
   checksum: 10c0/f5f9a7974bfb28a91afafa254b197f0f22c684d4a1731763dda960d2c8e375b36c7d690e0d9dc8fba774c537af14a7e979129bca23d88d052fbeb9466955e447
+  languageName: node
+  linkType: hard
+
+"ndarray-lanczos@npm:^0.3.0":
+  version: 0.3.0
+  resolution: "ndarray-lanczos@npm:0.3.0"
+  dependencies:
+    "@types/ndarray": "npm:^1.0.11"
+    ndarray: "npm:^1.0.19"
+  checksum: 10c0/9e284ee27178bd21461045c7818f1d2c1462f28ac5e504a9253ac35e0cbf03ce5bb598a9011492db9fb56e3bffd920ee7be22bff0d0e28b329ac0f4a3e279f59
+  languageName: node
+  linkType: hard
+
+"ndarray-ops@npm:^1.2.2":
+  version: 1.2.2
+  resolution: "ndarray-ops@npm:1.2.2"
+  dependencies:
+    cwise-compiler: "npm:^1.0.0"
+  checksum: 10c0/7391bfcc5d4f0142110c8c478332ea33d358bb3d6df8134d187ec5fb533fd2e034f919372f43c594e12609ce327e626cde52d23f966dcbc7c6f50c5710e4c2fd
+  languageName: node
+  linkType: hard
+
+"ndarray-pixels@npm:^5.2.0":
+  version: 5.2.0
+  resolution: "ndarray-pixels@npm:5.2.0"
+  dependencies:
+    "@types/ndarray": "npm:^1.0.14"
+    ndarray: "npm:^1.0.19"
+    ndarray-ops: "npm:^1.2.2"
+    sharp: "npm:^0.35.0"
+  checksum: 10c0/06176c2f2161f0df98b615953092cead893eab0563d19a70785715ac6e6c37c7f7a1b208a54efe06911934e508f6bae17a47e8c9b6b0d873e155e819f1300284
+  languageName: node
+  linkType: hard
+
+"ndarray@npm:^1.0.19":
+  version: 1.1.1
+  resolution: "ndarray@npm:1.1.1"
+  dependencies:
+    iota-array: "npm:^1.0.0"
+    is-buffer: "npm:^1.0.2"
+  checksum: 10c0/aabb1481043bb8fecf0d8393fa35f916b76e774cee8fab793d96d84a9906baf1b7ec82bcc9a028c83294a8eca44c62e9da94a8b61db58b3ebe8a8aa5187ca3b5
   languageName: node
   linkType: hard
 
@@ -6166,6 +6311,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"property-graph@npm:^4.1.0":
+  version: 4.1.0
+  resolution: "property-graph@npm:4.1.0"
+  checksum: 10c0/469e73dbc17ea07b251db9f8e837d246bb9317dde91000de8f3ad739627c4ee1d350a939f9d5558b51c49a35f0c0ae131b4b41f9e351b48fefa32dd3f3b02137
+  languageName: node
+  linkType: hard
+
 "proxy-from-env@npm:^2.1.0":
   version: 2.1.0
   resolution: "proxy-from-env@npm:2.1.0"
@@ -6480,7 +6632,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sharp@npm:^0.35.3":
+"sharp@npm:^0.35.0, sharp@npm:^0.35.3":
   version: 0.35.5
   resolution: "sharp@npm:0.35.5"
   dependencies:
@@ -7213,6 +7365,13 @@ __metadata:
   version: 0.3.0
   resolution: "unicorn-magic@npm:0.3.0"
   checksum: 10c0/0a32a997d6c15f1c2a077a15b1c4ca6f268d574cf5b8975e778bb98e6f8db4ef4e86dfcae4e158cd4c7e38fb4dd383b93b13eefddc7f178dea13d3ac8a603271
+  languageName: node
+  linkType: hard
+
+"uniq@npm:^1.0.0":
+  version: 1.0.1
+  resolution: "uniq@npm:1.0.1"
+  checksum: 10c0/369dca4a07fdd8de9e48378b9d4b6861722ca71d5f496e91687916bd4b48b8cf3d6db1677be1b40eea63bc6d4728efb4b4e0bd7a89c5fd2d23e7a2cff8009c7a
   languageName: node
   linkType: hard
 

@@ -4,11 +4,11 @@ A high-level design of `@axiumine/koa-utils`. For the file-by-file map see [REPO
 
 ## What it is
 
-A library, not a service. It has no process, port or scheduler of its own. A consumer's Koa application imports the pieces it needs and runs them inside its own process, with its own configuration and credentials. The package ships ESM only (`.mjs` and `.d.mts`), has zero runtime `dependencies`, and declares 18 `peerDependencies`, all optional (since 8.0.0 none is installed for you; `@sentry/node` and `dotenv` are skipped silently when absent).
+A library, not a service. It has no process, port or scheduler of its own. A consumer's Koa application imports the pieces it needs and runs them inside its own process, with its own configuration and credentials. The package ships ESM only (`.mjs` and `.d.mts`), has zero runtime `dependencies`, and declares 23 `peerDependencies`, all optional (since 8.0.0 none is installed for you; `@sentry/node` and `dotenv` are skipped silently when absent).
 
 ## Structure
 
-There is no barrel. Each public symbol lives in its own file and is reachable only through its own `exports` subpath (284 of them). That is a design decision with a consequence: a consumer that never imports a subpath never loads the optional peer behind it.
+There is no barrel. Each public symbol lives in its own file and is reachable only through its own `exports` subpath (293 of them). That is a design decision with a consequence: a consumer that never imports a subpath never loads the optional peer behind it.
 
 ```mermaid
 flowchart LR
@@ -43,7 +43,7 @@ flowchart LR
 | `lib/access/` | Model-agnostic factories (`createResetPwdFlow`, `createVerifyEmailFlow`) that bind the reset and verification flows to any Mongoose model and field layout | MongoDB |
 | `lib/` | Token generation, bcrypt helpers, cookie options, input validators, redirect allowlist, small utility classes, and `lib/db/` (user registration and lookup, request and error logs) | MongoDB (through `lib/db/` only) |
 | `dataSources/` | Connect and disconnect helpers for the four stores, and the module-level connection objects (`redisClient`, `sequelize`, `pgPool`). `REDIS_TLS` is read here (through `private/dataSources/`) | MongoDB, Redis, PostgreSQL, MariaDB |
-| `files/` | Upload pipeline: stream to a temp file, extension and MIME check, ClamAV scan, image re-encode, move | local disk, ClamAV |
+| `files/` | Upload pipeline: stream to a temp file, extension and MIME check, ClamAV scan, image re-encode, move; and the GLB sanitiser, which checks a 3D model against a policy and writes a clean copy | local disk, ClamAV |
 | `email/` | Transactional email through SocketLabs: `SocketLabsLib` (the library's own mails) and `createSocketLabsSender` (a sender for a mail you composed, which `SocketLabsLib` also sends through) | SocketLabs HTTPS API |
 | `private/` | Internals the public modules call into. Never exported, never to be imported by a consumer | whatever the caller needs |
 
