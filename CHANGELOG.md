@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 9.2.0 — 2026-11-23
+
+Adds a validator and a sanitiser for GLB (binary glTF, 3D model) uploads. Nine new `exports` keys and five new optional peer dependencies; no existing export, behaviour or peer range changes, and a consumer that does not import the new subpaths installs nothing and loads nothing new.
+
+### Added
+
+- `files/sanitiseGlb` (`sanitiseGlb(input: Uint8Array, options?: Partial<IGlbPolicy>): Promise<IGlbSanitiseResult>`) checks an uploaded GLB and writes a clean copy. It runs, in order and stopping at the first stage that finds a problem: the container check, the JSON parse, a policy check, the Khronos glTF Validator, a rewrite through glTF Transform and a second check of the output. The policy refuses every buffer or image `uri` (relative, absolute, `file:`, remote and `data:`), `KHR_interactivity` and any extension outside an allowlist, and any number of nodes, meshes, materials, textures, animations, accessors (sparse `count` included), triangles, vertices, buffer bytes or texture sides over a limit. Texture sizes are read from the image header before anything decodes it. The rewrite drops `extras`, unknown extensions and unused data, decode-tests `EXT_meshopt_compression` data (bad data is rejected) and writes it compressed again, re-encodes PNG, JPEG and WebP textures with `sharp` (EXIF, XMP, the ICC profile and bytes hidden after the image data are gone), and writes one embedded buffer. The result is `{ accepted: true, glb, reasons: [], stats }` or `{ accepted: false, reasons, stats }`; each reason has a closed machine `code`, a `message`, and where it applies a JSON `pointer` or the `limit` that was hit. A hostile file never throws: only misuse does (`TypeError` for input that is not a `Uint8Array` or an invalid option, `RangeError` for an extension name the sanitiser cannot rewrite).
+- `files/sanitiseGlbFile` (`sanitiseGlbFile(filePath, options?)`) is the same on a stored temp file: a file over `maxBytes` is refused from its size without being read, an accepted file is replaced by its sanitised bytes, a rejected file is deleted.
+- `files/checkGlbContainer` is the container check alone (magic `glTF`, version 2, declared length against the real length, one JSON chunk then at most one BIN chunk, size limits) and needs no peer. Types: `files/IGlbContainer`.
+- `files/validateGlbExtension` and `files/validateMimeTypeGlb`, the `.glb` and `model/gltf-binary` validators, built like the PDF ones (the file is removed before the error is thrown).
+- `files/GLB_POLICY_DEFAULTS` (every limit and the extension allowlist, with safe defaults; a limit must be a positive integer), `files/GLB_REJECT_CODES` (the closed list of 22 reason codes) and the result types in `files/IGlbSanitiseResult`.
+- Five new optional peer dependencies, reached only through `files/sanitiseGlb` and `files/sanitiseGlbFile`, next to `sharp`: `@gltf-transform/core`, `@gltf-transform/extensions` and `@gltf-transform/functions` (`<5`), `meshoptimizer` (`<2`) and `gltf-validator` (`>=2.0.0-0 <3`). The validator is published on npm only as `2.0.0-dev.*` prereleases, and semver does not let a plain `<3` match a prerelease, so its range names the first 2.0.0 prerelease as a floor; every release that exists satisfies it. `.github/dependabot.yml` ignores semver-major bumps of all five. Nothing is installed for you: add them with `yarn add @gltf-transform/core @gltf-transform/extensions @gltf-transform/functions gltf-validator meshoptimizer sharp` to use the sanitiser.
+- Fixtures for the tests are built in the specs with glTF Transform and `sharp`; no binary model is committed.
+
+### Notes
+
+- The defaults are judgement calls for a web viewer: 32 MiB per file, 500 000 triangles, 1 000 000 vertices, textures up to 2048 pixels a side. A 4K texture is rejected unless you raise `maxTextureSide`. `storeUploadAsTemp` still caps an upload at 5 MB unless you pass a bigger `maxFileSize`.
+- `KHR_draco_mesh_compression` is refused: there is no Draco decoder here, so the data could not be checked. `.gltf` files with external files are refused. KTX2 textures have their header and level index checked against the limits but are not decoded.
+- Not a virus scan: run `scanVirus` on the stored file as well.
+
 ## 9.1.1 — 2026-11-18
 
 Maintainer tooling and documentation only. Nothing under `dist/` changes and the public API, `exports` and `peerDependencies` are untouched, so no consumer action is needed. The release exists so the README on npm stops describing the retired Yarn 1 registry workflow.

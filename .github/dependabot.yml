@@ -77,6 +77,12 @@ updates:
           - patch
     ignore:
       - dependency-name: keygrip
+      - dependency-name: "@gltf-transform/core"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@gltf-transform/extensions"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@gltf-transform/functions"
+        update-types: ["version-update:semver-major"]
       - dependency-name: "@node-rs/bcrypt"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@sentry/node"
@@ -91,11 +97,15 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: fs-extra
         update-types: ["version-update:semver-major"]
+      - dependency-name: gltf-validator
+        update-types: ["version-update:semver-major"]
       - dependency-name: graphql
         update-types: ["version-update:semver-major"]
       - dependency-name: koa
         update-types: ["version-update:semver-major"]
       - dependency-name: mariadb
+        update-types: ["version-update:semver-major"]
+      - dependency-name: meshoptimizer
         update-types: ["version-update:semver-major"]
       - dependency-name: mongoose
         update-types: ["version-update:semver-major"]
