@@ -35,9 +35,10 @@ yarn add @node-rs/bcrypt graphql mongoose redis
 | `mongoose` | `dataSources/MongoDB`, the models (`graphQL/models/MongoDB/*`), the mutations other than `logout` and `refresh`, `lib/db/*`, `lib/OBJECTID_0_OBJ`, `lib/access/create*Flow`, `koa/router/verifyEmail`, `koa/middleware/authenticatedAuthorizationHandler`, `koa/middleware/authenticatedResourceHandler` (its types are also named by a few `.d.mts` files) |
 | `redis` | `dataSources/Redis`, the `login*` / `logout` / `refresh` mutations, `koa/middleware/authenticatedAuthorizationHandler`, `koa/middleware/authenticatedLogoutHandler`, `koa/middleware/authenticatedResourceHandler` |
 | `@socketlabs/email` | `email/SocketLabsLib`, `email/createSocketLabsSender`, `lib/access/createResetPwdFlow`, `lib/access/createVerifyEmailFlow`, `lib/access/resetPwdMailer`, `lib/access/verifyEmailMailer`, `koa/router/verifyEmail`, and the `signUp` / `login*` / `resetPwd` / `updatePassword` / `emailChangeHashVerify` mutations |
+| `@gltf-transform/core`, `@gltf-transform/extensions`, `@gltf-transform/functions`, `gltf-validator`, `meshoptimizer` | `files/sanitiseGlb`, `files/sanitiseGlbFile` only (the GLB sanitiser; `sharp` is needed there too). `gltf-validator` is published only as `2.0.0-dev.*` prereleases, so its peer range is `>=2.0.0-0 <3` |
 | `clamscan` | `files/scanVirus`, `files/uploadTempImage`, `files/uploadTempPdf` |
-| `file-type` | `files/validateMimeType`, `files/validateMimeTypeImages`, `files/validateJpgPngMimeType`, `files/uploadTempImage`, `files/uploadTempPdf` — loaded lazily, at first call |
-| `fs-extra` | the `files/move*` and `files/validate*` helpers, `files/uploadTempImage`, `files/uploadTempPdf` |
+| `file-type` | `files/validateMimeType`, `files/validateMimeTypeImages`, `files/validateJpgPngMimeType`, `files/validateMimeTypeGlb`, `files/uploadTempImage`, `files/uploadTempPdf` — loaded lazily, at first call |
+| `fs-extra` | the `files/move*` and `files/validate*` helpers (the GLB ones included), `files/uploadTempImage`, `files/uploadTempPdf` |
 | `keygrip` | `koa/middleware/authenticatedAuthorizationHandler`, `.../verifySignedRefreshToken`, `koa/middleware/authenticatedLogoutHandler` — types only; the `Keygrip` instance is yours to construct and pass in |
 | `koa` | the `koa/middleware/*` handlers, `koa/tdwKoaErrorHandler`, `koa/logRequestToDb` — types only (`Next`) |
 | `mariadb` | `dataSources/MariaDB` — Sequelize connects with `dialect: 'mariadb'` and loads the driver itself |
@@ -45,7 +46,7 @@ yarn add @node-rs/bcrypt graphql mongoose redis
 | `reflect-metadata` | `dataSources/MariaDB` — required by `sequelize-typescript`, never imported by this package |
 | `sequelize` | `dataSources/MariaDB` — peer of `sequelize-typescript` |
 | `sequelize-typescript` | `dataSources/MariaDB` |
-| `sharp` | `files/reEncodeToJpeg`, `files/reEncodeToPng`, `files/reEncodeToWebp`, `files/uploadTempImage` |
+| `sharp` | `files/reEncodeToJpeg`, `files/reEncodeToPng`, `files/reEncodeToWebp`, `files/uploadTempImage`, `files/sanitiseGlb`, `files/sanitiseGlbFile` |
 
 A subpath that reaches no peer needs nothing installed, not even `koa` (it appears there only as a type you pass in): `koa/createKoaErrorHandler`, a Koa error middleware you configure with `statusOf`, `bodyOf`, `report` and `noBodyStatuses`, and its two type files `koa/IKoaErrorHandlerOptions` and `koa/IKoaErrorHandlerContext`. `koa/tdwKoaErrorHandler` is the same middleware preconfigured for GraphQL errors, Sentry and dotenv, which is why it needs the peers above.
 

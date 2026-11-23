@@ -21,11 +21,20 @@ const pkg = JSON.parse(readFileSync(resolve(ROOT, 'package.json'), 'utf8')) as I
 const peers = Object.keys(pkg.peerDependencies).sort()
 const keys = Object.keys(pkg.exports).sort()
 
+// GLB sanitiser: the only 2 subpaths that import the glTF Transform, validator and meshopt libs
+const GLB_SCOPE = /^\.\/files\/sanitiseGlb(File)?$/
+
 // peer → regex of subpaths allowed to load it AT IMPORT. Snapshot regen cannot widen reach past this.
 // Peer absent here = unscoped (purpose too broad for 1 regex). /^$/ = no subpath: only lazy, via private facade
 const PEER_SCOPE: Record<string, RegExp> = {
+	'@gltf-transform/core': GLB_SCOPE,
+	'@gltf-transform/extensions': GLB_SCOPE,
+	'@gltf-transform/functions': GLB_SCOPE,
 	'@sentry/node': /^$/,
 	dotenv: /^$/,
+	// the Khronos validator and meshopt codec: the GLB sanitiser only
+	'gltf-validator': GLB_SCOPE,
+	meshoptimizer: GLB_SCOPE,
 	// models, data source, flows, mutations, Koa user readers, db helpers, ObjectId sentinel
 	mongoose:
 		/^\.\/(dataSources\/MongoDB|graphQL\/(models|schema\/mutations)\/|koa\/(middleware|router)\/|lib\/(OBJECTID_0_OBJ|access\/|db\/))/
@@ -45,6 +54,15 @@ const PEER_SCOPE: Record<string, RegExp> = {
 // assertRole take pool as param (IRolePool, structural over ITxClient). Catalog queries go through that pool, never through pg
 // lib/PostgreSQL/clock/* + lock/* + error/{DbClockError,DbStateError,LockOrderError + reasons + types}: same, 0 peers runtime AND .d.mts.
 // Tx = param (ITx), claim registry = param (IClaimRegistry), lock spec = param (ILockOrderSpec). Clock slots sit in private postgresState (globalThis registry, 0 peers)
+const GLB_SANITISER_PEERS = [
+	'@gltf-transform/core',
+	'@gltf-transform/extensions',
+	'@gltf-transform/functions',
+	'gltf-validator',
+	'meshoptimizer',
+	'sharp'
+]
+
 const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/Constants': [],
 	'./lib/emailHash': [],
@@ -183,7 +201,18 @@ const PEER_BUDGET: Record<string, string[]> = {
 	'./lib/PostgreSQL/lock/uuidOf': [],
 	'./lib/PostgreSQL/lock/uuidsOf': [],
 	'./lib/checkEmailLen': ['graphql'],
-	'./lib/checkPwdLen': ['graphql']
+	'./lib/checkPwdLen': ['graphql'],
+	// files/*Glb*: the sanitiser reaches exactly the 6 libs it rewrites with. sanitiseGlbFile adds node:fs only, so no fs-extra, no file-type.
+	// Its type files and the container check: 0 peers at runtime AND in .d.mts (container check = plain DataView reads)
+	'./files/GLB_POLICY_DEFAULTS': [],
+	'./files/GLB_REJECT_CODES': [],
+	'./files/IGlbContainer': [],
+	'./files/IGlbSanitiseResult': [],
+	'./files/checkGlbContainer': [],
+	'./files/sanitiseGlb': GLB_SANITISER_PEERS,
+	'./files/sanitiseGlbFile': GLB_SANITISER_PEERS,
+	'./files/validateGlbExtension': ['fs-extra'],
+	'./files/validateMimeTypeGlb': ['file-type', 'fs-extra']
 }
 
 // 1st alt: import|export … from 'x' (multi-line ok). 2nd alt: side-effect import 'x'.

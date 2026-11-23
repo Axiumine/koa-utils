@@ -30,7 +30,18 @@
 	"./email/createSocketLabsSender": [
 		"createSocketLabsSender"
 	],
+	"./files/GLB_POLICY_DEFAULTS": [
+		"GLB_POLICY_DEFAULTS"
+	],
+	"./files/GLB_REJECT_CODES": [
+		"GLB_REJECT_CODES"
+	],
+	"./files/IGlbContainer": [],
+	"./files/IGlbSanitiseResult": [],
 	"./files/IUploadTemp": [],
+	"./files/checkGlbContainer": [
+		"checkGlbContainer"
+	],
 	"./files/fileConst": [
 		"UPLOAD_IMG_DIRECTORY_URL",
 		"UPLOAD_TEMP_DIRECTORY_URL"
@@ -53,6 +64,12 @@
 	"./files/reEncodeToWebp": [
 		"reEncodeToWebp"
 	],
+	"./files/sanitiseGlb": [
+		"sanitiseGlb"
+	],
+	"./files/sanitiseGlbFile": [
+		"sanitiseGlbFile"
+	],
 	"./files/scanVirus": [
 		"initClamScan",
 		"scanVirus"
@@ -69,6 +86,9 @@
 	"./files/validateExtension": [
 		"validateExtension"
 	],
+	"./files/validateGlbExtension": [
+		"validateGlbExtension"
+	],
 	"./files/validateJpgPngExtension": [
 		"validateJpgPngExtension"
 	],
@@ -77,6 +97,9 @@
 	],
 	"./files/validateMimeType": [
 		"validateMimeType"
+	],
+	"./files/validateMimeTypeGlb": [
+		"validateMimeTypeGlb"
 	],
 	"./files/validateMimeTypeImages": [
 		"validateJpgPngMimeType"

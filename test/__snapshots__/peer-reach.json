@@ -1,4 +1,28 @@
 {
+	"@gltf-transform/core": {
+		"runtime": [
+			"./files/sanitiseGlb",
+			"./files/sanitiseGlbFile"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"@gltf-transform/extensions": {
+		"runtime": [
+			"./files/sanitiseGlb",
+			"./files/sanitiseGlbFile"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"@gltf-transform/functions": {
+		"runtime": [
+			"./files/sanitiseGlb",
+			"./files/sanitiseGlbFile"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
 	"@node-rs/bcrypt": {
 		"runtime": [
 			"./graphQL/schema/mutations/login4Ever",
@@ -117,6 +141,7 @@
 			"./files/uploadTempPdf",
 			"./files/validateJpgPngMimeType",
 			"./files/validateMimeType",
+			"./files/validateMimeTypeGlb",
 			"./files/validateMimeTypeImages"
 		],
 		"typesOnly": []
@@ -128,11 +153,21 @@
 			"./files/moveTempFile",
 			"./files/uploadTempImage",
 			"./files/uploadTempPdf",
+			"./files/validateGlbExtension",
 			"./files/validateJpgPngExtension",
 			"./files/validateJpgPngMimeType",
 			"./files/validateMimeType",
+			"./files/validateMimeTypeGlb",
 			"./files/validateMimeTypeImages",
 			"./files/validatePdfExtension"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
+	"gltf-validator": {
+		"runtime": [
+			"./files/sanitiseGlb",
+			"./files/sanitiseGlbFile"
 		],
 		"lazy": [],
 		"typesOnly": []
@@ -241,6 +276,14 @@
 		"lazy": [],
 		"typesOnly": []
 	},
+	"meshoptimizer": {
+		"runtime": [
+			"./files/sanitiseGlb",
+			"./files/sanitiseGlbFile"
+		],
+		"lazy": [],
+		"typesOnly": []
+	},
 	"mongoose": {
 		"runtime": [
 			"./dataSources/MongoDB",
@@ -323,6 +366,8 @@
 			"./files/reEncodeToJpeg",
 			"./files/reEncodeToPng",
 			"./files/reEncodeToWebp",
+			"./files/sanitiseGlb",
+			"./files/sanitiseGlbFile",
 			"./files/uploadTempImage"
 		],
 		"lazy": [],

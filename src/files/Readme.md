@@ -60,3 +60,29 @@ environment) securely, here is a bullet list of best practices:
   timestamp, for future auditing or debugging.
 
 By following these steps, you can significantly reduce the risk of security issues when handling image uploads.
+
+## 3D models (GLB)
+
+A GLB is not an image, and the list above does not cover it. A binary glTF is a JSON document plus binary data, so the
+hostile cases are different: the JSON can point at files on your server or at remote URLs, a few bytes of header can
+claim a texture of 100 000 by 100 000 pixels or a billion triangles, compressed geometry can claim a huge decoded size,
+and `extras` and unknown extensions carry data nobody checked.
+
+- **Check the container first**: `glTF` magic, version 2, the length in the header against the real length, one JSON
+  chunk then at most one BIN chunk, and a size limit (`checkGlbContainer`).
+- **Refuse every `uri`**: only the embedded GLB buffer is allowed. A relative path, an absolute path, `file:`, `http:`
+  and `data:` are all rejected.
+- **Allowlist the extensions**: reject the rest, `KHR_interactivity` always. No Draco, because nothing here can decode it.
+- **Limit what the file declares**: triangles, vertices, accessors (sparse counts too), meshes, nodes, materials,
+  textures, animations, buffer bytes, and the width and height of each texture read from its image header, before any
+  decode.
+- **Validate, then rewrite**: run the Khronos glTF Validator, rewrite the model through glTF Transform (drop `extras`,
+  unknown extensions and unused data, decode-test and re-encode meshopt data), re-encode PNG, JPEG and WebP textures with
+  `sharp`, and write a fresh GLB. Check the new file again.
+- **Return a verdict, do not throw**: `sanitiseGlb` gives `accepted` or `rejected` with reasons that carry a machine
+  code; only misuse throws.
+- **Still scan it**: the sanitiser looks at structure, not at signatures. Run `scanVirus` on the stored file.
+- **Raise the upload cap on purpose**: `storeUploadAsTemp` stops at 5 MB unless you pass a bigger `maxFileSize`.
+
+The pieces are `validateGlbExtension`, `validateMimeTypeGlb`, `checkGlbContainer`, `sanitiseGlb` and `sanitiseGlbFile`, with
+the limits in `GLB_POLICY_DEFAULTS` and the reason codes in `GLB_REJECT_CODES`. Reference: `docs/code/files.md`.
