@@ -61,13 +61,6 @@
 				"./src/dataSources/*"
 			]
 		},
-		"plugins": [
-			// Transform paths in output .js files
-			{ "transform": "typescript-transform-paths" },
-
-			// Transform paths in output .d.ts files (Include this line if you output declarations files)
-			{ "transform": "typescript-transform-paths", "afterDeclarations": true }
-		],
 		/* Specify a set of entries that re-map imports to additional lookup locations. */
 
 		// "rootDirs": [],                                   /* Allow multiple folders to be treated as one when resolving modules. */
