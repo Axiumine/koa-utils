@@ -63,9 +63,12 @@ describe('path aliases cli', () => {
 		write('out/koa/handler.mjs.map', map)
 		const aged = new Date(Date.now() - 60_000)
 		fs.utimesSync(`${root}/out/lib/a.mjs`, aged, aged)
+		// utimes takes seconds as a double, so the stored time can differ from `aged` by a sub-millisecond rounding. Compare with what the file system holds, not with the Date.
+		const before = fs.statSync(`${root}/out/lib/a.mjs`).mtimeMs
+		expect(before).to.be.lessThan(Date.now() - 30_000)
 		expect(run('tsconfig.json')).to.equal(0)
 		expect(read('out/koa/handler.mjs.map')).to.equal(map)
-		expect(fs.statSync(`${root}/out/lib/a.mjs`).mtimeMs).to.equal(aged.getTime())
+		expect(fs.statSync(`${root}/out/lib/a.mjs`).mtimeMs).to.equal(before)
 	})
 
 	it('is idempotent: a second run changes nothing', () => {
