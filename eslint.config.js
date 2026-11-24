@@ -36,6 +36,15 @@ export default [
 		}
 	},
 	{
+		// Mongoose declares `SchemaTypeOptions` as a class, but a schema field is a plain object by API design
+		// (`{ type: String, required: true }`) and Mongoose never checks `instanceof` on it. Every field literal
+		// in a schema definition therefore reads as a false positive. The rule stays on everywhere else.
+		files: ['src/**/models/MongoDB/**/*.mts'],
+		rules: {
+			'@typescript-eslint/no-unsafe-class-instance-assignment': 'off'
+		}
+	},
+	{
 		// Every directive that silences a rule must say why and must name the rule. Without this, a bare
 		// `/* eslint-disable */` or `// eslint-disable-next-line rule` passes review as easily as a justified one.
 		// `allowWholeFile`: a file-level `/* eslint-disable rule -- reason */` needs no matching `eslint-enable`.
