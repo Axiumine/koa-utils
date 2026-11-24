@@ -74,26 +74,6 @@
 		],
 		"typesOnly": []
 	},
-	"@socketlabs/email": {
-		"runtime": [
-			"./email/SocketLabsLib",
-			"./email/createSocketLabsSender",
-			"./graphQL/schema/mutations/emailChangeHashVerify",
-			"./graphQL/schema/mutations/login4Ever",
-			"./graphQL/schema/mutations/loginAdmin",
-			"./graphQL/schema/mutations/loginRememberme",
-			"./graphQL/schema/mutations/resetPwd",
-			"./graphQL/schema/mutations/signUp",
-			"./graphQL/schema/mutations/updatePassword",
-			"./koa/router/verifyEmail",
-			"./lib/access/createResetPwdFlow",
-			"./lib/access/createVerifyEmailFlow",
-			"./lib/access/resetPwdMailer",
-			"./lib/access/verifyEmailMailer"
-		],
-		"lazy": [],
-		"typesOnly": []
-	},
 	"clamscan": {
 		"runtime": [
 			"./files/scanVirus",

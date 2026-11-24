@@ -43,7 +43,7 @@ const PEER_SCOPE: Record<string, RegExp> = {
 // subpath → the only peers it may reach (runtime, lazy or types). [] = none. Snapshot regen cannot add one.
 // Constants + emailHash + tokens were freed from mongoose / uuid in 8.0.0 → pinned. New peerless subpath → append with []
 // koa/createKoaErrorHandler + its 2 type files: 0 peers at runtime AND in .d.mts (no koa, graphql, sentry, dotenv)
-// email/createSocketLabsSender: only @socketlabs/email at runtime, 0 in .d.mts (local structural types). Its 4 type files: 0 peers
+// email/createSocketLabsSender: 0 peers at runtime AND in .d.mts. Built-in fetch client, no package (SocketLabs SDK dropped, it pulled axios 0.21). Its 4 type files: 0 peers
 // No sentry, no dotenv, no graphql: those stay in SocketLabsLib
 // lib/PostgreSQL/{error,parse,pool,url,counter,tx,guard,role}/*: 0 peers at runtime AND in .d.mts. Driver = param w/ structural type (IDbDriver),
 // never import of 'pg'. Only node:net (isValidHost) + node:crypto (tx/jitteredDelay) = builtin. Later kit subpaths (clock, lock) append here too
@@ -70,7 +70,7 @@ const PEER_BUDGET: Record<string, string[]> = {
 	'./koa/createKoaErrorHandler': [],
 	'./koa/IKoaErrorHandlerContext': [],
 	'./koa/IKoaErrorHandlerOptions': [],
-	'./email/createSocketLabsSender': ['@socketlabs/email'],
+	'./email/createSocketLabsSender': [],
 	'./email/ISocketLabsClient': [],
 	'./email/ISocketLabsMessage': [],
 	'./email/ISocketLabsSendResult': [],

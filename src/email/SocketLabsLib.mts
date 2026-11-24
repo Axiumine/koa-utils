@@ -12,9 +12,9 @@ import { confirmationLink, httpLinkBase } from '@private/email/messageParts.mjs'
 import * as notice from '@private/email/noticeMessages.mjs'
 import { orFalse } from '@private/email/orFalse.mjs'
 import * as reset from '@private/email/resetMessages.mjs'
+import { createSocketLabsClient } from '@private/email/socketLabsClient.mjs'
 import { loadEnv } from '@private/lib/loadEnv.mjs'
 import * as Sentry from '@private/lib/sentry.mjs'
-import { SocketLabsClient } from '@socketlabs/email'
 
 import { createSocketLabsSender } from './createSocketLabsSender.mjs'
 import type { ISocketLabsClient } from './ISocketLabsClient.mjs'
@@ -45,9 +45,7 @@ export class SocketLabsLib {
 		/* c8 ignore next -- env fallback '0' covered only when SOCKETLABS_SERVER_ID is unset */
 		const serverId = parseInt(process.env['SOCKETLABS_SERVER_ID'] || '0')
 		const apiKey = `${process.env['SOCKETLABS_SERVER_APIKEY']}`
-		// The import is `any` (src/types/socketlabs-email.d.ts): one assertion gives the constructor the shape used here
-		const Client = SocketLabsClient as new (...args: [number, string, object]) => ISocketLabsClient
-		this.client = new Client(serverId, apiKey, { requestTimeout: 120, numberOfRetries: 3 })
+		this.client = createSocketLabsClient({ serverId, apiKey, requestTimeout: 120, numberOfRetries: 3 })
 		this.credentials = { serverId, apiKey }
 		this.platformName = `${process.env['PLATFORM_NAME']}`
 		this.linkBase = `${process.env['APP_DOMAIN']}`
@@ -135,21 +133,8 @@ export class SocketLabsLib {
   }
 */
 	/**
-	 * A timed-out send is reported as failed and is not retried by this class. The client is built with
-	 * `numberOfRetries: 3`; whether the SDK retries a timeout has not been verified.
-	 *
-statusCode: ECONNABORTED
-Error in sending the email
-SendResponse {
-  transactionReceipt: null,
-  addressResults: null,
-  result: {
-    name: 'Timeout',
-    value: 1,
-    message: 'A timeout occurred sending the message'
-  },
-  responseMessage: 'A timeout occurred sending the message'
-}
+	 * A timed-out send is retried by the client (`numberOfRetries: 3`, with a back-off of 1 to 10 s between tries). When the
+	 * last try times out as well, the send is reported as failed and the template methods return `false`. This class adds no retry of its own.
 	 */
 
 	async sendEmailChangeVerify(emailTo: string, hash: string, name: string = '') {

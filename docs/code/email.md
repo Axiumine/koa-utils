@@ -1,6 +1,6 @@
 # Email (SocketLabs)
 
-This section documents the transactional email client used to send account-lifecycle emails (signup verification, password reset, OTP, account moderation notices, dev-team alerts) through [SocketLabs](https://www.socketlabs.com/). The package exposes two things: `SocketLabsLib`, a class tied to this package's own copy and environment variables, and `createSocketLabsSender`, a factory for a function that sends one mail you composed yourself (see [`createSocketLabsSender`](#createsocketlabssender)). `SocketLabsLib` sends through that same factory, wraps `@socketlabs/email`'s `SocketLabsClient`, builds each message's copy (a mix of hard-coded strings and `platformName`-templated text), wraps it in an HTML template, and reports delivery failures to Sentry. The copy itself is built by small internal modules under `src/private/email/` (see [Internal Helpers](./internal.md#email--message-builders-and-html-escaping)), so each public method only names the builder and the recipient. All public send methods funnel through the same private `sendTemplate` helper, so template wrapping and Sentry error capture are centralized; `sendTemplate` hands the finished message to `createSocketLabsSender`. Every value a method places in the HTML part is HTML-escaped (see [HTML escaping](#html-escaping)).
+This section documents the transactional email client used to send account-lifecycle emails (signup verification, password reset, OTP, account moderation notices, dev-team alerts) through [SocketLabs](https://www.socketlabs.com/). The package exposes two things: `SocketLabsLib`, a class tied to this package's own copy and environment variables, and `createSocketLabsSender`, a factory for a function that sends one mail you composed yourself (see [`createSocketLabsSender`](#createsocketlabssender)). `SocketLabsLib` sends through that same factory, builds a `fetch` client for the SocketLabs Injection API (no SocketLabs package; see [The built-in client](#createsocketlabssender)), builds each message's copy (a mix of hard-coded strings and `platformName`-templated text), wraps it in an HTML template, and reports delivery failures to Sentry. The copy itself is built by small internal modules under `src/private/email/` (see [Internal Helpers](./internal.md#email--message-builders-and-html-escaping)), so each public method only names the builder and the recipient. All public send methods funnel through the same private `sendTemplate` helper, so template wrapping and Sentry error capture are centralized; `sendTemplate` hands the finished message to `createSocketLabsSender`. Every value a method places in the HTML part is HTML-escaped (see [HTML escaping](#html-escaping)).
 
 ## `SocketLabsLib`
 
@@ -38,7 +38,7 @@ Constructs a SocketLabs client and prepares the reusable HTML wrapper used by ev
 | htmlHeader2 | string | Second half of a custom HTML header (rendered after the subject, before the body). Defaults to the built-in fallback when `''`. |
 | htmlFooter | string | Custom HTML footer appended after the body. Defaults to the built-in fallback when `''`. |
 
-**Notes:** Env vars read at construction: `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`. `alertDevTeam` additionally reads `DEV_TEAM_EMAIL` at send time. `client` is typed `any` (eslint-disabled) because `@socketlabs/email`'s `SocketLabsClient` type isn't imported directly for the field. All public send methods below are instance methods of this class, invoked as `new SocketLabsLib().sendXxx(...)`.
+**Notes:** Env vars read at construction: `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`. `alertDevTeam` additionally reads `DEV_TEAM_EMAIL` at send time. The private `client` field is an `ISocketLabsClient` built in the constructor with `requestTimeout: 120` and `numberOfRetries: 3`; the specs assign a double to it. All public send methods below are instance methods of this class, invoked as `new SocketLabsLib().sendXxx(...)`.
 
 ### HTML escaping
 
@@ -398,7 +398,7 @@ Sends an internal notification that a post has been reported/flagged to `process
 
 **Returns:** `Promise<boolean>` — send success/failure.
 
-**Notes:** `IUserInfo` is declared in this file but not exported and has no `package.json` export entry — it is internal to `SocketLabsLib`. An earlier, near-identical implementation of this method is preserved as a commented-out block above `sendEmailChangeVerify` in the source, along with a note on `ECONNABORTED` timeouts from SocketLabs: a timed-out send is reported as failed and is not retried by this class; the client is built with `numberOfRetries: 3`, and whether the SDK retries a timeout has not been verified.
+**Notes:** `IUserInfo` is declared in this file but not exported and has no `package.json` export entry — it is internal to `SocketLabsLib`. An earlier, near-identical implementation of this method is preserved as a commented-out block above `sendEmailChangeVerify` in the source, along with a note on timeouts: the client retries a timed-out send (`numberOfRetries: 3`, a wait of 1 to 10 s before each retry) and, when the last try times out too, the send is reported as failed; this class adds no retry of its own.
 
 ### `getHtmlHeader(title)`
 
@@ -463,20 +463,20 @@ export function createSocketLabsSender(
 
 Builds a function that sends **one mail you composed** through SocketLabs and reports the outcome as a value. It is the part of `SocketLabsLib` that talks to SocketLabs, without the copy, the HTML template, the environment variables, Sentry or `dotenv`. Use it when a service has its own mail content and its own credentials (a worker that reads them from a file, say) and should not copy the SocketLabs code.
 
-**Peers:** only `@socketlabs/email`, loaded when the subpath is imported. The `.d.mts` files name no peer: the SDK ships no types, so the options are declared locally and nothing is imported from it. `test/package/peerReach.spec.mts` (`PEER_BUDGET`) pins both.
+**Peers:** none. The subpath and its four type files reach no peer, at run time or in a `.d.mts`: the client is built on Node's `fetch`, so there is no SocketLabs package and no `axios` to install or to audit. Until this change the subpath needed the optional peer `@socketlabs/email`, whose latest release (1.4.4) depends on `axios` `^0.21.1`; that peer is gone and nothing in the package imports it. `test/package/peerReach.spec.mts` (`PEER_BUDGET`) pins `[]` for all five files.
 
 **`ISocketLabsSenderOptions`:**
 
 | Field | Type | Description |
 |---|---|---|
-| serverId | `number` | SocketLabs server id. Not validated: a bad one is rejected by the SDK at send time and comes back as a code. Ignored when `client` is given. |
-| apiKey | `string` | SocketLabs injection API key. Not validated and never put in an error text. Ignored when `client` is given. |
-| requestTimeout | `number` (optional) | Seconds for one HTTP request. Default `120` (what `SocketLabsLib` passes). Must be finite and above `0`, else `RangeError('requestTimeout must be a finite number of seconds above 0')` when the sender is created. |
-| numberOfRetries | `number` (optional) | Times the SDK retries a failed request. Default `3` (what `SocketLabsLib` passes). Must be an integer from `0` to `5`, else `RangeError('numberOfRetries must be an integer from 0 to 5')` when the sender is created. |
-| client | `ISocketLabsClient` (optional) | `{ send(message: unknown): Promise<unknown> }`. Used instead of a `SocketLabsClient` built from `serverId` and `apiKey`. For tests, or a client you configure yourself. `requestTimeout` and `numberOfRetries` are still checked. |
-| onError | `(rejection: unknown) => void` (optional) | Called with the raw rejection of a failed send, before the sender resolves. Default: nothing. Typed `unknown` because the SDK rejects with `SendResponse` objects or a `TypeError`, never reliably an `Error`. |
+| serverId | `number` | SocketLabs server id. Not validated when the sender is created: one that is not a positive integer is rejected at send time as `AuthenticationValidationFailed`, nothing is sent, and the code comes back as a value. Ignored when `client` is given. |
+| apiKey | `string` | SocketLabs injection API key. Not validated when the sender is created and never put in an error text. An empty or non-string key is `AuthenticationValidationFailed` at send time. Ignored when `client` is given. |
+| requestTimeout | `number` (optional) | Seconds for one HTTP request, counted from the start of the request to the last byte of the answer. Default `120` (what `SocketLabsLib` passes). Must be finite and above `0`, else `RangeError('requestTimeout must be a finite number of seconds above 0')` when the sender is created. A value above about 24.8 days is capped at the longest delay a Node timer holds. |
+| numberOfRetries | `number` (optional) | Times the client retries a failed request: a timeout, or a `429`, `500`, `502`, `503` or `504` answer. Default `3` (what `SocketLabsLib` passes). Must be an integer from `0` to `5`, else `RangeError('numberOfRetries must be an integer from 0 to 5')` when the sender is created. |
+| client | `ISocketLabsClient` (optional) | `{ send(message: unknown): Promise<unknown> }`. Used instead of the built-in client. For tests, or a client you configure yourself; the `SocketLabsClient` of the SocketLabs Node SDK still fits it if you keep using that. `requestTimeout` and `numberOfRetries` are still checked. |
+| onError | `(rejection: unknown) => void` (optional) | Called with the raw rejection of a failed send, before the sender resolves. Default: nothing. Typed `unknown` because the built-in client rejects with a `SocketLabsSendError` but a client you pass in may reject with anything. |
 
-There is **no `endpointUrl` and no proxy option**: the client always talks to the SDK's default endpoint (`https://inject.socketlabs.com/api/v1/email`), so a value from configuration cannot redirect the key and the mail elsewhere.
+There is **no `endpointUrl` and no proxy option**: the built-in client always talks to `https://inject.socketlabs.com/api/v1/email`, so a value from configuration cannot redirect the key and the mail elsewhere. The endpoint is a constant of the client. The client's internal options (a different URL, the wait between tries, the randomness of the back-off) exist for the tests only, are not reachable through this factory and are not exported.
 
 **`ISocketLabsMessage`:**
 
@@ -490,28 +490,50 @@ There is **no `endpointUrl` and no proxy option**: the client always talks to th
 | html | `string` (optional) | HTML body, sent as given: no header, footer or escaping is added. |
 | messageId | `string` (optional) | Sent as the SocketLabs `MessageId`. Omitted: none is sent. |
 
-The SDK rejects a message with neither `text` nor `html` (`MessageValidationEmptyMessage`).
+A message with neither `text` nor `html` is not sent: the result is `{ ok: false, code: 'MessageValidationEmptyMessage' }`.
 
 **What the returned function does:**
 
-1. Builds a `BasicMessage` and calls `setFromAddress(from, fromName)`, `setSubject`, `setTextBody`, `setHtmlBody`, `setTo`, `setMessageId`, in that order. The SDK ignores an undefined or empty value, so an absent `fromName`, `text`, `html` or `messageId` is simply not set.
-2. Calls `client.send(basicMessage)`.
+1. Builds the message from `ISocketLabsMessage` (`src/private/email/socketLabsMessage.mts`). Its fields are the data fields of the SocketLabs SDK's `BasicMessage`, so a client written against the SDK reads them unchanged: `messageType: 'basic'`, `from: { emailAddress, friendlyName }`, `to: [{ emailAddress }]`, `subject`, `textBody`, `htmlBody`, `messageId`. A field with no value (`undefined`, `null`, `''`, `0`, `false`) is absent as a key, not `undefined`. The fields are read in the order `from`, `fromName`, `subject`, `text`, `html`, `to`, `messageId`, and a field that is set but is not a string throws a `TypeError` that names the field and never the value (`Invalid subject, type of 'string' was expected.`).
+2. Calls `client.send(message)`.
 3. On success resolves `{ ok: true }`, whatever the client resolved with.
 4. On a rejection calls `onError(rejection)` with the raw value (same object, not a copy), then resolves `{ ok: false, code }`.
 
-**`ISocketLabsSendResult`** is `{ ok: true } | { ok: false; code: string }`. `code` is `rejection.result.name` when that is a string (the SDK's result enum: `Timeout`, `InvalidAuthentication`, `AuthenticationValidationFailed`, `Warning`, ...), otherwise `'UnknownError'`, which is the SDK's own name for a failure it cannot classify. Nothing else leaves the function: not `responseMessage`, not `addressResults`, not the raw error.
+**`ISocketLabsSendResult`** is `{ ok: true } | { ok: false; code: string }`. `code` is `rejection.result.name` when that is a string (a SocketLabs result name: `Timeout`, `InvalidAuthentication`, `AuthenticationValidationFailed`, `Warning`, `OverQuota`, ...), otherwise `'UnknownError'`, the name for a failure that cannot be classified. Nothing else leaves the function: not a response message, not `addressResults`, not the raw error.
 
 | Rejection | `code` |
 |---|---|
-| `SendResponse` whose `result.name` is a string | that name |
+| object whose `result.name` is a string (the built-in client's `SocketLabsSendError`, or an SDK `SendResponse`) | that name |
 | `Error`, `TypeError`, string, number, `null`, `undefined` | `'UnknownError'` |
 | object with no `result`, a `null` `result`, or a `result.name` that is not a string | `'UnknownError'` |
 
-There is **no `try`/`catch`**. A throw from a `BasicMessage` setter (a non-string subject, say) or from `client.send` itself, and a throw from `onError`, make the returned promise reject; when a setter throws, `client.send` is never called, and `onError` is called only for a rejection of `client.send`'s promise. `SocketLabsLib.sendOTP` and `sendResetPwdConfirmationHash` turn such a throw into a Sentry report and `false` through the internal `orFalse`; a caller of the factory decides for itself.
+There is **no `try`/`catch`**. A throw from the message builder (a field that is not a string, say) or from `client.send` itself, and a throw from `onError`, make the returned promise reject; when the builder throws, `client.send` is never called, and `onError` is called only for a rejection of `client.send`'s promise. `SocketLabsLib.sendOTP` and `sendResetPwdConfirmationHash` turn such a throw into a Sentry report and `false` through the internal `orFalse`; a caller of the factory decides for itself.
 
-**What the SDK loses.** For a failed HTTP request the SDK looks the status or error code up in its result enum, which has no numeric keys, so only a timeout (`ECONNABORTED`, code `Timeout`) is classified and neither the status nor the network cause is kept: a 401, a 503 and `ENOTFOUND` all arrive as a rejection with no `result`, hence `UnknownError`. `Warning` is also a rejection, so a consumer must decide whether it is retryable or permanent (a resend after a `Warning` may deliver the mail twice). Retries add up: with `numberOfRetries` and `requestTimeout` one send can take about `requestTimeout x (1 + numberOfRetries)` seconds plus the SDK's back-off, and a retry after a timeout can duplicate the mail. A job queue with a lease should pick `numberOfRetries: 0` and a `requestTimeout` below the lease.
+**The built-in client** (`createSocketLabsClient`, `src/private/email/socketLabsClient.mts`, not exported) replaces the SocketLabs SDK and sends what the SDK sent for a basic message:
 
-**Security.** The SDK's rejections carry no message body and no API key, but a `SendResponse` the server returned can carry recipients and a transaction receipt. Never log or serialise the raw rejection that `onError` receives; the default is to do nothing with it, and the `code` is what a caller should store. The sender reads no environment variable (the credentials are yours to pass), has no endpoint or proxy option, and the `RangeError` texts name the constraint, never the value or the key.
+- **Request.** `POST https://inject.socketlabs.com/api/v1/email` with `Content-Type: application/json;charset=utf-8`, `Accept: application/json` and `User-Agent: @axiumine/koa-utils (nodejs <process.version>)`. The body is `{ "serverId": <serverId>, "messages": [ { subject, htmlBody, textBody, messageId, from: { emailAddress, friendlyName }, to: [ { emailAddress } ] } ] }`; a key with no value is left out.
+- **Authentication.** An API key of the form `<20 characters>.<40 characters>` (61 in all) is sent as `Authorization: Bearer <key>` and is not in the body. Any other key is sent as `"apiKey"` in the body, before `serverId`, with no `Authorization` header. The key goes nowhere else.
+- **Checked before anything is sent**, in this order, each giving the result name the SDK gave: `AuthenticationValidationFailed` (`serverId` not a positive integer, `apiKey` not a non-empty string), `MessageValidationEmptySubject`, `EmailAddressValidationMissingFrom`, `EmailAddressValidationInvalidFrom`, `MessageValidationEmptyMessage`, `RecipientValidationNoneInMessage`, `RecipientValidationInvalidRecipients`. An address is valid when it has at most 320 characters, exactly one `@` with something other than whitespace on both sides, and none of `,`, `;` or a space.
+- **Answer.** Only a `200` is read. Its JSON `ErrorCode` names the result: `Success` resolves, any other known name (`OverQuota`, `InvalidAuthentication`, `AccountDisabled`, `InvalidData`, ...) rejects with that name. `Warning` takes the `ErrorCode` of the first entry of `MessageResults` when that is a known name (which is how a rejected recipient shows up, and a `Success` there resolves, as in the SDK). A body that is not JSON, an unknown `ErrorCode` and every status other than `200` (`201`, `3xx`, `401`, `403`, `404`, `408`, `429`, `500`, ...) reject with no `result`, hence `UnknownError`; a `429` and a `5xx` that the retries below cannot get past end that way too. The `TransactionReceipt` and the address results of the first message result ride along on the rejection.
+- **Timeout.** `AbortSignal.timeout(requestTimeout x 1000)`, rounded up to a whole millisecond: one deadline for the whole request, body included. A timeout rejects with `result.name === 'Timeout'`.
+- **Retries.** After a timeout or a `429`, `500`, `502`, `503` or `504` answer the client waits and tries again, up to `numberOfRetries` times, so at most `1 + numberOfRetries` requests. The wait before retry `n` (counting from 0) is `min((1 + random) x 1000 x 2^n, 10000)` ms, with `random` from 0 up to 1: 1 to 2 s, 2 to 4 s, 4 to 8 s, 8 to 10 s, then 10 s (the `promise-retry` setting of the SDK). `Retry-After` is not read, not even on a `429`: the wait is the fixed back-off. Any other `4xx` (`400`, `401`, `403`, `404`, `408`, ...), any other `5xx` and a network error (refused, reset, DNS, an invalid header value) are not retried: a network error may have reached SocketLabs, so a retry could send the mail twice.
+- **Redirects** are not followed (`redirect: 'error'`): a `3xx` is a failure with no `result`, and the key and the mail never go to a `Location`.
+- **What it throws away.** The error of the HTTP stack is dropped on purpose: `fetch` puts the whole header value, the API key included, in the text of the `TypeError` it raises for an invalid header value. A rejection is a `SocketLabsSendError` (an `Error` whose text is `SocketLabs send failed: <name>`, with `result` (absent when unclassified), `transactionReceipt` and `addressResults`, `null` when there are none) and holds no key, no body and no recipient in its text.
+
+**Differences from the SDK**, all deliberate:
+
+- A `429` is retried, with the same back-off and the same `numberOfRetries` budget as a `5xx`. The SDK never retried it. A `429` means SocketLabs rejected the request, so a retry cannot deliver the mail twice. A `429` that outlasts the retries is `UnknownError` with no `result`, as before.
+- The SDK's `axios` followed up to 5 redirects and honoured `HTTP_PROXY` / `HTTPS_PROXY` on its own. This client follows no redirect, and Node's `fetch` reads the proxy variables only when Node runs with `NODE_USE_ENV_PROXY=1` (or `--use-env-proxy`).
+- The SDK's timeout was an idle-socket timeout (`ECONNABORTED`), so a slow answer that kept sending bytes never timed out. Here `requestTimeout` is a deadline for the whole request.
+- The `User-Agent` names this package and no longer claims `SocketLabs-node/<version>`.
+- An empty `apiKey` is `AuthenticationValidationFailed` and nothing is sent; the SDK's check for it never fired and the request went out with an empty key. An empty `from` is `EmailAddressValidationMissingFrom`; the SDK threw a `TypeError` for it.
+- The SDK printed `statusCode: <code>` with `console.log` on every failed attempt. This client logs nothing.
+- The raw rejection is a `SocketLabsSendError` with `result.name` only. The SDK's `SendResponse` also held `result.value`, `result.message` and `responseMessage`. The address results are the objects the server sent, as they came; the SDK ran them through a converter that read lower-case keys.
+- A field that is set but not a string throws a `TypeError` (the SDK threw an `Error` for most of them); an array for `to`, which the SDK's setter took, throws too, since the type is `string`.
+
+**What `code` loses.** A failed HTTP request is classified only by what the answer says: a `401`, a `503` and `ENOTFOUND` all arrive as a rejection with no `result`, hence `UnknownError`, exactly as with the SDK, and the status and the network cause are not kept. `Warning` is also a rejection, so a consumer must decide whether it is retryable or permanent (a resend after a `Warning` may deliver the mail twice). Retries add up: with `numberOfRetries` and `requestTimeout` one send can take about `requestTimeout x (1 + numberOfRetries)` seconds plus the back-off, and a retry after a timeout can duplicate the mail. A job queue with a lease should pick `numberOfRetries: 0` and a `requestTimeout` below the lease.
+
+**Security.** The rejections of the built-in client carry no message body and no API key, but a `SocketLabsSendError` can carry recipients (in `addressResults`) and a transaction receipt. Never log or serialise the raw rejection that `onError` receives; the default is to do nothing with it, and the `code` is what a caller should store. The sender reads no environment variable (the credentials are yours to pass), has no endpoint or proxy option, does not follow redirects, and the `RangeError` texts name the constraint, never the value or the key.
 
 **Example:**
 ```ts

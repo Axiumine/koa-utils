@@ -116,6 +116,23 @@ export async function orFalse(send: () => Promise<boolean>): Promise<boolean>
 
 Runs the send; a rejection or a synchronous throw is reported with `Sentry.captureException(e)` and the result is `false`. Used by `sendOTP` and `sendResetPwdConfirmationHash`.
 
+### `socketLabsClient` and its parts
+
+The `fetch` client that `createSocketLabsSender` and `SocketLabsLib` send through, replacing the `@socketlabs/email` SDK. The wire format, the retries and the result mapping are described in [email.md](./email.md#createsocketlabssender); this is the file map. `createSocketLabsSender` and `SocketLabsLib` are the only importers, and the sender subpath still reaches no peer: none of these files imports a package.
+
+```ts
+export function createSocketLabsClient(options: ISocketLabsClientOptions): ISocketLabsClient
+export function backoffMs(retry: number, random: () => number): number
+```
+
+- `socketLabsClient.mts` — `createSocketLabsClient({ serverId, apiKey, requestTimeout, numberOfRetries, endpointUrl?, sleep?, random? })`. The last three are for the specs (a loopback server, no waiting, a fixed back-off) and are never passed by the package; the endpoint defaults to the constant `https://inject.socketlabs.com/api/v1/email`. `send` checks the credentials and the message, posts with `fetch` and `AbortSignal.timeout`, retries a timeout and a `429`, `500`, `502`, `503` or `504` (the SDK never retried a `429`; no `Retry-After`), and rejects with a `SocketLabsSendError` unless the answer is `Success`. The error of `fetch` itself is dropped: its text holds the whole header value, the API key included.
+- `socketLabsMessage.mts` — `buildBasicMessage(message: ISocketLabsMessage): ISocketLabsBasicMessage`. The `BasicMessage` data fields, a key absent when it has no value, a `TypeError` for a set field that is not a string.
+- `socketLabsRequest.mts` — `credentialsOutcome`, `messageOutcome` (the SDK's validator, in its order) and `buildInjectionRequest` (headers and JSON body; the key goes in `Authorization: Bearer` when it is `<20>.<40>`, else in the body).
+- `socketLabsResponse.mts` — `parseInjectionResponse(status, text): ISocketLabsOutcome`: only a `200` is read; `ErrorCode` against a closed list of the names the API sends; the `Warning` rule; the receipt and the address results.
+- `SocketLabsSendError.mts` — the rejection: an `Error` with `result?.name`, `transactionReceipt` and `addressResults`.
+- `withDefined.mts` — an object without its `undefined` values, so an absent field is an absent key.
+- `ISocketLabsBasicMessage.mts`, `ISocketLabsOutcome.mts` — type-only, excluded from coverage and mutation like the other `I*.mts` files.
+
 ### `IEmailContent`
 
 Type-only interface `{ subject: string; textBody: string; htmlBody: string }`, excluded from coverage and mutation like the other `I*.mts` files.

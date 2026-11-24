@@ -2,7 +2,7 @@
 
 /**
  * One mail handed to the function that {@link createSocketLabsSender} returns. A single recipient, no attachments,
- * no copies. `text` and `html` are both optional here, but the SDK rejects a message with neither (`MessageValidationEmptyMessage`).
+ * no copies. `text` and `html` are both optional here, but a message with neither is not sent: the send fails with the code `MessageValidationEmptyMessage`.
  */
 export interface ISocketLabsMessage {
 	/** Sender address. */

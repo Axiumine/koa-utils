@@ -11,7 +11,7 @@ Distributed on npm as ESM-only (`.mjs`) with `.d.mts` declarations. Node `^24.14
 ```
 src/
 ├── dataSources/      # Connect/disconnect helpers for Mongo, MariaDB, PostgreSQL, Redis
-├── email/            # SocketLabsLib (transactional email client, hard-coded copy); createSocketLabsSender (one-mail sender, peer @socketlabs/email only) + its types ISocketLabsSenderOptions, ISocketLabsMessage, ISocketLabsSendResult, ISocketLabsClient
+├── email/            # SocketLabsLib (transactional email client, hard-coded copy); createSocketLabsSender (one-mail sender on a built-in `fetch` client, no peer) + its types ISocketLabsSenderOptions, ISocketLabsMessage, ISocketLabsSendResult, ISocketLabsClient
 ├── files/            # Upload pipeline: store → validate ext+mime → ClamAV scan → re-encode (sharp) → move; GLB: validateGlbExtension, validateMimeTypeGlb, checkGlbContainer, sanitiseGlb, sanitiseGlbFile + GLB_POLICY_DEFAULTS, GLB_REJECT_CODES, IGlbSanitiseResult, IGlbContainer
 ├── graphQL/
 │   ├── models/MongoDB/   # Mongoose models (UserBase, log/*)
@@ -94,7 +94,7 @@ src/
         lib/PostgreSQL/{civilCalendar, readField, errorCodeOf, poolUrlSecrets, scrubSecrets, assertPoolOptions, connectAndCheck, checkedClient, txSettings, txHandle, txFailure, runTxBody, runTxAttempt, runTxWithRetries, TX_BEGIN_STATEMENTS, internalFailure, mapViolation, mapTypedError, constraintDetails, constraintField, assertVersionGuardInput, versionText, POSTGRES_STATE_KEY, POSTGRES_STATE_LAYOUT, postgresState, clockSlot, clockInstant, clockStatement, lockOrderPlan, admitLock, rankCheckOption, ROLE_CATALOG_SQL, ROLE_ATTRIBUTES, ROLE_PRIVILEGES, rolePlan, roleCheckOf, roleFailureSubject, checkRoleOnClient, runRoleChecks, membershipOutsider, missingGrant, missingColumn, missingObject, catalogRows, catalogRow, catalogText, catalogFlag, isRoleName, isQualifiedName, isOneOf, isNameList}.mts + I*.mts  # internals of the PostgreSQL kit
 ```
 
-`src/types/` holds two ambient declarations, `socketlabs-email.d.ts` (`declare module '@socketlabs/email'`) and `gltf-validator.d.ts` (`declare module 'gltf-validator'`, the one call `validateBytes` the sanitiser uses); both libraries ship no types, and neither file emits a `.mjs`.
+`src/types/` holds one ambient declaration, `gltf-validator.d.ts` (`declare module 'gltf-validator'`, the one call `validateBytes` the sanitiser uses); the library ships no types, and the file emits no `.mjs`. (`socketlabs-email.d.ts` went with the `@socketlabs/email` SDK.)
 
 Area-scoped agent rules live in nested `CLAUDE.md` files, loaded on demand when an agent touches that directory: `src/graphQL/`, `src/koa/`, `src/lib/access/`, `src/private/`, `src/email/`, `src/files/`, `test/`, plus `.github/` (CI, release, deprecation rules) and `.githooks/` (Qodana gate, mutation gate, npm proxy rules). Repo-wide rules stay in the root `CLAUDE.md`. Not shipped — `files: ["dist"]`.
 
@@ -217,7 +217,7 @@ GLB (3D models) has no orchestrator: the caller chains `storeUploadAsTemp` (rais
 
 ### Email (`SocketLabsLib`)
 
-Class wrapping `@socketlabs/email`, which sends through `createSocketLabsSender` (`src/email/createSocketLabsSender.mts`, 8.0.0): a factory that takes `serverId`, `apiKey` and optional `requestTimeout` (default 120 s), `numberOfRetries` (default 3, 0 to 5), `client`, `onError`, and returns a function that sends one `ISocketLabsMessage` and resolves `{ ok: true }` or `{ ok: false, code }` (`ISocketLabsSendResult`; `code` = the SDK's `result.name`, else `UnknownError`). It reads no environment, loads no Sentry or dotenv and reaches no peer but `@socketlabs/email` (`PEER_BUDGET` in `test/package/peerReach.spec.mts`); the types are `ISocketLabsSenderOptions`, `ISocketLabsMessage`, `ISocketLabsSendResult`, `ISocketLabsClient`. `SocketLabsLib` is env-driven: `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`, `DEV_TEAM_EMAIL`. Supplies methods for verify, welcome, account disabled/banned, OTP, password reset confirm, wrong-hash, too-old-link, etc. Copy is hard-coded English (not locale-configurable) and branded with the configured `platformName`. HTML header/footer can be overridden via constructor args. The class is a thin dispatcher: the subject, text and HTML of each mail are built by the modules under `src/private/email/`, and every value placed in the HTML part goes through the single helper `private/email/escapeHtml.mts` (text and attribute context), while the text part and the subject line stay raw. See `docs/code/email.md` and `docs/code/internal.md`.
+Class that sends through `createSocketLabsSender` (`src/email/createSocketLabsSender.mts`, 8.0.0), which posts to the SocketLabs Injection API with a built-in `fetch` client (`src/private/email/socketLabsClient.mts` and its parts `socketLabsMessage`, `socketLabsRequest`, `socketLabsResponse`, `SocketLabsSendError`, `withDefined`; no SocketLabs package, no `axios`): a factory that takes `serverId`, `apiKey` and optional `requestTimeout` (default 120 s), `numberOfRetries` (default 3, 0 to 5), `client`, `onError`, and returns a function that sends one `ISocketLabsMessage` and resolves `{ ok: true }` or `{ ok: false, code }` (`ISocketLabsSendResult`; `code` = the rejection's `result.name`, else `UnknownError`). It reads no environment, loads no Sentry or dotenv and reaches no peer (`[]` in `PEER_BUDGET`, `test/package/peerReach.spec.mts`); the types are `ISocketLabsSenderOptions`, `ISocketLabsMessage`, `ISocketLabsSendResult`, `ISocketLabsClient`. `SocketLabsLib` is env-driven: `SOCKETLABS_SERVER_ID`, `SOCKETLABS_SERVER_APIKEY`, `PLATFORM_NAME`, `APP_DOMAIN`, `EMAIL_FROM`, `DEV_TEAM_EMAIL`. Supplies methods for verify, welcome, account disabled/banned, OTP, password reset confirm, wrong-hash, too-old-link, etc. Copy is hard-coded English (not locale-configurable) and branded with the configured `platformName`. HTML header/footer can be overridden via constructor args. The class is a thin dispatcher: the subject, text and HTML of each mail are built by the modules under `src/private/email/`, and every value placed in the HTML part goes through the single helper `private/email/escapeHtml.mts` (text and attribute context), while the text part and the subject line stay raw. See `docs/code/email.md` and `docs/code/internal.md`.
 
 ---
 
@@ -259,7 +259,7 @@ Sentry is reached through the internal `private/lib/sentry` facade (`captureExce
 
 - License: `AGPL-3.0-or-later` from 9.0.0 (`GPL-3.0-or-later` up to 8.1.0). Contributors accept `CLA.md`.
 - Repo: <https://github.com/Axiumine/koa-utils>.
-- Current version: `9.2.0` (`package.json`). Bump version, merge to `main`, then publish a GitHub release `vX.Y.Z`:
+- Current version: `9.3.0` (`package.json`). Bump version, merge to `main`, then publish a GitHub release `vX.Y.Z`:
   `.github/workflows/release.yml` publishes to npm with provenance (no token stored). `yarn upload` is the manual
   fallback and needs the token in `.npmrc`; use one path per version, never both.
 - **Publishing:** `yarn upload` pins `--registry=https://registry.npmjs.org/` on purpose. Yarn 1 exported the registry from
